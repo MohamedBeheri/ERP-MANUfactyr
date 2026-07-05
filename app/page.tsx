@@ -5,8 +5,8 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('123456')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [role, setRole] = useState('ADMIN')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -90,11 +90,6 @@ export default function LoginPage() {
             {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
           </button>
         </form>
-
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg text-xs text-gray-600 text-center">
-          <strong>بيانات تجريبية:</strong><br />
-          admin / 123456 | factory / 123456 | sales / 123456
-        </div>
       </div>
     </div>
   )

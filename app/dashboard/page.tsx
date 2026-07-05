@@ -1,12 +1,13 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { RecentActivity } from '@/components/recent-activity'
 import { SalesChart } from '@/components/sales-chart'
 
 export default async function DashboardPage() {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
   const totalInventory = await prisma.product.aggregate({
@@ -22,9 +23,11 @@ export default async function DashboardPage() {
     where: { isActive: true },
   })
 
-  const lowStock = await prisma.product.count({
-    where: { quantity: { lte: { minStock: prisma.product.fields.minStock } } },
+  const allProducts = await prisma.product.findMany({
+    where: { isActive: true },
+    select: { quantity: true, minStock: true },
   })
+  const lowStock = allProducts.filter((p) => p.quantity <= p.minStock).length
 
   const recentActivity = await prisma.auditLog.findMany({
     take: 10,

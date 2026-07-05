@@ -1,8 +1,9 @@
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { Sidebar } from '@/components/sidebar'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar user={session?.user} />

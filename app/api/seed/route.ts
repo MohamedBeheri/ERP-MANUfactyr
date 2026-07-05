@@ -1,9 +1,17 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
-export async function GET() {
+// One-time DB seeding endpoint. Gated by SEED_SECRET so it can't be triggered
+// by anyone who just knows the URL - set SEED_SECRET in the environment and
+// pass it as ?secret=... (or remove this route entirely after first deploy).
+export async function POST(req: NextRequest) {
   try {
+    const secret = req.nextUrl.searchParams.get('secret')
+    if (!process.env.SEED_SECRET || secret !== process.env.SEED_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     // Check if already seeded
     const existingUsers = await prisma.user.count()
     if (existingUsers > 0) {

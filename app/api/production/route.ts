@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
+import { requireRole } from '@/lib/api-auth'
+
+const ALLOWED_ROLES = ['ADMIN', 'FACTORY'] as const
 
 export async function GET() {
+  const auth = await requireRole([...ALLOWED_ROLES])
+  if ('response' in auth) return auth.response
+
   try {
     const productions = await prisma.production.findMany({
       include: { items: { include: { product: true } }, creator: true },
@@ -15,10 +20,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireRole([...ALLOWED_ROLES])
+  if ('response' in auth) return auth.response
+  const { session } = auth
 
+  try {
     const body = await req.json()
     const { rawUsed, opCost, items, notes } = body
 
