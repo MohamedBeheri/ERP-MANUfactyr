@@ -9,7 +9,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXTAUTH_URL
-        value: https://golden-coffee-erp.onrender.com
+        value: https://erp-manufactyr-1.onrender.com
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: SEED_SECRET
