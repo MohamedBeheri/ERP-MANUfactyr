@@ -2,6 +2,9 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ExportButtons } from '@/components/export-buttons'
+
+export const dynamic = 'force-dynamic'
 
 export default async function GovernancePage() {
   const session = await getServerSession(authOptions)
@@ -34,12 +37,27 @@ export default async function GovernancePage() {
     SUSPENDED: 'موقوف',
   }
 
+  const auditRows = auditLogs.map((log) => [
+    log.action,
+    log.user.name,
+    log.description,
+    log.impact,
+    new Date(log.createdAt).toLocaleString('ar-EG'),
+  ])
+
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-[#1a1a2e]">🛡️ الحوكمة</h1>
+    <div className="p-6 space-y-6 print-area">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-[#1a1a2e]">الحوكمة</h1>
+        <ExportButtons
+          fileName="سجل-المراجعة"
+          headers={['العملية', 'المستخدم', 'الوصف', 'التأثير', 'التاريخ']}
+          rows={auditRows}
+        />
+      </div>
 
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">👥 المستخدمين</h3>
+        <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">المستخدمين</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -77,7 +95,7 @@ export default async function GovernancePage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">📜 سجل المراجعة</h3>
+        <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">سجل المراجعة</h3>
         <div className="divide-y divide-gray-100">
           {auditLogs.length === 0 && <p className="p-6 text-sm text-gray-500">مفيش عمليات مسجّلة.</p>}
           {auditLogs.map((log) => (

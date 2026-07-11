@@ -1,15 +1,26 @@
 import { getServerSession } from 'next-auth'
 import { redirect, notFound } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowRight, Printer, Package, MapPin, FileCheck2 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DeliverForm } from '@/components/deliver-form'
 import { SettleForm } from '@/components/settle-form'
+
+export const dynamic = 'force-dynamic'
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'معلّقة',
   IN_PROGRESS: 'شغالة',
   COMPLETED: 'اتسوّت',
   CANCELLED: 'ملغية',
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  PENDING: 'bg-gray-100 text-gray-600',
+  IN_PROGRESS: 'bg-orange-50 text-orange-600',
+  COMPLETED: 'bg-green-50 text-green-600',
+  CANCELLED: 'bg-red-50 text-red-600',
 }
 
 export default async function DeliveryOrderPage({ params }: { params: { deliveryOrderId: string } }) {
@@ -56,75 +67,116 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1a1a2e]">{deliveryOrder.orderNo}</h1>
-          <p className="text-gray-500">
-            {deliveryOrder.delegate.name} · {deliveryOrder.delegate.carNumber || '—'}
-          </p>
+      {/* الترويسة */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/delegates"
+            className="p-2 text-gray-400 hover:text-[#1a1a2e] hover:bg-gray-100 rounded-lg"
+            aria-label="رجوع للمندوبين"
+          >
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-[#1a1a2e] tabular-nums">{deliveryOrder.orderNo}</h1>
+            <p className="text-sm text-gray-500">
+              {deliveryOrder.delegate.name} · {deliveryOrder.delegate.carNumber || 'بدون عربية'}
+            </p>
+          </div>
         </div>
-        <span className="px-4 py-2 rounded-full text-sm font-semibold bg-orange-50 text-orange-600">
-          {STATUS_LABEL[deliveryOrder.status]}
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href={`/print/delivery/${deliveryOrder.id}`}
+            className="flex items-center gap-2 px-4 py-2 bg-[#0f3460] text-white rounded-lg text-sm font-medium hover:bg-[#0a2545]"
+          >
+            <Printer className="w-4 h-4" />
+            أمر التحميل
+          </Link>
+          {deliveryOrder.settlement && (
+            <Link
+              href={`/print/settlement/${deliveryOrder.settlement.id}`}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+            >
+              <Printer className="w-4 h-4" />
+              محضر التسوية
+            </Link>
+          )}
+          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${STATUS_COLOR[deliveryOrder.status]}`}>
+            {STATUS_LABEL[deliveryOrder.status]}
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">📦 الأصناف المحمّلة</h3>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-500 text-right border-b border-gray-100">
-                  <th className="pb-2">الصنف</th>
-                  <th className="pb-2">المحمّل</th>
-                  <th className="pb-2">المسلّم</th>
-                  <th className="pb-2">المتبقي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {remaining.map((item) => (
-                  <tr key={item.productId} className="border-b border-gray-50 last:border-0">
-                    <td className="py-2">{item.productName}</td>
-                    <td className="py-2">
-                      {item.loaded} {item.unit}
-                    </td>
-                    <td className="py-2">
-                      {item.delivered} {item.unit}
-                    </td>
-                    <td className="py-2 font-semibold">
-                      {item.remaining} {item.unit}
-                    </td>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+        <div className="xl:col-span-2 space-y-6">
+          {/* الأصناف المحمّلة */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 p-5 pb-3">
+              <Package className="w-5 h-5 text-[#0f3460]" />
+              <h3 className="text-base font-bold text-[#1a1a2e]">الأصناف المحمّلة</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
+                    <th className="p-3 font-medium">الصنف</th>
+                    <th className="p-3 font-medium">المحمّل</th>
+                    <th className="p-3 font-medium">المسلّم</th>
+                    <th className="p-3 font-medium">المتبقي على العربية</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {remaining.map((item) => (
+                    <tr key={item.productId} className="border-b border-gray-50 last:border-0">
+                      <td className="p-3 font-semibold">{item.productName}</td>
+                      <td className="p-3 tabular-nums">{item.loaded} {item.unit}</td>
+                      <td className="p-3 tabular-nums text-green-700">{item.delivered} {item.unit}</td>
+                      <td className="p-3 tabular-nums font-bold">{item.remaining} {item.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">📍 سجل التسليمات ({deliveryOrder.invoices.length})</h3>
-            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+          {/* سجل التسليمات */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-5 h-5 text-[#e94560]" />
+              <h3 className="text-base font-bold text-[#1a1a2e]">سجل التسليمات ({deliveryOrder.invoices.length})</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="bg-green-50 p-3 rounded-lg">
-                <p className="text-gray-500">نقدي</p>
-                <p className="font-bold text-green-600">{cashTotal.toFixed(2)} ج.م</p>
+                <p className="text-xs text-gray-500">محصّل نقدي</p>
+                <p className="font-bold text-green-600 tabular-nums">{cashTotal.toLocaleString('ar-EG')} ج.م</p>
               </div>
               <div className="bg-yellow-50 p-3 rounded-lg">
-                <p className="text-gray-500">آجل</p>
-                <p className="font-bold text-yellow-700">{creditTotal.toFixed(2)} ج.م</p>
+                <p className="text-xs text-gray-500">آجل</p>
+                <p className="font-bold text-yellow-700 tabular-nums">{creditTotal.toLocaleString('ar-EG')} ج.م</p>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="divide-y divide-gray-50">
               {deliveryOrder.invoices.length === 0 && (
-                <p className="text-sm text-gray-500">لسه مفيش تسليمات مسجّلة.</p>
+                <p className="text-sm text-gray-500 py-2">لسه مفيش تسليمات مسجّلة.</p>
               )}
               {deliveryOrder.invoices.map((inv) => (
-                <div key={inv.id} className="flex justify-between border-b border-gray-50 last:border-0 pb-3">
-                  <div>
-                    <p className="font-semibold text-sm">{inv.customer.name}</p>
-                    <p className="text-xs text-gray-400">{inv.invoiceNo}</p>
+                <div key={inv.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{inv.customer.name}</p>
+                    <p className="text-xs text-gray-400 tabular-nums">{inv.invoiceNo}</p>
                   </div>
-                  <div className="text-left">
-                    <p className="font-semibold text-sm">{Number(inv.netAmount).toFixed(2)} ج.م</p>
-                    <p className="text-xs text-gray-400">{inv.type === 'CASH' ? 'نقدي' : 'آجل'}</p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-left">
+                      <p className="font-semibold text-sm tabular-nums">{Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</p>
+                      <p className="text-xs text-gray-400">{inv.type === 'CASH' ? 'نقدي' : 'آجل'}</p>
+                    </div>
+                    <Link
+                      href={`/print/invoice/${inv.id}`}
+                      className="p-2 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded-lg"
+                      aria-label="طباعة الفاتورة"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -141,28 +193,31 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
           )}
 
           {deliveryOrder.settlement && (
-            <div className="bg-white p-6 rounded-xl shadow-sm space-y-2">
-              <h3 className="text-lg font-bold text-[#1a1a2e] mb-2">✅ ملخص التسوية</h3>
+            <div className="bg-white p-5 rounded-xl shadow-sm space-y-2.5">
+              <div className="flex items-center gap-2 mb-1">
+                <FileCheck2 className="w-5 h-5 text-green-600" />
+                <h3 className="text-base font-bold text-[#1a1a2e]">ملخص التسوية</h3>
+              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">المباع</span>
-                <span className="font-semibold">{deliveryOrder.settlement.soldQty}</span>
+                <span className="font-semibold tabular-nums">{deliveryOrder.settlement.soldQty}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">المرتجع</span>
-                <span className="font-semibold">{deliveryOrder.settlement.returnedQty}</span>
+                <span className="font-semibold tabular-nums">{deliveryOrder.settlement.returnedQty}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">نقدي</span>
-                <span className="font-semibold">{Number(deliveryOrder.settlement.cashAmount).toFixed(2)} ج.م</span>
+                <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.cashAmount).toLocaleString('ar-EG')} ج.م</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">آجل</span>
-                <span className="font-semibold">{Number(deliveryOrder.settlement.creditAmount).toFixed(2)} ج.م</span>
+                <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.creditAmount).toLocaleString('ar-EG')} ج.م</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm border-t border-gray-100 pt-2">
                 <span className="text-gray-500">عمولة المندوب</span>
-                <span className="font-semibold text-[#e94560]">
-                  {Number(deliveryOrder.settlement.commission).toFixed(2)} ج.م
+                <span className="font-semibold text-[#e94560] tabular-nums">
+                  {Number(deliveryOrder.settlement.commission).toLocaleString('ar-EG')} ج.م
                 </span>
               </div>
             </div>

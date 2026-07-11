@@ -2,6 +2,9 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ExportButtons } from '@/components/export-buttons'
+
+export const dynamic = 'force-dynamic'
 
 export default async function FinancePage() {
   const session = await getServerSession(authOptions)
@@ -23,9 +26,22 @@ export default async function FinancePage() {
   const profit = sales - purchases
   const totalDebt = customers.reduce((s, c) => s + Number(c.balance), 0)
 
+  const summaryRows: (string | number)[][] = [
+    ['إجمالي المبيعات', sales.toFixed(2)],
+    ['إجمالي المشتريات', purchases.toFixed(2)],
+    ['صافي الربح', profit.toFixed(2)],
+    ['مبيعات نقدية', cash.toFixed(2)],
+    ['مبيعات آجلة', credit.toFixed(2)],
+    ['إجمالي الديون', totalDebt.toFixed(2)],
+    ...customers.map((c): (string | number)[] => [`مديونية: ${c.name}`, Number(c.balance).toFixed(2)]),
+  ]
+
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-[#1a1a2e]">💰 التقارير المالية</h1>
+    <div className="p-6 space-y-6 print-area">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-[#1a1a2e]">التقارير المالية</h1>
+        <ExportButtons fileName="التقرير-المالي" headers={['البيان', 'القيمة (ج.م)']} rows={summaryRows} />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-xl shadow-sm">
@@ -48,7 +64,7 @@ export default async function FinancePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">📊 تفصيل المبيعات</h3>
+          <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">تفصيل المبيعات</h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">مبيعات نقدية</span>
@@ -68,7 +84,7 @@ export default async function FinancePage() {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">⚠️ أكبر المديونيات</h3>
+          <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">أكبر المديونيات</h3>
           <div className="space-y-3">
             {customers.length === 0 && <p className="text-sm text-gray-500">مفيش مديونيات.</p>}
             {customers.map((c) => (
@@ -86,7 +102,7 @@ export default async function FinancePage() {
 
       {cashFlow.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">💵 التدفق النقدي</h3>
+          <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">التدفق النقدي</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

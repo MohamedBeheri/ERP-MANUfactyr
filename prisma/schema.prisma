@@ -90,12 +90,13 @@ model Product {
   updatedAt DateTime    @updatedAt
 
   // Relations
-  purchaseItems   PurchaseItem[]
-  productionItems ProductionItem[]
-  invoiceItems    InvoiceItem[]
-  deliveryItems   DeliveryItem[]
-  warehouseIns    WarehouseIn[]
-  warehouseOuts   WarehouseOut[]
+  purchaseItems    PurchaseItem[]
+  productionItems  ProductionItem[]
+  productionsAsRaw Production[]     @relation("ProductionRawProduct")
+  invoiceItems     InvoiceItem[]
+  deliveryItems    DeliveryItem[]
+  warehouseIns     WarehouseIn[]
+  warehouseOuts    WarehouseOut[]
 
   @@map("products")
 }
@@ -154,18 +155,21 @@ model PurchaseItem {
 
 // ============== PRODUCTION (التصنيع) ==============
 model Production {
-  id          String      @id @default(cuid())
-  orderNo     String      @unique
-  rawUsed     Int // كمية الخام المستخدم (كجم)
-  opCost      Decimal     @default(0) @db.Decimal(10, 2) // تكلفة التشغيل
-  notes       String?
-  status      OrderStatus @default(COMPLETED)
-  createdAt   DateTime    @default(now())
-  createdById String
+  id           String      @id @default(cuid())
+  orderNo      String      @unique
+  rawProductId String? // الخامة المستخدمة (نوع البن الأخضر)
+  rawUsed      Int // كمية الخام المستخدم (كجم)
+  stage        String      @default("تحميص وطحن") // مرحلة التصنيع: تحميص / طحن / تعبئة
+  opCost       Decimal     @default(0) @db.Decimal(10, 2) // تكلفة التشغيل
+  notes        String?
+  status       OrderStatus @default(COMPLETED)
+  createdAt    DateTime    @default(now())
+  createdById  String
 
   // Relations
-  items   ProductionItem[]
-  creator User             @relation(fields: [createdById], references: [id])
+  rawProduct Product?         @relation("ProductionRawProduct", fields: [rawProductId], references: [id])
+  items      ProductionItem[]
+  creator    User             @relation(fields: [createdById], references: [id])
 
   @@map("productions")
 }

@@ -16,7 +16,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-[#1a1a2e]">⚙️ الإعدادات</h1>
+      <h1 className="text-2xl font-bold text-[#1a1a2e]">الإعدادات</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-xl shadow-sm text-center">
@@ -39,7 +39,7 @@ export default async function SettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">🏢 الموردين</h3>
+          <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">الموردين</h3>
           <div className="divide-y divide-gray-100">
             {suppliers.length === 0 && <p className="p-6 text-sm text-gray-500">مفيش موردين مسجّلين.</p>}
             {suppliers.map((s) => (
@@ -62,7 +62,7 @@ export default async function SettingsPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">📍 نقاط البيع</h3>
+          <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">نقاط البيع</h3>
           <div className="divide-y divide-gray-100">
             {salesPoints.length === 0 && <p className="p-6 text-sm text-gray-500">مفيش نقاط بيع.</p>}
             {salesPoints.map((sp) => (

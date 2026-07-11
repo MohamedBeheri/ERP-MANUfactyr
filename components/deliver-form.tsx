@@ -103,7 +103,7 @@ export function DeliverForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm space-y-4">
-      <h3 className="text-lg font-bold text-[#1a1a2e]">📍 تسليم لعميل</h3>
+      <h3 className="text-lg font-bold text-[#1a1a2e]">تسليم لعميل</h3>
 
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
 

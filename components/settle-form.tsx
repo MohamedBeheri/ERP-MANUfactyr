@@ -55,14 +55,14 @@ export function SettleForm({
         onClick={() => setOpen(true)}
         className="w-full bg-[#e94560] text-white py-3 rounded-lg font-semibold hover:bg-[#c73e54] transition-colors"
       >
-        🧾 تسوية نهاية اليوم
+        تسوية نهاية اليوم
       </button>
     )
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm space-y-4">
-      <h3 className="text-lg font-bold text-[#1a1a2e]">🧾 تسوية نهاية اليوم - الكمية المرتجعة</h3>
+      <h3 className="text-lg font-bold text-[#1a1a2e]">تسوية نهاية اليوم — الكمية المرتجعة</h3>
       <p className="text-sm text-gray-500">
         المباع والمحصّل بيتحسبوا تلقائي من التسليمات المسجّلة. هنا بس أدخل الكمية المرتجعة الفعلية (جرد) لكل صنف.
       </p>

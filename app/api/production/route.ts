@@ -10,7 +10,7 @@ export async function GET() {
 
   try {
     const productions = await prisma.production.findMany({
-      include: { items: { include: { product: true } }, creator: true },
+      include: { items: { include: { product: true } }, rawProduct: true, creator: true },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(productions)
@@ -26,62 +26,88 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { rawUsed, opCost, items, notes } = body
+    const { rawProductId, rawUsed, stage, opCost, items, notes } = body
 
-    const production = await prisma.production.create({
-      data: {
-        orderNo: `PROD-${Date.now()}`,
-        rawUsed,
-        opCost: opCost || 0,
-        notes,
-        createdById: session.user.id,
-        items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
-        },
-      },
-      include: { items: true },
-    })
-
-    // Update product quantities
-    for (const item of items) {
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: { quantity: { increment: item.quantity } },
-      })
+    if (!rawProductId || !rawUsed || rawUsed <= 0) {
+      return NextResponse.json({ error: 'اختار الخامة وأدخل كمية صحيحة' }, { status: 400 })
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'أدخل منتج ناتج واحد على الأقل' }, { status: 400 })
     }
 
-    // Decrease raw material
-    const rawProduct = await prisma.product.findFirst({ where: { type: 'RAW' } })
-    if (rawProduct) {
-      await prisma.product.update({
-        where: { id: rawProduct.id },
+    // التحقق من رصيد الخامة قبل التصنيع
+    const rawProduct = await prisma.product.findUnique({ where: { id: rawProductId } })
+    if (!rawProduct || rawProduct.type !== 'RAW') {
+      return NextResponse.json({ error: 'الخامة المختارة غير موجودة' }, { status: 400 })
+    }
+    if (rawProduct.quantity < rawUsed) {
+      return NextResponse.json(
+        { error: `رصيد ${rawProduct.name} غير كافي (المتاح: ${rawProduct.quantity} ${rawProduct.unit})` },
+        { status: 400 }
+      )
+    }
+
+    const production = await prisma.$transaction(async (tx) => {
+      const created = await tx.production.create({
+        data: {
+          orderNo: `PROD-${Date.now()}`,
+          rawProductId,
+          rawUsed,
+          stage: stage || 'تحميص وطحن',
+          opCost: opCost || 0,
+          notes,
+          createdById: session.user.id,
+          items: {
+            create: items.map((item: any) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+            })),
+          },
+        },
+        include: { items: true },
+      })
+
+      // خصم الخامة المستخدمة (البن الأخضر المختار) + إذن صرف
+      await tx.product.update({
+        where: { id: rawProductId },
         data: { quantity: { decrement: rawUsed } },
       })
-    }
-
-    // Create warehouse in entry
-    for (const item of items) {
-      await prisma.warehouseIn.create({
+      await tx.warehouseOut.create({
         data: {
-          productId: item.productId,
-          quantity: item.quantity,
-          source: `المصنع - أمر تصنيع ${production.orderNo}`,
+          productId: rawProductId,
+          quantity: rawUsed,
+          target: 'خط الإنتاج',
+          reason: `أمر تصنيع ${created.orderNo} (${stage || 'تحميص وطحن'})`,
           createdById: session.user.id,
         },
       })
-    }
 
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'تصنيع',
-        description: `أمر تصنيع ${production.orderNo}`,
-        impact: `+${items.reduce((s: number, i: any) => s + i.quantity, 0)} علبة`,
-      },
+      // إضافة المنتجات الناتجة + إذن إضافة
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { quantity: { increment: item.quantity } },
+        })
+        await tx.warehouseIn.create({
+          data: {
+            productId: item.productId,
+            quantity: item.quantity,
+            source: `المصنع - أمر تصنيع ${created.orderNo}`,
+            createdById: session.user.id,
+          },
+        })
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'تصنيع',
+          description: `أمر تصنيع ${created.orderNo} — ${rawProduct.name} (${rawUsed} ${rawProduct.unit})`,
+          impact: `+${items.reduce((s: number, i: any) => s + i.quantity, 0)} وحدة منتج نهائي`,
+        },
+      })
+
+      return created
     })
 
     return NextResponse.json(production, { status: 201 })

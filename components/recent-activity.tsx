@@ -10,7 +10,7 @@ interface Activity {
 export function RecentActivity({ activities }: { activities: Activity[] }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm">
-      <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">⚡ أحدث النشاطات</h3>
+      <h3 className="text-lg font-bold text-[#1a1a2e] mb-4">أحدث النشاطات</h3>
       <div className="space-y-4">
         {activities.map((activity) => (
           <div key={activity.id} className="flex gap-3 pb-4 border-b border-gray-100 last:border-0">

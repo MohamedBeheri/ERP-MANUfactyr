@@ -51,7 +51,7 @@ export function PurchaseForm({ products, suppliers }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm space-y-3">
-      <h3 className="text-lg font-bold text-[#1a1a2e]">🛒 فاتورة شراء جديدة</h3>
+      <h3 className="text-lg font-bold text-[#1a1a2e]">فاتورة شراء جديدة</h3>
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
       <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}
         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]">
