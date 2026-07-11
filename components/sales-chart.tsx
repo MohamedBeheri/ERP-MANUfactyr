@@ -5,12 +5,12 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 
-export function SalesChart({ data }: { data: any[] }) {
+export function SalesChart({ data }: { data: { date: string; total: number }[] }) {
   const chartData = {
-    labels: data.map(d => new Date(d.createdAt).toLocaleDateString('ar-EG')),
+    labels: data.map(d => new Date(d.date).toLocaleDateString('ar-EG')),
     datasets: [{
       label: 'المبيعات',
-      data: data.map(d => d._sum.netAmount?.toNumber() || 0),
+      data: data.map(d => d.total),
       borderColor: '#e94560',
       backgroundColor: 'rgba(233, 69, 96, 0.1)',
       tension: 0.4,

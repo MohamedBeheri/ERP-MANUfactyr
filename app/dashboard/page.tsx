@@ -35,19 +35,24 @@ export default async function DashboardPage() {
     include: { user: true },
   })
 
-  const salesData = await prisma.invoice.groupBy({
+  const salesRaw = await prisma.invoice.groupBy({
     by: ['createdAt'],
     _sum: { netAmount: true },
     orderBy: { createdAt: 'asc' },
     take: 30,
   })
 
+  const salesData = salesRaw.map((d) => ({
+    date: d.createdAt.toISOString(),
+    total: Number(d._sum.netAmount) || 0,
+  }))
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-[#1a1a2e] mb-6">لوحة التحكم</h1>
       <DashboardStats
         totalInventory={totalInventory._sum.quantity || 0}
-        totalSales={totalSales._sum.netAmount?.toNumber() || 0}
+        totalSales={Number(totalSales._sum.netAmount) || 0}
         activeDelegates={activeDelegates}
         alerts={lowStock}
       />
