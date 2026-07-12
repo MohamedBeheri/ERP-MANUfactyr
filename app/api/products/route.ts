@@ -11,6 +11,7 @@ export async function GET() {
 
   try {
     const products = await prisma.product.findMany({
+      include: { category: true },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(products)
@@ -25,10 +26,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, type, costPrice, sellPrice, minStock, unit } = body
+    const { name, type, categoryId, costPrice, sellPrice, wholesalePrice, minStock, unit } = body
+
+    if (!name?.trim()) {
+      return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
+    }
 
     const product = await prisma.product.create({
-      data: { name, type, costPrice, sellPrice, minStock, unit },
+      data: {
+        name: name.trim(),
+        type: type === 'RAW' ? 'RAW' : 'FINISHED',
+        categoryId: categoryId || null,
+        costPrice: Number(costPrice) || 0,
+        sellPrice: Number(sellPrice) || 0,
+        wholesalePrice: Number(wholesalePrice) || 0,
+        minStock: Number(minStock) || 0,
+        unit: unit || 'كجم',
+      },
     })
 
     return NextResponse.json(product, { status: 201 })

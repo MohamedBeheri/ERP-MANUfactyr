@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import Image from 'next/image'
 
 interface PrintDocProps {
   title: string
@@ -16,9 +17,12 @@ export function PrintDoc({ title, docNo, date, meta = [], children, footerNote, 
     <div className="print-area bg-white rounded-xl shadow-sm p-8 max-w-3xl mx-auto">
       {/* رأس الشركة */}
       <div className="flex items-start justify-between border-b-2 border-[#1a1a2e] pb-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1a1a2e]">Golden Coffee</h1>
-          <p className="text-sm text-gray-500">مطاحن ومصانع البن الذهبية</p>
+        <div className="flex items-center gap-3">
+          <Image src="/logo-header.png" alt="شعار شركة البدر" width={56} height={56} className="shrink-0" />
+          <div>
+            <h1 className="text-xl font-bold text-[#1a1a2e]">شركة البدر لتجارة البن</h1>
+            <p className="text-sm text-gray-500">Al Badr Coffee</p>
+          </div>
         </div>
         <div className="text-left">
           <p className="text-lg font-bold text-[#e94560]">{title}</p>

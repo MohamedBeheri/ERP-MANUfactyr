@@ -25,14 +25,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, phone, address, type, creditLimit } = body
+    const { name, phone, address, type, customerType, creditLimit } = body
 
     if (!name) {
-      return NextResponse.json({ error: 'name is required' }, { status: 400 })
+      return NextResponse.json({ error: 'اسم العميل مطلوب' }, { status: 400 })
     }
 
     const customer = await prisma.customer.create({
-      data: { name, phone, address, type: type || 'CASH', creditLimit: creditLimit || 0 },
+      data: {
+        name,
+        phone,
+        address,
+        type: type || 'CASH',
+        customerType: customerType === 'WHOLESALE' ? 'WHOLESALE' : 'RETAIL',
+        creditLimit: creditLimit || 0,
+      },
     })
 
     return NextResponse.json(customer, { status: 201 })

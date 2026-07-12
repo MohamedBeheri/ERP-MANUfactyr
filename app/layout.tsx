@@ -6,8 +6,9 @@ import { Providers } from '@/components/providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Golden Coffee ERP',
-  description: 'نظام إدارة مطاحن ومصانع البن',
+  title: 'شركة البدر لتجارة البن',
+  description: 'نظام إدارة شركة البدر لتجارة البن — Al Badr Coffee ERP',
+  icons: { icon: '/logo-header.png' },
 }
 
 export default function RootLayout({

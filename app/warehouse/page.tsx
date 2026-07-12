@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowDownToLine, ArrowUpFromLine, PackageSearch } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getDefaultWarehouseId } from '@/lib/warehouse'
 import { StocktakeForm } from '@/components/stocktake-form'
 import { ExportButtons } from '@/components/export-buttons'
 
@@ -13,18 +14,25 @@ export default async function WarehousePage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [products, warehouseIns, warehouseOuts] = await Promise.all([
-    prisma.product.findMany({ where: { isActive: true }, orderBy: [{ type: 'asc' }, { name: 'asc' }] }),
+  await getDefaultWarehouseId() // يضمن وجود مخزن افتراضي وترحيل الأرصدة القديمة
+
+  const [products, warehouseIns, warehouseOuts, warehouses] = await Promise.all([
+    prisma.product.findMany({
+      where: { isActive: true },
+      include: { stocks: true },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    }),
     prisma.warehouseIn.findMany({
-      include: { product: true, creator: true },
+      include: { product: true, creator: true, warehouse: true },
       orderBy: { createdAt: 'desc' },
       take: 25,
     }),
     prisma.warehouseOut.findMany({
-      include: { product: true, creator: true },
+      include: { product: true, creator: true, warehouse: true },
       orderBy: { createdAt: 'desc' },
       take: 25,
     }),
+    prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
   ])
 
   const stockRows = products.map((p) => [
@@ -83,7 +91,17 @@ export default async function WarehousePage() {
                 <tbody>
                   {products.map((p) => (
                     <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                      <td className="p-3 font-semibold">{p.name}</td>
+                      <td className="p-3 font-semibold">
+                        {p.name}
+                        {warehouses.length > 1 && (
+                          <p className="text-[11px] text-gray-400 font-normal mt-0.5">
+                            {p.stocks
+                              .filter((s) => s.quantity > 0)
+                              .map((s) => `${warehouses.find((w) => w.id === s.warehouseId)?.name}: ${s.quantity}`)
+                              .join(' · ') || 'مفيش رصيد موزّع'}
+                          </p>
+                        )}
+                      </td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${p.type === 'RAW' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
                           {p.type === 'RAW' ? 'خام' : 'منتج نهائي'}
@@ -162,7 +180,13 @@ export default async function WarehousePage() {
 
         <div className="space-y-4 no-print">
           <StocktakeForm
-            products={products.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, unit: p.unit, type: p.type }))}
+            products={products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              unit: p.unit,
+              stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, s.quantity])),
+            }))}
+            warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
           />
 
           <div className="bg-white p-5 rounded-xl shadow-sm">

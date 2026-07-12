@@ -13,7 +13,7 @@ export default async function FactoryPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [productions, purchases, products, suppliers] = await Promise.all([
+  const [productions, purchases, products, suppliers, stages, warehouses] = await Promise.all([
     prisma.production.findMany({
       include: { items: { include: { product: true } }, rawProduct: true, creator: true },
       orderBy: { createdAt: 'desc' },
@@ -26,6 +26,11 @@ export default async function FactoryPage() {
     }),
     prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.productionStage.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    }),
+    prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
   ])
 
   const rawProducts = products.filter((p) => p.type === 'RAW')
@@ -36,7 +41,7 @@ export default async function FactoryPage() {
       <div>
         <h1 className="text-2xl font-bold text-[#1a1a2e]">المصنع</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          البن الأخضر بيدخل بأمر شراء → تحميص وطحن بأمر تصنيع → منتج نهائي للمخزن
+          البن الأخضر بيدخل بأمر شراء ← تحميص وطحن بأمر تصنيع ← منتج نهائي للمخزن
         </p>
       </div>
 
@@ -161,10 +166,13 @@ export default async function FactoryPage() {
           <ProductionForm
             rawProducts={rawProducts.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, unit: p.unit }))}
             finishedProducts={finishedProducts.map((p) => ({ id: p.id, name: p.name, unit: p.unit }))}
+            stages={stages.map((s) => s.name)}
+            warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
           />
           <PurchaseForm
             products={rawProducts.map((p) => ({ id: p.id, name: p.name, unit: p.unit }))}
             suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+            warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
           />
 
           <div className="bg-white p-5 rounded-xl shadow-sm">

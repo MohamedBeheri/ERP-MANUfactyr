@@ -4,19 +4,29 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Factory, Plus, X } from 'lucide-react'
 
+interface WarehouseOption {
+  id: string
+  name: string
+  isDefault: boolean
+}
+
 interface Props {
   rawProducts: { id: string; name: string; quantity: number; unit: string }[]
   finishedProducts: { id: string; name: string; unit: string }[]
+  stages?: string[]
+  warehouses?: WarehouseOption[]
 }
 
-const STAGES = ['تحميص', 'طحن', 'تحميص وطحن', 'تعبئة']
+const DEFAULT_STAGES = ['تحميص', 'طحن', 'تحميص وطحن', 'تعبئة']
 
-export function ProductionForm({ rawProducts, finishedProducts }: Props) {
+export function ProductionForm({ rawProducts, finishedProducts, stages = [], warehouses = [] }: Props) {
+  const stageOptions = stages.length > 0 ? stages : DEFAULT_STAGES
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [rawProductId, setRawProductId] = useState('')
   const [rawUsed, setRawUsed] = useState('')
-  const [stage, setStage] = useState('تحميص وطحن')
+  const [stage, setStage] = useState(stageOptions[0])
+  const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
   const [opCost, setOpCost] = useState('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ productId: '', quantity: '' }])
@@ -43,6 +53,7 @@ export function ProductionForm({ rawProducts, finishedProducts }: Props) {
         rawProductId,
         rawUsed: Number(rawUsed),
         stage,
+        warehouseId,
         opCost: Number(opCost) || 0,
         items: validItems,
         notes,
@@ -109,10 +120,23 @@ export function ProductionForm({ rawProducts, finishedProducts }: Props) {
             onChange={(e) => setStage(e.target.value)}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
           >
-            {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {stageOptions.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
       </div>
+
+      {warehouses.length > 1 && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">المخزن</label>
+          <select
+            value={warehouseId}
+            onChange={(e) => setWarehouseId(e.target.value)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
+          >
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-gray-700">المنتجات الناتجة</label>

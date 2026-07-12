@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import Image from 'next/image'
 import {
   LayoutDashboard,
   Factory,
@@ -13,7 +14,6 @@ import {
   ShieldCheck,
   Settings,
   LogOut,
-  Coffee,
 } from 'lucide-react'
 
 const menuItems = [
@@ -22,7 +22,7 @@ const menuItems = [
   { href: '/warehouse', label: 'المخزن', Icon: Warehouse, roles: ['ADMIN', 'WAREHOUSE'] },
   { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, roles: ['ADMIN', 'SALES'] },
   { href: '/delegates', label: 'المندوبين', Icon: Truck, roles: ['ADMIN', 'SALES'] },
-  { href: '/finance', label: 'التقارير المالية', Icon: Wallet, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { href: '/finance', label: 'التقارير', Icon: Wallet, roles: ['ADMIN', 'ACCOUNTANT'] },
   { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, roles: ['ADMIN'] },
   { href: '/settings', label: 'الإعدادات', Icon: Settings, roles: ['ADMIN'] },
 ]
@@ -35,12 +35,10 @@ export function Sidebar({ user }: { user: any }) {
   return (
     <aside className="no-print fixed right-0 top-0 bottom-0 w-64 bg-[#1a1a2e] text-white overflow-y-auto z-50">
       <div className="p-5 border-b border-white/10 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-[#e94560]/15 flex items-center justify-center">
-          <Coffee className="w-5 h-5 text-[#e94560]" />
-        </div>
+        <Image src="/logo.png" alt="شعار شركة البدر" width={44} height={67} className="shrink-0" />
         <div>
-          <h2 className="text-lg font-bold text-white leading-tight">Golden Coffee</h2>
-          <p className="text-[11px] text-gray-400">ERP System v2.0</p>
+          <h2 className="text-base font-bold text-white leading-tight">شركة البدر</h2>
+          <p className="text-[11px] text-gray-400">لتجارة البن — نظام الإدارة</p>
         </div>
       </div>
       <div className="p-4 border-b border-white/10">

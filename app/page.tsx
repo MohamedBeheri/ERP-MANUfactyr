@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -36,9 +37,11 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a1a2e] to-[#16213e]">
       <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="text-center text-5xl mb-4">☕</div>
-        <h1 className="text-2xl font-bold text-center text-[#1a1a2e] mb-2">Golden Coffee ERP</h1>
-        <p className="text-center text-gray-500 mb-6 text-sm">نظام متكامل لإدارة مطاحن ومصانع البن</p>
+        <div className="flex justify-center mb-4">
+          <Image src="/logo-header.png" alt="شعار شركة البدر لتجارة البن" width={84} height={84} priority />
+        </div>
+        <h1 className="text-2xl font-bold text-center text-[#1a1a2e] mb-2">شركة البدر لتجارة البن</h1>
+        <p className="text-center text-gray-500 mb-6 text-sm">نظام متكامل لإدارة التصنيع والمخازن والتوزيع</p>
 
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm text-center">

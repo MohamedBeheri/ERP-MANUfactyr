@@ -1,11 +1,12 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Truck, Users, Printer, ChevronLeft } from 'lucide-react'
+import { Truck, Users, Printer, ChevronLeft, TrendingUp } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DeliveryOrderForm } from '@/components/delivery-order-form'
-import { DelegateForm } from '@/components/delegate-form'
+import { DelegateManager } from '@/components/delegate-manager'
+import { ExportButtons } from '@/components/export-buttons'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,21 +28,57 @@ export default async function DelegatesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [delegates, products, deliveryOrders] = await Promise.all([
-    prisma.delegate.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } }),
+  const [delegates, products, deliveryOrders, warehouses] = await Promise.all([
+    prisma.delegate.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        deliveryOrders: { select: { id: true, status: true, createdAt: true } },
+        settlements: { select: { cashAmount: true, creditAmount: true, soldQty: true, returnedQty: true } },
+      },
+    }),
     prisma.product.findMany({ where: { isActive: true, type: 'FINISHED' }, orderBy: { name: 'asc' } }),
     prisma.deliveryOrder.findMany({
       include: { delegate: true, items: true, settlement: true },
       orderBy: { createdAt: 'desc' },
       take: 30,
     }),
+    prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
+  ])
+
+  // قياس أداء المناديب
+  const performance = delegates.map((d) => {
+    const tours = d.deliveryOrders.length
+    const activeTours = d.deliveryOrders.filter((o) => o.status === 'IN_PROGRESS').length
+    const soldQty = d.settlements.reduce((s, st) => s + st.soldQty, 0)
+    const returnedQty = d.settlements.reduce((s, st) => s + st.returnedQty, 0)
+    const cash = d.settlements.reduce((s, st) => s + Number(st.cashAmount), 0)
+    const credit = d.settlements.reduce((s, st) => s + Number(st.creditAmount), 0)
+    const returnRate = soldQty + returnedQty > 0 ? (returnedQty / (soldQty + returnedQty)) * 100 : 0
+    const lastTour = d.deliveryOrders.length
+      ? new Date(Math.max(...d.deliveryOrders.map((o) => new Date(o.createdAt).getTime())))
+      : null
+    return { d, tours, activeTours, soldQty, returnedQty, cash, credit, returnRate, lastTour }
+  })
+
+  const perfRows = performance.map((p) => [
+    p.d.name,
+    p.d.carNumber || '—',
+    p.d.route || '—',
+    p.tours,
+    p.soldQty,
+    p.returnedQty,
+    `${p.returnRate.toFixed(1)}%`,
+    p.cash.toFixed(2),
+    p.credit.toFixed(2),
+    Number(p.d.commissionDue).toFixed(2),
   ])
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#1a1a2e]">المندوبين وجولات التوزيع</h1>
-        <p className="text-sm text-gray-500 mt-0.5">حمّل العربية → سلّم للعملاء في الطريق → سوّي الجولة آخر اليوم</p>
+        <p className="text-sm text-gray-500 mt-0.5">حمّل العربية ← سلّم للعملاء في الطريق ← سوّي الجولة آخر اليوم</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -92,48 +129,92 @@ export default async function DelegatesPage() {
 
         {/* فورم التحميل */}
         <div className="space-y-4">
-          <DeliveryOrderForm delegates={delegates} products={products} />
+          <DeliveryOrderForm delegates={delegates} products={products} warehouses={warehouses} />
         </div>
       </div>
 
-      {/* المناديب */}
-      <div>
+      {/* قياس الأداء */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden print-area">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-green-600" />
+            <h3 className="text-base font-bold text-[#1a1a2e]">قياس أداء المناديب</h3>
+          </div>
+          <ExportButtons
+            fileName="أداء-المناديب"
+            headers={['المندوب', 'العربية', 'خط السير', 'الجولات', 'المباع', 'المرتجع', 'نسبة المرتجع', 'نقدي', 'آجل', 'عمولة مستحقة']}
+            rows={perfRows}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
+                <th className="p-3 font-medium">المندوب</th>
+                <th className="p-3 font-medium">العربية</th>
+                <th className="p-3 font-medium">خط السير</th>
+                <th className="p-3 font-medium">الجولات</th>
+                <th className="p-3 font-medium">المباع</th>
+                <th className="p-3 font-medium">نسبة المرتجع</th>
+                <th className="p-3 font-medium">محصّل نقدي</th>
+                <th className="p-3 font-medium">آجل</th>
+                <th className="p-3 font-medium">آخر جولة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {performance.map(({ d, tours, activeTours, soldQty, returnRate, cash, credit, lastTour }) => (
+                <tr key={d.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                  <td className="p-3 font-semibold">
+                    {d.name}
+                    {activeTours > 0 && (
+                      <span className="mr-2 text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded font-semibold">
+                        في الطريق
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-3 text-gray-500 tabular-nums">{d.carNumber || '—'}</td>
+                  <td className="p-3 text-gray-500">{d.route || '—'}</td>
+                  <td className="p-3 tabular-nums">{tours}</td>
+                  <td className="p-3 tabular-nums font-semibold">{soldQty}</td>
+                  <td className="p-3">
+                    <span className={`tabular-nums font-semibold ${returnRate > 30 ? 'text-red-600' : returnRate > 15 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {returnRate.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="p-3 tabular-nums text-green-700">{cash.toLocaleString('ar-EG')} ج.م</td>
+                  <td className="p-3 tabular-nums text-yellow-700">{credit.toLocaleString('ar-EG')} ج.م</td>
+                  <td className="p-3 text-gray-400 text-xs tabular-nums">
+                    {lastTour ? lastTour.toLocaleDateString('ar-EG') : '—'}
+                  </td>
+                </tr>
+              ))}
+              {performance.length === 0 && (
+                <tr><td colSpan={9} className="p-6 text-center text-gray-500">مفيش مناديب لسه.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* إدارة المناديب */}
+      <div className="no-print">
         <div className="flex items-center gap-2 mb-3">
           <Users className="w-5 h-5 text-[#0f3460]" />
-          <h2 className="text-base font-bold text-[#1a1a2e]">المناديب ({delegates.length})</h2>
+          <h2 className="text-base font-bold text-[#1a1a2e]">إدارة المناديب ({delegates.length})</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {delegates.map((d) => (
-            <div key={d.id} className="bg-white p-5 rounded-xl shadow-sm">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#1a1a2e] text-white flex items-center justify-center font-bold text-sm shrink-0">
-                  {d.name.charAt(0)}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-sm text-[#1a1a2e] truncate">{d.name}</p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {d.carNumber || 'بدون عربية'} · {d.area || 'بدون منطقة'}
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">إجمالي المبيعات</span>
-                  <span className="font-semibold tabular-nums">{Number(d.totalSales).toLocaleString('ar-EG')} ج.م</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">عمولة مستحقة</span>
-                  <span className="font-semibold text-[#e94560] tabular-nums">{Number(d.commissionDue).toLocaleString('ar-EG')} ج.م</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">نسبة العمولة</span>
-                  <span className="font-semibold tabular-nums">{Number(d.commissionRate)}%</span>
-                </div>
-              </div>
-            </div>
-          ))}
-          <DelegateForm />
-        </div>
+        <DelegateManager
+          delegates={delegates.map((d) => ({
+            id: d.id,
+            name: d.name,
+            phone: d.phone,
+            carNumber: d.carNumber,
+            area: d.area,
+            route: d.route,
+            commissionRate: Number(d.commissionRate),
+            totalSales: Number(d.totalSales),
+            commissionDue: Number(d.commissionDue),
+          }))}
+        />
       </div>
     </div>
   )

@@ -113,9 +113,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#1a1a2e]">لوحة التحكم</h1>
+          <h1 className="text-2xl font-bold text-[#1a1a2e]">لوحة التحكم — شركة البدر لتجارة البن</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            نظرة شاملة على المصنع والمبيعات والمخزون
+            نظرة شاملة على المصنع والمبيعات والمخازن والتوزيع ·{' '}
+            {new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <PeriodSelector current={days} basePath="/dashboard" />

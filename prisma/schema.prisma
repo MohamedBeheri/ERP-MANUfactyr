@@ -36,6 +36,11 @@ enum PaymentType {
   CREDIT // آجل
 }
 
+enum CustomerType {
+  RETAIL // قطاعي
+  WHOLESALE // جملة
+}
+
 enum OrderStatus {
   PENDING
   IN_PROGRESS
@@ -75,21 +80,77 @@ model User {
   @@map("users")
 }
 
+// ============== CATEGORIES (التصنيفات) ==============
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// ============== PRODUCTION STAGES (مراحل التصنيع) ==============
+model ProductionStage {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("production_stages")
+}
+
+// ============== WAREHOUSES (المخازن) ==============
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  location  String?
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  stocks ProductStock[]
+  ins    WarehouseIn[]
+  outs   WarehouseOut[]
+
+  @@map("warehouses")
+}
+
+model ProductStock {
+  id          String @id @default(cuid())
+  warehouseId String
+  productId   String
+  quantity    Int    @default(0)
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, productId])
+  @@map("product_stocks")
+}
+
 // ============== PRODUCTS ==============
 model Product {
-  id        String      @id @default(cuid())
-  name      String
-  type      ProductType
-  costPrice Decimal     @db.Decimal(10, 2) // سعر التكلفة
-  sellPrice Decimal     @db.Decimal(10, 2) // سعر البيع
-  minStock  Int         @default(0) // الحد الأدنى
-  quantity  Int         @default(0) // الكمية الحالية
-  unit      String      @default("كجم") // وحدة القياس
-  isActive  Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id             String      @id @default(cuid())
+  name           String
+  type           ProductType
+  categoryId     String?
+  costPrice      Decimal     @db.Decimal(10, 2) // سعر التكلفة
+  sellPrice      Decimal     @db.Decimal(10, 2) // سعر البيع قطاعي
+  wholesalePrice Decimal     @default(0) @db.Decimal(10, 2) // سعر البيع جملة
+  minStock       Int         @default(0) // الحد الأدنى
+  quantity       Int         @default(0) // الكمية الإجمالية (كل المخازن)
+  unit           String      @default("كجم") // وحدة القياس
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   // Relations
+  category         Category?        @relation(fields: [categoryId], references: [id])
+  stocks           ProductStock[]
   purchaseItems    PurchaseItem[]
   productionItems  ProductionItem[]
   productionsAsRaw Production[]     @relation("ProductionRawProduct")
@@ -191,6 +252,7 @@ model ProductionItem {
 model WarehouseIn {
   id          String   @id @default(cuid())
   productId   String
+  warehouseId String?
   quantity    Int
   source      String // المصدر (مثال: "المصنع - أمر تصنيع #1")
   notes       String?
@@ -198,8 +260,9 @@ model WarehouseIn {
   createdById String
 
   // Relations
-  product Product @relation(fields: [productId], references: [id])
-  creator User    @relation(fields: [createdById], references: [id])
+  product   Product    @relation(fields: [productId], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
+  creator   User       @relation(fields: [createdById], references: [id])
 
   @@map("warehouse_ins")
 }
@@ -207,6 +270,7 @@ model WarehouseIn {
 model WarehouseOut {
   id          String   @id @default(cuid())
   productId   String
+  warehouseId String?
   quantity    Int
   target      String // الجهة (مثال: "مندوب: أحمد" أو "فرع رئيسي")
   reason      String // السبب (فاتورة بيع، أمر تسليم، مرتجعات)
@@ -215,24 +279,26 @@ model WarehouseOut {
   createdById String
 
   // Relations
-  product Product @relation(fields: [productId], references: [id])
-  creator User    @relation(fields: [createdById], references: [id])
+  product   Product    @relation(fields: [productId], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
+  creator   User       @relation(fields: [createdById], references: [id])
 
   @@map("warehouse_outs")
 }
 
 // ============== CUSTOMERS (العملاء) ==============
 model Customer {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   name           String
   phone          String?
   address        String?
-  type           PaymentType @default(CASH)
-  creditLimit    Decimal     @default(0) @db.Decimal(12, 2) // الحد الائتماني
-  balance        Decimal     @default(0) @db.Decimal(12, 2) // الرصيد المدين
-  totalPurchases Decimal     @default(0) @db.Decimal(12, 2)
-  isActive       Boolean     @default(true)
-  createdAt      DateTime    @default(now())
+  type           PaymentType  @default(CASH)
+  customerType   CustomerType @default(RETAIL) // جملة أو قطاعي
+  creditLimit    Decimal      @default(0) @db.Decimal(12, 2) // الحد الائتماني
+  balance        Decimal      @default(0) @db.Decimal(12, 2) // الرصيد المدين
+  totalPurchases Decimal      @default(0) @db.Decimal(12, 2)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
 
   // Relations
   invoices Invoice[]
@@ -305,6 +371,7 @@ model Delegate {
   phone          String?
   carNumber      String? // رقم العربية
   area           String? // المنطقة
+  route          String? // خط السير
   commissionRate Decimal  @default(5) @db.Decimal(5, 2) // نسبة العمولة
   totalSales     Decimal  @default(0) @db.Decimal(12, 2)
   commissionDue  Decimal  @default(0) @db.Decimal(12, 2)

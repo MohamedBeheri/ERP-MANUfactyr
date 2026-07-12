@@ -16,9 +16,24 @@ interface Product {
   quantity: number
 }
 
-export function DeliveryOrderForm({ delegates, products }: { delegates: Delegate[]; products: Product[] }) {
+interface WarehouseOption {
+  id: string
+  name: string
+  isDefault: boolean
+}
+
+export function DeliveryOrderForm({
+  delegates,
+  products,
+  warehouses = [],
+}: {
+  delegates: Delegate[]
+  products: Product[]
+  warehouses?: WarehouseOption[]
+}) {
   const router = useRouter()
   const [delegateId, setDelegateId] = useState('')
+  const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
   const [rows, setRows] = useState([{ productId: '', quantity: '' }])
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
@@ -47,7 +62,7 @@ export function DeliveryOrderForm({ delegates, products }: { delegates: Delegate
     const res = await fetch('/api/delivery-orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ delegateId, items, notes }),
+      body: JSON.stringify({ delegateId, items, notes, warehouseId }),
     })
     const data = await res.json()
     setLoading(false)
@@ -84,6 +99,21 @@ export function DeliveryOrderForm({ delegates, products }: { delegates: Delegate
           ))}
         </select>
       </div>
+
+      {warehouses.length > 1 && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">التحميل من مخزن</label>
+          <select
+            value={warehouseId}
+            onChange={(e) => setWarehouseId(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
+          >
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-gray-700">الأصناف والكميات</label>

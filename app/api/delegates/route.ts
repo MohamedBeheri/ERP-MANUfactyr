@@ -25,14 +25,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, phone, carNumber, area, commissionRate } = body
+    const { name, phone, carNumber, area, route, commissionRate } = body
 
     if (!name) {
-      return NextResponse.json({ error: 'name is required' }, { status: 400 })
+      return NextResponse.json({ error: 'اسم المندوب مطلوب' }, { status: 400 })
     }
 
     const delegate = await prisma.delegate.create({
-      data: { name, phone, carNumber, area, commissionRate: commissionRate ?? 5 },
+      data: { name, phone, carNumber, area, route, commissionRate: commissionRate ?? 5 },
     })
 
     return NextResponse.json(delegate, { status: 201 })

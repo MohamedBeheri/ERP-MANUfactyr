@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
+import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
 
 const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
@@ -27,20 +28,22 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { customerId, items, discount, type, pointId } = body
+    const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
 
     if (!customerId || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'اختار عميل وأدخل صنف واحد على الأقل' }, { status: 400 })
     }
 
-    // التحقق من رصيد المخزون قبل البيع
+    // التحقق من رصيد المخزن المختار قبل البيع
     for (const item of items) {
       const product = await prisma.product.findUnique({ where: { id: item.productId } })
       if (!product) {
         return NextResponse.json({ error: 'صنف غير موجود' }, { status: 400 })
       }
-      if (product.quantity < item.quantity) {
+      const stock = await getStock(warehouseId, item.productId)
+      if (stock < item.quantity) {
         return NextResponse.json(
-          { error: `رصيد ${product.name} غير كافي (المتاح: ${product.quantity} ${product.unit})` },
+          { error: `رصيد ${product.name} في المخزن ده غير كافي (المتاح: ${stock} ${product.unit})` },
           { status: 400 }
         )
       }
@@ -77,9 +80,11 @@ export async function POST(req: NextRequest) {
           where: { id: item.productId },
           data: { quantity: { decrement: item.quantity } },
         })
+        await adjustStock(tx, warehouseId, item.productId, -item.quantity)
         await tx.warehouseOut.create({
           data: {
             productId: item.productId,
+            warehouseId,
             quantity: item.quantity,
             target: `عميل - فاتورة ${created.invoiceNo}`,
             reason: 'فاتورة بيع',

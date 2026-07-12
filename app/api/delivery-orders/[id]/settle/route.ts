@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
+import { getDefaultWarehouseId, adjustStock } from '@/lib/warehouse'
 
 const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
@@ -66,15 +67,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const totalSalesValue = cashAmount + creditAmount
     const commission = (totalSalesValue * Number(deliveryOrder.delegate.commissionRate)) / 100
 
+    const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
+
     for (const ret of returns) {
       if (ret.quantity <= 0) continue
       await prisma.product.update({
         where: { id: ret.productId },
         data: { quantity: { increment: ret.quantity } },
       })
+      await adjustStock(prisma, warehouseId, ret.productId, ret.quantity)
       await prisma.warehouseIn.create({
         data: {
           productId: ret.productId,
+          warehouseId,
           quantity: ret.quantity,
           source: `عودة من تسليم - أمر ${deliveryOrder.orderNo}`,
           createdById: session.user.id,

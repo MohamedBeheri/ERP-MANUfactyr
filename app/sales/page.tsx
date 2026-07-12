@@ -13,7 +13,7 @@ export default async function SalesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [invoices, customers, products] = await Promise.all([
+  const [invoices, customers, products, categories, warehouses] = await Promise.all([
     prisma.invoice.findMany({
       include: { customer: true, items: { include: { product: true } }, creator: true },
       orderBy: { createdAt: 'desc' },
@@ -21,6 +21,8 @@ export default async function SalesPage() {
     }),
     prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.product.findMany({ where: { isActive: true, type: 'FINISHED' }, orderBy: { name: 'asc' } }),
+    prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
   ])
 
   const invoiceRows = invoices.map((inv) => [
@@ -36,7 +38,7 @@ export default async function SalesPage() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#1a1a2e]">نقطة البيع</h1>
-        <p className="text-sm text-gray-500 mt-0.5">اختار المنتجات → راجع الفاتورة → أكّد البيع واطبعها</p>
+        <p className="text-sm text-gray-500 mt-0.5">اختار المنتجات ← راجع الفاتورة ← أكّد البيع واطبعها</p>
       </div>
 
       <Pos
@@ -45,9 +47,13 @@ export default async function SalesPage() {
           name: p.name,
           unit: p.unit,
           sellPrice: Number(p.sellPrice),
+          wholesalePrice: Number(p.wholesalePrice),
           quantity: p.quantity,
+          categoryId: p.categoryId,
         }))}
-        customers={customers.map((c) => ({ id: c.id, name: c.name }))}
+        customers={customers.map((c) => ({ id: c.id, name: c.name, customerType: c.customerType }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
       />
 
       {/* سجل الفواتير */}

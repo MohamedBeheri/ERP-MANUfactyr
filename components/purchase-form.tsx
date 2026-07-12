@@ -3,15 +3,23 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+interface WarehouseOption {
+  id: string
+  name: string
+  isDefault: boolean
+}
+
 interface Props {
   products: { id: string; name: string; unit: string }[]
   suppliers: { id: string; name: string }[]
+  warehouses?: WarehouseOption[]
 }
 
-export function PurchaseForm({ products, suppliers }: Props) {
+export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [supplierId, setSupplierId] = useState('')
+  const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ productId: '', quantity: '', unitPrice: '' }])
   const [error, setError] = useState('')
@@ -32,7 +40,7 @@ export function PurchaseForm({ products, suppliers }: Props) {
     const res = await fetch('/api/purchases', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ supplierId, items: validItems, notes }),
+      body: JSON.stringify({ supplierId, items: validItems, notes, warehouseId }),
     })
     const data = await res.json()
     setLoading(false)
@@ -58,6 +66,12 @@ export function PurchaseForm({ products, suppliers }: Props) {
         <option value="">اختار المورد</option>
         {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
       </select>
+      {warehouses.length > 1 && (
+        <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]">
+          {warehouses.map((w) => <option key={w.id} value={w.id}>التوريد لمخزن: {w.name}</option>)}
+        </select>
+      )}
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-gray-700">الأصناف</label>
         {items.map((item, i) => (

@@ -1,0 +1,57 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { requireRole } from '@/lib/api-auth'
+
+const WRITE_ROLES = ['ADMIN', 'WAREHOUSE'] as const
+
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireRole([...WRITE_ROLES])
+  if ('response' in auth) return auth.response
+
+  try {
+    const body = await req.json()
+    const { name, type, categoryId, costPrice, sellPrice, wholesalePrice, minStock, unit } = body
+
+    if (!name?.trim()) {
+      return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
+    }
+
+    const product = await prisma.product.update({
+      where: { id: params.id },
+      data: {
+        name: name.trim(),
+        type: type === 'RAW' ? 'RAW' : 'FINISHED',
+        categoryId: categoryId || null,
+        costPrice: Number(costPrice) || 0,
+        sellPrice: Number(sellPrice) || 0,
+        wholesalePrice: Number(wholesalePrice) || 0,
+        minStock: Number(minStock) || 0,
+        unit: unit || 'كجم',
+      },
+    })
+
+    return NextResponse.json(product)
+  } catch {
+    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireRole(['ADMIN'])
+  if ('response' in auth) return auth.response
+
+  try {
+    const product = await prisma.product.findUnique({ where: { id: params.id } })
+    if (product && product.quantity > 0) {
+      return NextResponse.json(
+        { error: 'مينفعش حذف صنف لسه فيه رصيد — اصرفه أو سوّيه بالجرد الأول' },
+        { status: 400 }
+      )
+    }
+    // حذف ناعم للحفاظ على الفواتير والحركات المرتبطة
+    await prisma.product.update({ where: { id: params.id }, data: { isActive: false } })
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
+  }
+}

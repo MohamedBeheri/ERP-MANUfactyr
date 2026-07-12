@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
+import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
 
 const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
@@ -36,9 +37,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { delegateId, items, notes } = body
+    const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
 
     if (!delegateId || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'delegateId and items are required' }, { status: 400 })
+      return NextResponse.json({ error: 'اختار المندوب وصنف واحد على الأقل' }, { status: 400 })
     }
 
     const products = await prisma.product.findMany({
@@ -47,9 +49,10 @@ export async function POST(req: NextRequest) {
 
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId)
-      if (!product || product.quantity < item.quantity) {
+      const stock = await getStock(warehouseId, item.productId)
+      if (!product || stock < item.quantity) {
         return NextResponse.json(
-          { error: `الكمية المتاحة من ${product?.name || item.productId} غير كافية` },
+          { error: `الكمية المتاحة من ${product?.name || item.productId} في المخزن ده غير كافية (المتاح: ${stock})` },
           { status: 400 }
         )
       }
@@ -77,9 +80,11 @@ export async function POST(req: NextRequest) {
         where: { id: item.productId },
         data: { quantity: { decrement: item.quantity } },
       })
+      await adjustStock(prisma, warehouseId, item.productId, -item.quantity)
       await prisma.warehouseOut.create({
         data: {
           productId: item.productId,
+          warehouseId,
           quantity: item.quantity,
           target: `مندوب: ${deliveryOrder.delegate.name}`,
           reason: `تحميل عربية - أمر تسليم ${deliveryOrder.orderNo}`,
