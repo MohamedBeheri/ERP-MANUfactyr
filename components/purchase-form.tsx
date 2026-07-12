@@ -63,7 +63,7 @@ export function PurchaseForm({ products, suppliers }: Props) {
         {items.map((item, i) => (
           <div key={i} className="flex gap-2">
             <select value={item.productId} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, productId: e.target.value } : it))}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]">
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm">
               <option value="">الصنف</option>
               {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>

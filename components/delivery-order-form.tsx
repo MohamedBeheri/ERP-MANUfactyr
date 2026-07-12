@@ -92,7 +92,7 @@ export function DeliveryOrderForm({ delegates, products }: { delegates: Delegate
             <select
               value={row.productId}
               onChange={(e) => updateRow(index, 'productId', e.target.value)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
             >
               <option value="">اختار الصنف</option>
               {products.map((p) => (
@@ -107,10 +107,10 @@ export function DeliveryOrderForm({ delegates, products }: { delegates: Delegate
               placeholder="الكمية"
               value={row.quantity}
               onChange={(e) => updateRow(index, 'quantity', e.target.value)}
-              className="w-28 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
+              className="w-20 shrink-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
             />
             {rows.length > 1 && (
-              <button type="button" onClick={() => removeRow(index)} className="px-3 text-red-500">
+              <button type="button" onClick={() => removeRow(index)} className="shrink-0 px-2 text-red-500">
                 ✕
               </button>
             )}

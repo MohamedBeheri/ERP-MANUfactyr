@@ -121,7 +121,7 @@ export function ProductionForm({ rawProducts, finishedProducts }: Props) {
             <select
               value={item.productId}
               onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, productId: e.target.value } : it)))}
-              className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
+              className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
             >
               <option value="">اختار المنتج</option>
               {finishedProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
