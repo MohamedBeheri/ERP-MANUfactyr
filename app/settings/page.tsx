@@ -61,6 +61,7 @@ export default async function SettingsPage() {
           minStock: p.minStock,
           quantity: p.quantity,
           unit: p.unit,
+          imageUrl: p.imageUrl,
         }))}
         stages={stages.map((s) => ({ id: s.id, name: s.name, sortOrder: s.sortOrder }))}
         warehouses={warehouses.map((w) => ({

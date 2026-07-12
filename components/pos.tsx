@@ -23,7 +23,10 @@ interface Product {
   wholesalePrice: number
   quantity: number
   categoryId: string | null
+  imageUrl: string | null
 }
+
+const PAYMENT_METHODS = ['نقدي', 'فيزا', 'انستاباي', 'مختلط'] as const
 
 interface Customer {
   id: string
@@ -75,6 +78,7 @@ export function Pos({
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
   const [type, setType] = useState<'CASH' | 'CREDIT'>('CASH')
+  const [paymentMethod, setPaymentMethod] = useState<string>('نقدي')
   const [discount, setDiscount] = useState('0')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -82,6 +86,8 @@ export function Pos({
 
   const selectedCustomer = customers.find((c) => c.id === customerId)
   const isWholesale = showNewCustomer ? newCustomerType === 'WHOLESALE' : selectedCustomer?.customerType === 'WHOLESALE'
+  // العميل القطاعي مفيش آجل — دفع فوري بس
+  const effectiveType = isWholesale ? type : 'CASH'
 
   const priceOf = (p: Product) =>
     isWholesale && p.wholesalePrice > 0 ? p.wholesalePrice : p.sellPrice
@@ -180,7 +186,8 @@ export function Pos({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customerId: finalCustomerId,
-        type,
+        type: effectiveType,
+        paymentMethod: effectiveType === 'CASH' ? paymentMethod : 'آجل',
         discount: discountPct,
         warehouseId,
         items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity, unitPrice: c.unitPrice })),
@@ -276,13 +283,23 @@ export function Pos({
                 }`}
               >
                 {inCart && (
-                  <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-[#e94560] text-white text-xs font-bold flex items-center justify-center tabular-nums">
+                  <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-[#e94560] text-white text-xs font-bold flex items-center justify-center tabular-nums">
                     {inCart.quantity}
                   </span>
                 )}
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#1a1a2e] to-[#0f3460] flex items-center justify-center mb-2.5">
-                  <Coffee className="w-5 h-5 text-[#e9b44c]" strokeWidth={1.8} />
-                </div>
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="w-full h-24 object-contain rounded-lg bg-gray-50 mb-2.5"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-24 rounded-lg bg-gradient-to-br from-[#1a1a2e] to-[#0f3460] flex items-center justify-center mb-2.5">
+                    <Coffee className="w-8 h-8 text-[#e9b44c]" strokeWidth={1.5} />
+                  </div>
+                )}
                 <p className="font-semibold text-sm text-[#1a1a2e] leading-snug">{p.name}</p>
                 <p className="text-[#e94560] font-bold text-base mt-1 tabular-nums">
                   {fmt(price)} ج.م
@@ -423,26 +440,31 @@ export function Pos({
           )}
         </div>
 
-        {/* الدفع والخصم */}
+        {/* نظام الدفع والخصم */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-sm font-semibold text-gray-700 block mb-1">طريقة الدفع</label>
+            <label className="text-sm font-semibold text-gray-700 block mb-1">نظام الدفع</label>
             <div className="grid grid-cols-2 rounded-lg overflow-hidden border border-gray-200">
               <button
                 type="button"
                 onClick={() => setType('CASH')}
-                className={`py-2 text-sm font-semibold transition-colors ${type === 'CASH' ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                className={`py-2 text-sm font-semibold transition-colors ${effectiveType === 'CASH' ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
               >
-                نقدي
+                فوري
               </button>
               <button
                 type="button"
-                onClick={() => setType('CREDIT')}
-                className={`py-2 text-sm font-semibold transition-colors ${type === 'CREDIT' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                onClick={() => isWholesale && setType('CREDIT')}
+                disabled={!isWholesale}
+                title={!isWholesale ? 'الآجل لعملاء الجملة فقط' : undefined}
+                className={`py-2 text-sm font-semibold transition-colors ${effectiveType === 'CREDIT' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'} disabled:opacity-40 disabled:cursor-not-allowed`}
               >
                 آجل
               </button>
             </div>
+            {!isWholesale && (
+              <p className="text-[10px] text-gray-400 mt-1">الآجل لعملاء الجملة فقط</p>
+            )}
           </div>
           <div>
             <label className="text-sm font-semibold text-gray-700 block mb-1">الخصم %</label>
@@ -456,6 +478,29 @@ export function Pos({
             />
           </div>
         </div>
+
+        {/* طريقة الدفع (للدفع الفوري) */}
+        {effectiveType === 'CASH' && (
+          <div>
+            <label className="text-sm font-semibold text-gray-700 block mb-1">طريقة الدفع</label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {PAYMENT_METHODS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPaymentMethod(m)}
+                  className={`py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                    paymentMethod === m
+                      ? 'bg-[#1a1a2e] text-white border-[#1a1a2e]'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* الإجمالي */}
         <div className="bg-gray-50 rounded-lg p-4 space-y-1.5">

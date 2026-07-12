@@ -27,11 +27,22 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { customerId, items, discount, type, pointId } = body
+    const { customerId, items, discount, type, pointId, paymentMethod } = body
     const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
 
     if (!customerId || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'اختار عميل وأدخل صنف واحد على الأقل' }, { status: 400 })
+    }
+
+    // الآجل مسموح لعملاء الجملة فقط
+    if (type === 'CREDIT') {
+      const customer = await prisma.customer.findUnique({ where: { id: customerId } })
+      if (!customer || customer.customerType !== 'WHOLESALE') {
+        return NextResponse.json(
+          { error: 'البيع الآجل متاح لعملاء الجملة فقط — العميل القطاعي بيدفع فوري' },
+          { status: 400 }
+        )
+      }
     }
 
     // التحقق من رصيد المخزن المختار قبل البيع
@@ -61,6 +72,7 @@ export async function POST(req: NextRequest) {
           discount: discount || 0,
           netAmount,
           type,
+          paymentMethod: type === 'CREDIT' ? 'آجل' : paymentMethod || 'نقدي',
           pointId,
           createdById: session.user.id,
           items: {

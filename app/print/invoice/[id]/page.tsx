@@ -21,8 +21,10 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
       date={inv.createdAt}
       meta={[
         { label: 'العميل', value: inv.customer.name },
+        { label: 'نوع العميل', value: inv.customer.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي' },
         { label: 'تليفون', value: inv.customer.phone || '—' },
-        { label: 'نوع الدفع', value: inv.type === 'CASH' ? 'نقدي' : 'آجل' },
+        { label: 'نظام الدفع', value: inv.type === 'CASH' ? 'فوري' : 'آجل' },
+        { label: 'طريقة الدفع', value: inv.paymentMethod },
         ...(inv.delegate ? [{ label: 'المندوب', value: inv.delegate.name }] : []),
         { label: 'البائع', value: inv.creator.name },
       ]}

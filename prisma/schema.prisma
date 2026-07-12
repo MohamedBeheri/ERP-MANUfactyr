@@ -57,15 +57,16 @@ enum InvoiceStatus {
 
 // ============== USERS & AUTH ==============
 model User {
-  id        String     @id @default(cuid())
-  name      String
-  username  String     @unique
-  password  String // hashed with bcrypt
-  role      Role       @default(SALES)
-  status    UserStatus @default(ACTIVE)
-  lastLogin DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String     @id @default(cuid())
+  name        String
+  username    String     @unique
+  password    String // hashed with bcrypt
+  role        Role       @default(SALES)
+  permissions String[]   @default([]) // صلاحيات إضافية (أقسام النظام المسموح بها)
+  status      UserStatus @default(ACTIVE)
+  lastLogin   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   // Relations
   auditLogs      AuditLog[]
@@ -144,6 +145,7 @@ model Product {
   minStock       Int         @default(0) // الحد الأدنى
   quantity       Int         @default(0) // الكمية الإجمالية (كل المخازن)
   unit           String      @default("كجم") // وحدة القياس
+  imageUrl       String? // صورة المنتج (رابط أو data URL)
   isActive       Boolean     @default(true)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -331,6 +333,7 @@ model Invoice {
   discount        Decimal       @default(0) @db.Decimal(5, 2) // نسبة الخصم
   netAmount       Decimal       @db.Decimal(12, 2)
   type            PaymentType
+  paymentMethod   String        @default("نقدي") // نقدي / فيزا / انستاباي / مختلط
   pointId         String?
   delegateId      String? // لو الفاتورة اتعملت أثناء جولة توزيع مندوب
   deliveryOrderId String? // الجولة المرتبطة

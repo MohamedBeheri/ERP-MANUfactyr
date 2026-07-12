@@ -39,6 +39,29 @@ interface ProductRow {
   minStock: number
   quantity: number
   unit: string
+  imageUrl: string | null
+}
+
+// تحويل صورة مرفوعة لـ data URL مضغوط عشان تتخزن في قاعدة البيانات
+function fileToDataUrl(file: File, maxSize = 400): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    const reader = new FileReader()
+    reader.onload = () => {
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/webp', 0.8))
+      }
+      img.onerror = reject
+      img.src = reader.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 }
 interface StageRow {
   id: string
@@ -114,7 +137,7 @@ export function SettingsManager({ suppliers, categories, products, stages, wareh
 /* ================= الأصناف ================= */
 function ProductsTab({ products, categories }: { products: ProductRow[]; categories: CategoryRow[] }) {
   const router = useRouter()
-  const empty = { name: '', type: 'FINISHED', categoryId: '', costPrice: '', sellPrice: '', wholesalePrice: '', minStock: '0', unit: 'كجم' }
+  const empty = { name: '', type: 'FINISHED', categoryId: '', costPrice: '', sellPrice: '', wholesalePrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
   const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -131,8 +154,19 @@ function ProductsTab({ products, categories }: { products: ProductRow[]; categor
       wholesalePrice: String(p.wholesalePrice),
       minStock: String(p.minStock),
       unit: p.unit,
+      imageUrl: p.imageUrl || '',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleImage = async (file?: File) => {
+    if (!file) return
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      setForm((f: any) => ({ ...f, imageUrl: dataUrl }))
+    } catch {
+      setError('فشل تحميل الصورة — جرّب صورة تانية')
+    }
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -207,6 +241,34 @@ function ProductsTab({ products, categories }: { products: ProductRow[]; categor
             <input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inputCls} />
           </div>
         </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">صورة المنتج (هتظهر في نقطة البيع)</label>
+          <div className="flex items-center gap-3">
+            {form.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.imageUrl} alt="معاينة" className="w-16 h-16 object-contain rounded-lg border border-gray-200 bg-gray-50" />
+            ) : (
+              <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-300 text-xs">
+                بدون
+              </div>
+            )}
+            <div className="flex-1 space-y-1.5">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImage(e.target.files?.[0])}
+                className="block w-full text-xs text-gray-500 file:ml-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-[#0f3460] file:text-white file:text-xs file:font-semibold file:cursor-pointer"
+              />
+              {form.imageUrl && (
+                <button type="button" onClick={() => setForm({ ...form, imageUrl: '' })} className="text-xs text-red-500 hover:underline">
+                  حذف الصورة
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <button type="submit" disabled={loading} className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] disabled:opacity-50 text-sm">
             {loading ? 'جاري الحفظ...' : editId ? 'حفظ التعديلات' : 'إضافة الصنف'}
@@ -237,7 +299,15 @@ function ProductsTab({ products, categories }: { products: ProductRow[]; categor
             <tbody>
               {products.map((p) => (
                 <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                  <td className="p-3 font-semibold">{p.name}</td>
+                  <td className="p-3 font-semibold">
+                    <div className="flex items-center gap-2">
+                      {p.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.imageUrl} alt="" className="w-8 h-8 object-contain rounded bg-gray-50 shrink-0" />
+                      )}
+                      {p.name}
+                    </div>
+                  </td>
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${p.type === 'RAW' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
                       {p.type === 'RAW' ? 'خام' : 'نهائي'}

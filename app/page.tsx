@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation'
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('ADMIN')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -21,7 +20,6 @@ export default function LoginPage() {
     const result = await signIn('credentials', {
       username,
       password,
-      role,
       redirect: false,
     })
 
@@ -68,21 +66,6 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">الدور الوظيفي</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
-            >
-              <option value="ADMIN">مدير النظام</option>
-              <option value="FACTORY">مدير المصنع</option>
-              <option value="WAREHOUSE">مدير المخزن</option>
-              <option value="SALES">مدير المبيعات</option>
-              <option value="ACCOUNTANT">محاسب</option>
-            </select>
           </div>
 
           <button

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ExportButtons } from '@/components/export-buttons'
+import { UserManager } from '@/components/user-manager'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,24 +19,9 @@ export default async function GovernancePage() {
     }),
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, username: true, role: true, status: true, lastLogin: true, createdAt: true },
+      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true },
     }),
   ])
-
-  const ROLE_LABEL: Record<string, string> = {
-    ADMIN: 'مدير النظام',
-    FACTORY: 'مدير المصنع',
-    WAREHOUSE: 'مدير المخزن',
-    SALES: 'مدير المبيعات',
-    ACCOUNTANT: 'محاسب',
-    DELEGATE: 'مندوب',
-  }
-
-  const STATUS_LABEL: Record<string, string> = {
-    ACTIVE: 'نشط',
-    INACTIVE: 'غير نشط',
-    SUSPENDED: 'موقوف',
-  }
 
   const auditRows = auditLogs.map((log) => [
     log.action,
@@ -56,42 +42,19 @@ export default async function GovernancePage() {
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <h3 className="text-lg font-bold text-[#1a1a2e] p-6 pb-3">المستخدمين</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-gray-500 text-right border-b border-gray-100">
-                <th className="p-3">الاسم</th>
-                <th className="p-3">اسم المستخدم</th>
-                <th className="p-3">الدور</th>
-                <th className="p-3">الحالة</th>
-                <th className="p-3">آخر دخول</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                  <td className="p-3 font-semibold">{u.name}</td>
-                  <td className="p-3 text-gray-500">{u.username}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-600">
-                      {ROLE_LABEL[u.role] || u.role}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${u.status === 'ACTIVE' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                      {STATUS_LABEL[u.status] || u.status}
-                    </span>
-                  </td>
-                  <td className="p-3 text-gray-400">
-                    {u.lastLogin ? new Date(u.lastLogin).toLocaleString('ar-EG') : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="no-print">
+        <UserManager
+          users={users.map((u) => ({
+            id: u.id,
+            name: u.name,
+            username: u.username,
+            role: u.role,
+            permissions: u.permissions,
+            status: u.status,
+            lastLogin: u.lastLogin ? u.lastLogin.toISOString() : null,
+          }))}
+          currentUserId={session.user.id}
+        />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">

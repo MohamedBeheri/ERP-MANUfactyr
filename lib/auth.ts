@@ -14,7 +14,6 @@ export const authOptions: AuthOptions = {
       credentials: {
         username: { label: 'Username', type: 'text' },
         password: { label: 'Password', type: 'password' },
-        role: { label: 'Role', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
@@ -27,10 +26,10 @@ export const authOptions: AuthOptions = {
           throw new Error('محاولات دخول كتيرة غلط، حاول تاني بعد شوية')
         }
 
+        // الدور والصلاحيات بيتحددوا من حساب المستخدم نفسه — مش من الفورم
         const user = await prisma.user.findFirst({
           where: {
             username: credentials.username,
-            role: credentials.role as any,
             status: 'ACTIVE',
           },
         })
@@ -56,7 +55,8 @@ export const authOptions: AuthOptions = {
           name: user.name,
           username: user.username,
           role: user.role,
-        }
+          permissions: user.permissions,
+        } as any
       },
     }),
   ],
@@ -69,6 +69,7 @@ export const authOptions: AuthOptions = {
         token.id = user.id
         token.role = user.role
         token.username = user.username
+        token.permissions = (user as any).permissions || []
       }
       return token
     },
@@ -77,6 +78,7 @@ export const authOptions: AuthOptions = {
         session.user.id = token.id
         session.user.role = token.role
         session.user.username = token.username
+        ;(session.user as any).permissions = (token as any).permissions || []
       }
       return session
     },

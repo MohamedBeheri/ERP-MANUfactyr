@@ -50,6 +50,7 @@ export default async function SalesPage() {
           wholesalePrice: Number(p.wholesalePrice),
           quantity: p.quantity,
           categoryId: p.categoryId,
+          imageUrl: p.imageUrl,
         }))}
         customers={customers.map((c) => ({ id: c.id, name: c.name, customerType: c.customerType }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
@@ -94,7 +95,7 @@ export default async function SalesPage() {
                   <td className="p-3 font-bold tabular-nums">{Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</td>
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${inv.type === 'CASH' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-700'}`}>
-                      {inv.type === 'CASH' ? 'نقدي' : 'آجل'}
+                      {inv.type === 'CASH' ? inv.paymentMethod : 'آجل'}
                     </span>
                   </td>
                   <td className="p-3 text-gray-400 text-xs tabular-nums">{new Date(inv.createdAt).toLocaleDateString('ar-EG')}</td>

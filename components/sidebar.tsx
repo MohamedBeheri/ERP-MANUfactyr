@@ -10,27 +10,30 @@ import {
   Warehouse,
   ShoppingCart,
   Truck,
+  Car,
   Wallet,
   ShieldCheck,
   Settings,
   LogOut,
 } from 'lucide-react'
+import { effectivePermissions } from '@/lib/permissions'
 
 const menuItems = [
-  { href: '/dashboard', label: 'لوحة التحكم', Icon: LayoutDashboard, roles: ['ADMIN', 'FACTORY', 'WAREHOUSE', 'SALES', 'ACCOUNTANT'] },
-  { href: '/factory', label: 'المصنع', Icon: Factory, roles: ['ADMIN', 'FACTORY'] },
-  { href: '/warehouse', label: 'المخزن', Icon: Warehouse, roles: ['ADMIN', 'WAREHOUSE'] },
-  { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, roles: ['ADMIN', 'SALES'] },
-  { href: '/delegates', label: 'المندوبين', Icon: Truck, roles: ['ADMIN', 'SALES'] },
-  { href: '/finance', label: 'التقارير', Icon: Wallet, roles: ['ADMIN', 'ACCOUNTANT'] },
-  { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, roles: ['ADMIN'] },
-  { href: '/settings', label: 'الإعدادات', Icon: Settings, roles: ['ADMIN'] },
+  { href: '/dashboard', label: 'لوحة التحكم', Icon: LayoutDashboard, perm: null },
+  { href: '/factory', label: 'المصنع', Icon: Factory, perm: 'factory' },
+  { href: '/warehouse', label: 'المخزن', Icon: Warehouse, perm: 'warehouse' },
+  { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, perm: 'sales' },
+  { href: '/delegates', label: 'المندوبين', Icon: Truck, perm: 'delegates' },
+  { href: '/drivers', label: 'السائقين', Icon: Car, perm: 'drivers' },
+  { href: '/finance', label: 'التقارير', Icon: Wallet, perm: 'finance' },
+  { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, perm: 'governance' },
+  { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },
 ]
 
 export function Sidebar({ user }: { user: any }) {
   const pathname = usePathname()
-  const userRole = user?.role as string
-  const filteredMenu = menuItems.filter(item => item.roles.includes(userRole))
+  const allowed = effectivePermissions(user?.role, user?.permissions)
+  const filteredMenu = menuItems.filter((item) => !item.perm || allowed.includes(item.perm))
 
   return (
     <aside className="no-print fixed right-0 top-0 bottom-0 w-64 bg-[#1a1a2e] text-white overflow-y-auto z-50">
