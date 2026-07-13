@@ -151,11 +151,13 @@ model Product {
   updatedAt      DateTime    @updatedAt
 
   // Relations
-  category         Category?        @relation(fields: [categoryId], references: [id])
+  category         Category?         @relation(fields: [categoryId], references: [id])
   stocks           ProductStock[]
   purchaseItems    PurchaseItem[]
   productionItems  ProductionItem[]
-  productionsAsRaw Production[]     @relation("ProductionRawProduct")
+  productionInputs ProductionInput[] @relation("ProductionInputProduct")
+  recipeItems      RecipeItem[]      @relation("RecipeItemProduct")
+  productionsAsRaw Production[]      @relation("ProductionRawProduct")
   invoiceItems     InvoiceItem[]
   deliveryItems    DeliveryItem[]
   warehouseIns     WarehouseIn[]
@@ -220,9 +222,20 @@ model PurchaseItem {
 model Production {
   id           String      @id @default(cuid())
   orderNo      String      @unique
-  rawProductId String? // الخامة المستخدمة (نوع البن الأخضر)
-  rawUsed      Int // كمية الخام المستخدم (كجم)
-  stage        String      @default("تحميص وطحن") // مرحلة التصنيع: تحميص / طحن / تعبئة
+  lineType     String      @default("ROASTING") // ROASTING (خط التحميص من البن الأخضر) / PROCESSING (خط الخلط والطحن والتعبئة)
+  stage        String      @default("تحميص") // اسم المرحلة
+  batchNo      String? // رقم التشغيلة/اللوط (Lot/Batch)
+  roastLevel   String? // درجة التحميص: فاتح / وسط / غامق
+  grindType    String? // درجة الطحن: ناعم جداً / ناعم / متوسط / خشن
+  inputWeight  Int         @default(0) // إجمالي وزن المدخلات (جرام)
+  outputWeight Int         @default(0) // إجمالي وزن المخرجات (جرام)
+  wasteWeight  Int         @default(0) // الهدر (جرام)
+  wastePercent Decimal     @default(0) @db.Decimal(5, 2) // نسبة الهدر %
+  expiryDate   DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
+  recipeId     String? // الوصفة المستخدمة (BOM)
+  // حقول قديمة للتوافق مع البيانات السابقة
+  rawProductId String?
+  rawUsed      Int         @default(0)
   opCost       Decimal     @default(0) @db.Decimal(10, 2) // تكلفة التشغيل
   notes        String?
   status       OrderStatus @default(COMPLETED)
@@ -230,11 +243,27 @@ model Production {
   createdById  String
 
   // Relations
-  rawProduct Product?         @relation("ProductionRawProduct", fields: [rawProductId], references: [id])
+  rawProduct Product?          @relation("ProductionRawProduct", fields: [rawProductId], references: [id])
+  recipe     Recipe?           @relation(fields: [recipeId], references: [id])
+  inputs     ProductionInput[]
   items      ProductionItem[]
-  creator    User             @relation(fields: [createdById], references: [id])
+  creator    User              @relation(fields: [createdById], references: [id])
 
   @@map("productions")
+}
+
+// مدخلات أمر التصنيع (خامات متعددة — للخلطات BOM)
+model ProductionInput {
+  id           String  @id @default(cuid())
+  productionId String
+  productId    String
+  quantity     Int // الكمية المستخدمة (جرام)
+  percentage   Decimal @default(0) @db.Decimal(5, 2) // النسبة في الخلطة %
+
+  production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  product    Product    @relation("ProductionInputProduct", fields: [productId], references: [id])
+
+  @@map("production_inputs")
 }
 
 model ProductionItem {
@@ -248,6 +277,37 @@ model ProductionItem {
   product    Product    @relation(fields: [productId], references: [id])
 
   @@map("production_items")
+}
+
+// ============== RECIPES / BOM (الوصفات وقوائم المواد) ==============
+model Recipe {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  lineType      String   @default("PROCESSING") // الخط اللي بتنتمي له الوصفة
+  outputName    String? // اسم المنتج النهائي المتوقع
+  roastLevel    String?
+  grindType     String?
+  expectedWaste Decimal  @default(0) @db.Decimal(5, 2) // نسبة الهدر المتوقعة %
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  items       RecipeItem[]
+  productions Production[]
+
+  @@map("recipes")
+}
+
+model RecipeItem {
+  id         String  @id @default(cuid())
+  recipeId   String
+  productId  String
+  percentage Decimal @db.Decimal(5, 2) // نسبة الخامة في الوصفة %
+
+  recipe  Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  product Product @relation("RecipeItemProduct", fields: [productId], references: [id])
+
+  @@map("recipe_items")
 }
 
 // ============== WAREHOUSE (المخزن) ==============
