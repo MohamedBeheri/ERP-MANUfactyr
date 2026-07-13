@@ -2,19 +2,28 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Factory, Flame, Blend, Plus, X, TriangleAlert, BookMarked } from 'lucide-react'
+import { Factory, Plus, X, TriangleAlert, BookMarked } from 'lucide-react'
 
 interface ProductLite {
   id: string
   name: string
   quantity: number
   unit: string
-  type: string
+  stageId: string | null
 }
 interface WarehouseOption {
   id: string
   name: string
   isDefault: boolean
+}
+interface OperationLite {
+  id: string
+  name: string
+  inputStageId: string | null
+  outputStageId: string | null
+  inputStageName: string | null
+  outputStageName: string | null
+  hasYieldLoss: boolean
 }
 interface RecipeLite {
   id: string
@@ -28,7 +37,7 @@ interface RecipeLite {
 
 interface Props {
   products: ProductLite[]
-  stages?: string[]
+  operations: OperationLite[]
   warehouses?: WarehouseOption[]
   recipes?: RecipeLite[]
 }
@@ -46,11 +55,10 @@ const inputCls =
 
 const num = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 
-export function ProductionForm({ products, stages = [], warehouses = [], recipes = [] }: Props) {
+export function ProductionForm({ products, operations, warehouses = [], recipes = [] }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [line, setLine] = useState<'ROASTING' | 'PROCESSING'>('ROASTING')
-  const [stage, setStage] = useState('')
+  const [operationId, setOperationId] = useState(operations[0]?.id || '')
   const [batchNo, setBatchNo] = useState('')
   const [roastLevel, setRoastLevel] = useState(ROAST_LEVELS[1])
   const [grindType, setGrindType] = useState(GRIND_TYPES[1])
@@ -64,22 +72,29 @@ export function ProductionForm({ products, stages = [], warehouses = [], recipes
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const rawProducts = products.filter((p) => p.type === 'RAW')
-  const stageOptions = stages.length > 0 ? stages : line === 'ROASTING' ? ['تحميص'] : ['خلط', 'طحن', 'تعبئة', 'خلط وطحن وتعبئة']
-  const lineRecipes = recipes.filter((r) => r.lineType === line)
-
-  // حسابات الوزن والهدر (Yield Loss)
-  const inputWeight = inputs.reduce((s, i) => s + (Number(i.quantity) || 0), 0)
-  const outputWeight = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)
-  const wasteWeight = Math.max(0, inputWeight - outputWeight)
-  const wastePercent = inputWeight > 0 ? (wasteWeight / inputWeight) * 100 : 0
-  const roastWasteWarn = line === 'ROASTING' && outputWeight > 0 && (wastePercent < 10 || wastePercent > 22)
-
-  const availableStock = useMemo(() => {
+  const operation = operations.find((o) => o.id === operationId)
+  const inputProducts = useMemo(
+    () => products.filter((p) => !operation?.inputStageId || p.stageId === operation.inputStageId),
+    [products, operation]
+  )
+  const outputProducts = useMemo(
+    () => products.filter((p) => !operation?.outputStageId || p.stageId === operation.outputStageId),
+    [products, operation]
+  )
+  const stockMap = useMemo(() => {
     const m = new Map<string, ProductLite>()
     products.forEach((p) => m.set(p.id, p))
     return m
   }, [products])
+
+  const lineRecipes = recipes.filter((r) => (operation?.hasYieldLoss ? r.lineType === 'ROASTING' : r.lineType === 'PROCESSING'))
+
+  // حسابات الوزن والهدر
+  const inputWeight = inputs.reduce((s, i) => s + (Number(i.quantity) || 0), 0)
+  const outputWeight = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)
+  const wasteWeight = Math.max(0, inputWeight - outputWeight)
+  const wastePercent = inputWeight > 0 ? (wasteWeight / inputWeight) * 100 : 0
+  const roastWasteWarn = operation?.hasYieldLoss && outputWeight > 0 && (wastePercent < 10 || wastePercent > 22)
 
   const applyRecipe = (id: string) => {
     setRecipeId(id)
@@ -87,11 +102,9 @@ export function ProductionForm({ products, stages = [], warehouses = [], recipes
     if (!r) return
     if (r.roastLevel) setRoastLevel(r.roastLevel)
     if (r.grindType) setGrindType(r.grindType)
-    // نملأ الخامات بنِسبها — والمستخدم يدخل الوزن الإجمالي فيتوزّع
     setInputs(r.items.map((it) => ({ productId: it.productId, quantity: '' })))
   }
 
-  // لو فيه وصفة متطبّقة، توزيع وزن إجمالي على النسب
   const distributeByRecipe = (totalWeight: string) => {
     const r = lineRecipes.find((x) => x.id === recipeId)
     if (!r) return
@@ -99,14 +112,22 @@ export function ProductionForm({ products, stages = [], warehouses = [], recipes
     setInputs(r.items.map((it) => ({ productId: it.productId, quantity: String(Math.round((total * it.percentage) / 100)) })))
   }
 
+  const changeOperation = (id: string) => {
+    setOperationId(id)
+    setRecipeId('')
+    setInputs([{ productId: '', quantity: '' }])
+    setItems([{ productId: '', quantity: '' }])
+  }
+
   const reset = () => {
-    setLine('ROASTING'); setStage(''); setBatchNo(''); setExpiryDate(''); setRecipeId('')
+    setBatchNo(''); setExpiryDate(''); setRecipeId('')
     setOpCost(''); setNotes(''); setInputs([{ productId: '', quantity: '' }]); setItems([{ productId: '', quantity: '' }])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!operation) { setError('اختار عملية التصنيع'); return }
     const cleanInputs = inputs.filter((i) => i.productId && Number(i.quantity) > 0)
     const cleanItems = items.filter((i) => i.productId && Number(i.quantity) > 0)
     if (cleanInputs.length === 0 || cleanItems.length === 0) {
@@ -118,11 +139,11 @@ export function ProductionForm({ products, stages = [], warehouses = [], recipes
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        lineType: line,
-        stage: stage || stageOptions[0],
+        operationId: operation.id,
+        stage: operation.name,
         batchNo,
-        roastLevel: line === 'ROASTING' ? roastLevel : undefined,
-        grindType: line === 'PROCESSING' ? grindType : undefined,
+        roastLevel: operation.hasYieldLoss ? roastLevel : undefined,
+        grindType: !operation.hasYieldLoss ? grindType : undefined,
         expiryDate: expiryDate || undefined,
         recipeId: recipeId || undefined,
         warehouseId,
@@ -164,215 +185,204 @@ export function ProductionForm({ products, stages = [], warehouses = [], recipes
         </button>
       </div>
 
-      {/* اختيار خط الإنتاج */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => { setLine('ROASTING'); setRecipeId(''); setStage('') }}
-          className={`flex items-center gap-2 justify-center py-3 rounded-lg border-2 text-sm font-semibold transition-colors ${
-            line === 'ROASTING' ? 'border-[#e94560] bg-[#e94560]/5 text-[#e94560]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          <Flame className="w-4 h-4" />
-          خط التحميص
-        </button>
-        <button
-          type="button"
-          onClick={() => { setLine('PROCESSING'); setRecipeId(''); setStage('') }}
-          className={`flex items-center gap-2 justify-center py-3 rounded-lg border-2 text-sm font-semibold transition-colors ${
-            line === 'PROCESSING' ? 'border-[#0f3460] bg-[#0f3460]/5 text-[#0f3460]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          <Blend className="w-4 h-4" />
-          خلط وطحن وتعبئة
-        </button>
-      </div>
-      <p className="text-xs text-gray-400 -mt-2">
-        {line === 'ROASTING'
-          ? 'من البن الأخضر الخام → بن محمّص. البن بيفقد 15-20% من وزنه أثناء التحميص.'
-          : 'من البن المحمّص → خلطة (BOM) → طحن → تعبئة كمنتج نهائي.'}
-      </p>
-
-      {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
-
-      {/* الوصفة (للخط الثاني) */}
-      {line === 'PROCESSING' && lineRecipes.length > 0 && (
-        <div>
-          <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1">
-            <BookMarked className="w-4 h-4 text-[#0f3460]" /> تحميل وصفة جاهزة (BOM)
-          </label>
-          <select value={recipeId} onChange={(e) => applyRecipe(e.target.value)} className={inputCls}>
-            <option value="">بدون وصفة — إدخال يدوي</option>
-            {lineRecipes.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-          {recipeId && (
-            <div className="mt-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">الوزن الإجمالي للخلطة (جرام) — هيتوزّع على النسب</label>
-              <input type="number" min="0" onChange={(e) => distributeByRecipe(e.target.value)} className={inputCls} placeholder="مثال: 10000" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* المدخلات */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-gray-700">
-          {line === 'ROASTING' ? 'البن الأخضر (الخامة)' : 'خامات الخلطة (البن المحمّص)'}
-        </label>
-        {inputs.map((inp, i) => {
-          const stock = availableStock.get(inp.productId)
-          const pct = inputWeight > 0 ? ((Number(inp.quantity) || 0) / inputWeight) * 100 : 0
-          const options = line === 'ROASTING' ? rawProducts : products
-          return (
-            <div key={i} className="flex gap-2 items-center">
-              <select
-                value={inp.productId}
-                onChange={(e) => setInputs(inputs.map((it, j) => (j === i ? { ...it, productId: e.target.value } : it)))}
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
-              >
-                <option value="">اختار الخامة</option>
-                {options.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} (متاح: {num(p.quantity)} {p.unit})</option>
-                ))}
-              </select>
-              <input
-                type="number" min="0" placeholder="وزن"
-                value={inp.quantity}
-                onChange={(e) => setInputs(inputs.map((it, j) => (j === i ? { ...it, quantity: e.target.value } : it)))}
-                className="w-20 shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
-              />
-              {inputWeight > 0 && inp.quantity && (
-                <span className="text-[10px] text-gray-400 w-9 shrink-0 tabular-nums">{pct.toFixed(0)}%</span>
-              )}
-              {inputs.length > 1 && (
-                <button type="button" onClick={() => setInputs(inputs.filter((_, j) => j !== i))} className="shrink-0 text-red-500" aria-label="حذف">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          )
-        })}
-        <button type="button" onClick={() => setInputs([...inputs, { productId: '', quantity: '' }])} className="flex items-center gap-1 text-sm text-[#0f3460] font-medium">
-          <Plus className="w-4 h-4" /> إضافة خامة للخلطة
-        </button>
-      </div>
-
-      {/* درجة التحميص / الطحن */}
-      {line === 'ROASTING' ? (
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">درجة التحميص</label>
-          <select value={roastLevel} onChange={(e) => setRoastLevel(e.target.value)} className={inputCls}>
-            {ROAST_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+      {operations.length === 0 ? (
+        <div className="bg-amber-50 text-amber-700 p-3 rounded-lg text-sm">
+          مفيش عمليات تصنيع معرّفة. روح للإعدادات ← عمليات التصنيع وعرّف عملياتك (تحميص، طحن، تعبئة).
         </div>
       ) : (
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">درجة الطحن</label>
-          <select value={grindType} onChange={(e) => setGrindType(e.target.value)} className={inputCls}>
-            {GRIND_TYPES.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
-        </div>
-      )}
-
-      {/* المخرجات */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-gray-700">
-          {line === 'ROASTING' ? 'الناتج (بن محمّص)' : 'الناتج (عبوات نهائية)'}
-        </label>
-        {items.map((item, i) => (
-          <div key={i} className="flex gap-2">
-            <select
-              value={item.productId}
-              onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, productId: e.target.value } : it)))}
-              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
-            >
-              <option value="">اختار المنتج الناتج</option>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        <>
+          {/* اختيار العملية */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">عملية التصنيع</label>
+            <select value={operationId} onChange={(e) => changeOperation(e.target.value)} className={inputCls}>
+              {operations.map((op) => (
+                <option key={op.id} value={op.id}>{op.name}</option>
+              ))}
             </select>
-            <input
-              type="number" min="0" placeholder="وزن/عدد"
-              value={item.quantity}
-              onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, quantity: e.target.value } : it)))}
-              className="w-24 shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
-            />
-            {items.length > 1 && (
-              <button type="button" onClick={() => setItems(items.filter((_, j) => j !== i))} className="shrink-0 text-red-500" aria-label="حذف">
-                <X className="w-4 h-4" />
-              </button>
+            {operation && (
+              <p className="text-xs text-gray-500 mt-1">
+                تسحب من <span className="font-semibold text-gray-700">{operation.inputStageName || '؟'}</span>
+                {' '}← تنتج في <span className="font-semibold text-green-700">{operation.outputStageName || '؟'}</span>
+                {operation.hasYieldLoss && ' · فيها هدر'}
+              </p>
             )}
           </div>
-        ))}
-        <button type="button" onClick={() => setItems([...items, { productId: '', quantity: '' }])} className="flex items-center gap-1 text-sm text-[#0f3460] font-medium">
-          <Plus className="w-4 h-4" /> إضافة منتج ناتج
-        </button>
-      </div>
 
-      {/* ملخص الوزن والهدر */}
-      {inputWeight > 0 && (
-        <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-3 gap-2 text-center">
-          <div>
-            <p className="text-sm font-bold text-[#1a1a2e] tabular-nums">{num(inputWeight)}</p>
-            <p className="text-[11px] text-gray-500">المدخل</p>
+          {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+
+          {/* الوصفة */}
+          {lineRecipes.length > 0 && (
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1">
+                <BookMarked className="w-4 h-4 text-[#0f3460]" /> تحميل وصفة جاهزة (BOM)
+              </label>
+              <select value={recipeId} onChange={(e) => applyRecipe(e.target.value)} className={inputCls}>
+                <option value="">بدون وصفة — إدخال يدوي</option>
+                {lineRecipes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+              {recipeId && (
+                <div className="mt-2">
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">الوزن الإجمالي للخلطة — هيتوزّع على النسب</label>
+                  <input type="number" min="0" onChange={(e) => distributeByRecipe(e.target.value)} className={inputCls} placeholder="مثال: 10000" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* المدخلات */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">
+              المدخلات {operation?.inputStageName ? `(${operation.inputStageName})` : ''}
+            </label>
+            {inputProducts.length === 0 && (
+              <p className="text-xs text-amber-600">مفيش أصناف في مرحلة السحب دي — ضيف أصناف على المرحلة من الإعدادات.</p>
+            )}
+            {inputs.map((inp, i) => {
+              const pct = inputWeight > 0 ? ((Number(inp.quantity) || 0) / inputWeight) * 100 : 0
+              return (
+                <div key={i} className="flex gap-2 items-center">
+                  <select
+                    value={inp.productId}
+                    onChange={(e) => setInputs(inputs.map((it, j) => (j === i ? { ...it, productId: e.target.value } : it)))}
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+                  >
+                    <option value="">اختار الخامة</option>
+                    {inputProducts.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} (متاح: {num(p.quantity)} {p.unit})</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number" min="0" placeholder="وزن"
+                    value={inp.quantity}
+                    onChange={(e) => setInputs(inputs.map((it, j) => (j === i ? { ...it, quantity: e.target.value } : it)))}
+                    className="w-20 shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
+                  />
+                  {inputWeight > 0 && inp.quantity && (
+                    <span className="text-[10px] text-gray-400 w-9 shrink-0 tabular-nums">{pct.toFixed(0)}%</span>
+                  )}
+                  {inputs.length > 1 && (
+                    <button type="button" onClick={() => setInputs(inputs.filter((_, j) => j !== i))} className="shrink-0 text-red-500" aria-label="حذف">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+            <button type="button" onClick={() => setInputs([...inputs, { productId: '', quantity: '' }])} className="flex items-center gap-1 text-sm text-[#0f3460] font-medium">
+              <Plus className="w-4 h-4" /> إضافة خامة للخلطة
+            </button>
           </div>
-          <div>
-            <p className="text-sm font-bold text-green-700 tabular-nums">{num(outputWeight)}</p>
-            <p className="text-[11px] text-gray-500">الناتج</p>
+
+          {/* درجة التحميص / الطحن حسب العملية */}
+          {operation?.hasYieldLoss ? (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">درجة التحميص</label>
+              <select value={roastLevel} onChange={(e) => setRoastLevel(e.target.value)} className={inputCls}>
+                {ROAST_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">درجة الطحن</label>
+              <select value={grindType} onChange={(e) => setGrindType(e.target.value)} className={inputCls}>
+                {GRIND_TYPES.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* المخرجات */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">
+              المخرجات {operation?.outputStageName ? `(${operation.outputStageName})` : ''}
+            </label>
+            {items.map((item, i) => (
+              <div key={i} className="flex gap-2">
+                <select
+                  value={item.productId}
+                  onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, productId: e.target.value } : it)))}
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+                >
+                  <option value="">اختار المنتج الناتج</option>
+                  {outputProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <input
+                  type="number" min="0" placeholder="وزن/عدد"
+                  value={item.quantity}
+                  onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, quantity: e.target.value } : it)))}
+                  className="w-24 shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
+                />
+                {items.length > 1 && (
+                  <button type="button" onClick={() => setItems(items.filter((_, j) => j !== i))} className="shrink-0 text-red-500" aria-label="حذف">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={() => setItems([...items, { productId: '', quantity: '' }])} className="flex items-center gap-1 text-sm text-[#0f3460] font-medium">
+              <Plus className="w-4 h-4" /> إضافة منتج ناتج
+            </button>
           </div>
-          <div>
-            <p className={`text-sm font-bold tabular-nums ${roastWasteWarn ? 'text-red-600' : 'text-orange-600'}`}>
-              {num(wasteWeight)} ({wastePercent.toFixed(1)}%)
-            </p>
-            <p className="text-[11px] text-gray-500">الهدر</p>
+
+          {/* ملخص الوزن والهدر */}
+          {inputWeight > 0 && (
+            <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-sm font-bold text-[#1a1a2e] tabular-nums">{num(inputWeight)}</p>
+                <p className="text-[11px] text-gray-500">المدخل</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-green-700 tabular-nums">{num(outputWeight)}</p>
+                <p className="text-[11px] text-gray-500">الناتج</p>
+              </div>
+              <div>
+                <p className={`text-sm font-bold tabular-nums ${roastWasteWarn ? 'text-red-600' : 'text-orange-600'}`}>
+                  {num(wasteWeight)} ({wastePercent.toFixed(1)}%)
+                </p>
+                <p className="text-[11px] text-gray-500">الهدر</p>
+              </div>
+            </div>
+          )}
+          {roastWasteWarn && (
+            <div className="flex items-center gap-2 bg-amber-50 text-amber-700 p-2.5 rounded-lg text-xs">
+              <TriangleAlert className="w-4 h-4 shrink-0" />
+              نسبة الهدر في التحميص غالبًا بين 15% و20% — راجع الأوزان.
+            </div>
+          )}
+
+          {/* التشغيلة والصلاحية والمخزن */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">رقم التشغيلة (Lot)</label>
+              <input value={batchNo} onChange={(e) => setBatchNo(e.target.value)} placeholder="اختياري" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">تاريخ الصلاحية</label>
+              <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">تكلفة التشغيل (ج.م)</label>
+              <input type="number" min="0" step="0.01" value={opCost} onChange={(e) => setOpCost(e.target.value)} className={inputCls} />
+            </div>
+            {warehouses.length > 1 && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">المخزن</label>
+                <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
+                  {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
-        </div>
+
+          <input placeholder="ملاحظات (اختياري)" value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls} />
+
+          <div className="flex gap-2">
+            <button type="submit" disabled={loading} className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] disabled:opacity-50">
+              {loading ? 'جاري التنفيذ...' : 'تنفيذ أمر التصنيع'}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">إلغاء</button>
+          </div>
+        </>
       )}
-      {roastWasteWarn && (
-        <div className="flex items-center gap-2 bg-amber-50 text-amber-700 p-2.5 rounded-lg text-xs">
-          <TriangleAlert className="w-4 h-4 shrink-0" />
-          نسبة الهدر في التحميص غالبًا بين 15% و20% — راجع الأوزان.
-        </div>
-      )}
-
-      {/* رقم التشغيلة والصلاحية والمخزن */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">رقم التشغيلة (Lot)</label>
-          <input value={batchNo} onChange={(e) => setBatchNo(e.target.value)} placeholder="اختياري" className={inputCls} />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">المرحلة</label>
-          <select value={stage} onChange={(e) => setStage(e.target.value)} className={inputCls}>
-            {stageOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">تاريخ الصلاحية</label>
-          <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">تكلفة التشغيل (ج.م)</label>
-          <input type="number" min="0" step="0.01" value={opCost} onChange={(e) => setOpCost(e.target.value)} className={inputCls} />
-        </div>
-        {warehouses.length > 1 && (
-          <div className="col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-1">المخزن</label>
-            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
-              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </div>
-        )}
-      </div>
-
-      <input placeholder="ملاحظات (اختياري)" value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls} />
-
-      <div className="flex gap-2">
-        <button type="submit" disabled={loading} className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] disabled:opacity-50">
-          {loading ? 'جاري التنفيذ...' : 'تنفيذ أمر التصنيع'}
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">إلغاء</button>
-      </div>
     </form>
   )
 }

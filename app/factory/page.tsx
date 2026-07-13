@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Printer, Flame, ShoppingBag, Blend, TrendingDown, Package2 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ensureStockStages } from '@/lib/stock-stages'
 import { ProductionForm } from '@/components/production-form'
 import { PurchaseForm } from '@/components/purchase-form'
 import { RecipeManager } from '@/components/recipe-manager'
@@ -16,7 +17,9 @@ export default async function FactoryPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [productions, purchases, products, suppliers, stages, warehouses, recipes] = await Promise.all([
+  await ensureStockStages()
+
+  const [productions, purchases, products, suppliers, operations, warehouses, recipes] = await Promise.all([
     prisma.production.findMany({
       include: {
         items: { include: { product: true } },
@@ -35,7 +38,11 @@ export default async function FactoryPage() {
     }),
     prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-    prisma.productionStage.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
+    prisma.productionOperation.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      include: { inputStage: true, outputStage: true },
+    }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
     prisma.recipe.findMany({
       where: { isActive: true },
@@ -56,7 +63,16 @@ export default async function FactoryPage() {
       ? roastingOrders.reduce((s, p) => s + Number(p.wastePercent), 0) / roastingOrders.length
       : 0
 
-  const productForms = products.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, unit: p.unit, type: p.type }))
+  const productForms = products.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, unit: p.unit, stageId: p.stageId }))
+  const operationsLite = operations.map((op) => ({
+    id: op.id,
+    name: op.name,
+    inputStageId: op.inputStageId,
+    outputStageId: op.outputStageId,
+    inputStageName: op.inputStage?.name || null,
+    outputStageName: op.outputStage?.name || null,
+    hasYieldLoss: op.hasYieldLoss,
+  }))
   const recipeLite = recipes.map((r) => ({
     id: r.id,
     name: r.name,
@@ -251,7 +267,7 @@ export default async function FactoryPage() {
         <div className="space-y-4">
           <ProductionForm
             products={productForms}
-            stages={stages.map((s) => s.name)}
+            operations={operationsLite}
             warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
             recipes={recipeLite}
           />

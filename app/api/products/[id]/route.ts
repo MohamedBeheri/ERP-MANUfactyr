@@ -10,18 +10,26 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     const body = await req.json()
-    const { name, type, categoryId, costPrice, sellPrice, wholesalePrice, minStock, unit, imageUrl } = body
+    const { name, categoryId, stageId, costPrice, sellPrice, wholesalePrice, minStock, unit, imageUrl } = body
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
+    }
+
+    // النوع بيتحدد من المرحلة المخزنية: لو بتتشرى = خام، غير كده = نهائي
+    let derivedType: 'RAW' | 'FINISHED' = 'FINISHED'
+    if (stageId) {
+      const stage = await prisma.stockStage.findUnique({ where: { id: stageId } })
+      if (stage?.purchasable) derivedType = 'RAW'
     }
 
     const product = await prisma.product.update({
       where: { id: params.id },
       data: {
         name: name.trim(),
-        type: type === 'RAW' ? 'RAW' : 'FINISHED',
+        type: derivedType,
         categoryId: categoryId || null,
+        stageId: stageId || null,
         costPrice: Number(costPrice) || 0,
         sellPrice: Number(sellPrice) || 0,
         wholesalePrice: Number(wholesalePrice) || 0,

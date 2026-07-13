@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Printer, ReceiptText } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ensureStockStages } from '@/lib/stock-stages'
 import { Pos } from '@/components/pos'
 import { ExportButtons } from '@/components/export-buttons'
 
@@ -13,6 +14,12 @@ export default async function SalesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
+  await ensureStockStages()
+
+  // الأصناف اللي بتتباع = اللي على مرحلة مخزنية معلّم عليها "بيع"
+  const sellableStages = await prisma.stockStage.findMany({ where: { isActive: true, sellable: true }, select: { id: true } })
+  const sellableIds = sellableStages.map((s) => s.id)
+
   const [invoices, customers, products, categories, warehouses] = await Promise.all([
     prisma.invoice.findMany({
       include: { customer: true, items: { include: { product: true } }, creator: true },
@@ -20,7 +27,17 @@ export default async function SalesPage() {
       take: 30,
     }),
     prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-    prisma.product.findMany({ where: { isActive: true, type: 'FINISHED' }, orderBy: { name: 'asc' } }),
+    prisma.product.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { stageId: { in: sellableIds } },
+          // توافق: لو مفيش مراحل، اعرض المنتجات النهائية
+          ...(sellableIds.length === 0 ? [{ type: 'FINISHED' as const }] : []),
+        ],
+      },
+      orderBy: { name: 'asc' },
+    }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
   ])

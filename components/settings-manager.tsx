@@ -7,11 +7,13 @@ import {
   Package,
   Tags,
   Flame,
+  Layers,
   Warehouse as WarehouseIcon,
   Pencil,
   Trash2,
   Plus,
   Star,
+  ArrowLeft,
 } from 'lucide-react'
 
 /* ================= أنواع البيانات ================= */
@@ -33,6 +35,7 @@ interface ProductRow {
   name: string
   type: string
   categoryId: string | null
+  stageId: string | null
   costPrice: number
   sellPrice: number
   wholesalePrice: number
@@ -40,6 +43,24 @@ interface ProductRow {
   quantity: number
   unit: string
   imageUrl: string | null
+}
+interface StockStageRow {
+  id: string
+  name: string
+  sortOrder: number
+  sellable: boolean
+  purchasable: boolean
+  productCount: number
+}
+interface OperationRow {
+  id: string
+  name: string
+  inputStageId: string | null
+  outputStageId: string | null
+  inputStageName: string | null
+  outputStageName: string | null
+  hasYieldLoss: boolean
+  sortOrder: number
 }
 
 // تحويل صورة مرفوعة لـ data URL مضغوط عشان تتخزن في قاعدة البيانات
@@ -63,11 +84,6 @@ function fileToDataUrl(file: File, maxSize = 400): Promise<string> {
     reader.readAsDataURL(file)
   })
 }
-interface StageRow {
-  id: string
-  name: string
-  sortOrder: number
-}
 interface WarehouseRow {
   id: string
   name: string
@@ -79,15 +95,17 @@ interface Props {
   suppliers: Supplier[]
   categories: CategoryRow[]
   products: ProductRow[]
-  stages: StageRow[]
+  stockStages: StockStageRow[]
+  operations: OperationRow[]
   warehouses: WarehouseRow[]
 }
 
 const TABS = [
   { key: 'products', label: 'الأصناف', Icon: Package },
-  { key: 'categories', label: 'التصنيفات', Icon: Tags },
+  { key: 'categories', label: 'تصنيفات البيع', Icon: Tags },
+  { key: 'stockStages', label: 'المراحل المخزنية', Icon: Layers },
+  { key: 'operations', label: 'عمليات التصنيع', Icon: Flame },
   { key: 'suppliers', label: 'الموردين', Icon: TruckIcon },
-  { key: 'stages', label: 'مراحل التصنيع', Icon: Flame },
   { key: 'warehouses', label: 'المخازن', Icon: WarehouseIcon },
 ] as const
 
@@ -105,7 +123,7 @@ async function apiCall(url: string, method: string, body?: any) {
   return data
 }
 
-export function SettingsManager({ suppliers, categories, products, stages, warehouses }: Props) {
+export function SettingsManager({ suppliers, categories, products, stockStages, operations, warehouses }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('products')
 
   return (
@@ -125,19 +143,21 @@ export function SettingsManager({ suppliers, categories, products, stages, wareh
         ))}
       </div>
 
-      {tab === 'products' && <ProductsTab products={products} categories={categories} />}
+      {tab === 'products' && <ProductsTab products={products} categories={categories} stockStages={stockStages} />}
       {tab === 'categories' && <CategoriesTab categories={categories} />}
+      {tab === 'stockStages' && <StockStagesTab stages={stockStages} />}
+      {tab === 'operations' && <OperationsTab operations={operations} stages={stockStages} />}
       {tab === 'suppliers' && <SuppliersTab suppliers={suppliers} />}
-      {tab === 'stages' && <StagesTab stages={stages} />}
       {tab === 'warehouses' && <WarehousesTab warehouses={warehouses} />}
     </div>
   )
 }
 
 /* ================= الأصناف ================= */
-function ProductsTab({ products, categories }: { products: ProductRow[]; categories: CategoryRow[] }) {
+function ProductsTab({ products, categories, stockStages }: { products: ProductRow[]; categories: CategoryRow[]; stockStages: StockStageRow[] }) {
   const router = useRouter()
-  const empty = { name: '', type: 'FINISHED', categoryId: '', costPrice: '', sellPrice: '', wholesalePrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
+  const defaultStage = stockStages.find((s) => s.sellable)?.id || stockStages[0]?.id || ''
+  const empty = { name: '', stageId: defaultStage, categoryId: '', costPrice: '', sellPrice: '', wholesalePrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
   const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -147,7 +167,7 @@ function ProductsTab({ products, categories }: { products: ProductRow[]; categor
     setEditId(p.id)
     setForm({
       name: p.name,
-      type: p.type,
+      stageId: p.stageId || defaultStage,
       categoryId: p.categoryId || '',
       costPrice: String(p.costPrice),
       sellPrice: String(p.sellPrice),
@@ -205,14 +225,15 @@ function ProductsTab({ products, categories }: { products: ProductRow[]; categor
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">النوع</label>
-            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className={inputCls}>
-              <option value="FINISHED">منتج نهائي</option>
-              <option value="RAW">خام (بن أخضر)</option>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">المرحلة المخزنية</label>
+            <select value={form.stageId} onChange={(e) => setForm({ ...form, stageId: e.target.value })} className={inputCls}>
+              {stockStages.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}{s.sellable ? ' (بيع)' : s.purchasable ? ' (شراء)' : ''}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">التصنيف</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">تصنيف البيع</label>
             <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className={inputCls}>
               <option value="">بدون تصنيف</option>
               {categories.map((c) => (
@@ -288,8 +309,8 @@ function ProductsTab({ products, categories }: { products: ProductRow[]; categor
             <thead>
               <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
                 <th className="p-3 font-medium">الصنف</th>
-                <th className="p-3 font-medium">النوع</th>
-                <th className="p-3 font-medium">التصنيف</th>
+                <th className="p-3 font-medium">المرحلة المخزنية</th>
+                <th className="p-3 font-medium">تصنيف البيع</th>
                 <th className="p-3 font-medium">قطاعي</th>
                 <th className="p-3 font-medium">جملة</th>
                 <th className="p-3 font-medium">الرصيد</th>
@@ -309,8 +330,8 @@ function ProductsTab({ products, categories }: { products: ProductRow[]; categor
                     </div>
                   </td>
                   <td className="p-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${p.type === 'RAW' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                      {p.type === 'RAW' ? 'خام' : 'نهائي'}
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700">
+                      {stockStages.find((s) => s.id === p.stageId)?.name || '—'}
                     </span>
                   </td>
                   <td className="p-3 text-gray-500">{categories.find((c) => c.id === p.categoryId)?.name || '—'}</td>
@@ -514,11 +535,11 @@ function SuppliersTab({ suppliers }: { suppliers: Supplier[] }) {
   )
 }
 
-/* ================= مراحل التصنيع ================= */
-function StagesTab({ stages }: { stages: StageRow[] }) {
+/* ================= المراحل المخزنية ================= */
+function StockStagesTab({ stages }: { stages: StockStageRow[] }) {
   const router = useRouter()
-  const [name, setName] = useState('')
-  const [sortOrder, setSortOrder] = useState('0')
+  const empty = { name: '', sortOrder: '0', sellable: false, purchasable: false }
+  const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
@@ -526,9 +547,11 @@ function StagesTab({ stages }: { stages: StageRow[] }) {
     e.preventDefault()
     setError('')
     try {
-      await apiCall(editId ? `/api/stages/${editId}` : '/api/stages', editId ? 'PUT' : 'POST', { name, sortOrder: Number(sortOrder) })
-      setName('')
-      setSortOrder('0')
+      await apiCall(editId ? `/api/stock-stages/${editId}` : '/api/stock-stages', editId ? 'PUT' : 'POST', {
+        ...form,
+        sortOrder: Number(form.sortOrder),
+      })
+      setForm(empty)
       setEditId(null)
       router.refresh()
     } catch (err: any) {
@@ -536,10 +559,10 @@ function StagesTab({ stages }: { stages: StageRow[] }) {
     }
   }
 
-  const remove = async (id: string, stageName: string) => {
-    if (!confirm(`متأكد من حذف مرحلة "${stageName}"؟`)) return
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`متأكد من حذف مرحلة "${name}"؟`)) return
     try {
-      await apiCall(`/api/stages/${id}`, 'DELETE')
+      await apiCall(`/api/stock-stages/${id}`, 'DELETE')
       router.refresh()
     } catch (err: any) {
       alert(err.message)
@@ -549,38 +572,52 @@ function StagesTab({ stages }: { stages: StageRow[] }) {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
       <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
-        <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل مرحلة' : 'إضافة مرحلة تصنيع'}</h3>
-        <p className="text-xs text-gray-500">المراحل دي هتظهر في فورم أمر التصنيع — انت اللي بتحدد أسماءها وترتيبها.</p>
+        <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل مرحلة' : 'مرحلة مخزنية جديدة'}</h3>
+        <p className="text-xs text-gray-500">
+          التصنيف المخزني للبضاعة (بن أخضر / محمّص / مطحون / نهائي). كل صنف بينتمي لمرحلة، والتصنيع بيسحب وينتج بين المراحل.
+        </p>
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم المرحلة (مثال: بن محمّص)" className={inputCls} />
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">اسم المرحلة</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: تسوية، تحميص غامق، طحن ناعم..." className={inputCls} />
+          <label className="block text-xs font-semibold text-gray-500 mb-1">الترتيب</label>
+          <input type="number" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
         </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">الترتيب</label>
-          <input type="number" min="0" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className={inputCls} />
-        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" checked={form.purchasable} onChange={(e) => setForm({ ...form, purchasable: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
+          يدخل بأمر شراء (خامة تُشترى من مورد)
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" checked={form.sellable} onChange={(e) => setForm({ ...form, sellable: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
+          يظهر في المبيعات ونقطة البيع
+        </label>
         <div className="flex gap-2">
           <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
             {editId ? 'حفظ' : 'إضافة'}
           </button>
           {editId && (
-            <button type="button" onClick={() => { setEditId(null); setName(''); setSortOrder('0') }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">إلغاء</button>
+            <button type="button" onClick={() => { setEditId(null); setForm(empty) }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">إلغاء</button>
           )}
         </div>
       </form>
 
       <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
-        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">المراحل ({stages.length})</h3>
+        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">المراحل المخزنية ({stages.length})</h3>
         <div className="space-y-2">
           {stages.map((s, i) => (
             <div key={s.id} className="flex items-center justify-between border border-gray-100 rounded-lg p-3">
               <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-orange-50 text-orange-600 text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                <p className="font-semibold text-sm">{s.name}</p>
+                <span className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                <div>
+                  <p className="font-semibold text-sm">{s.name}</p>
+                  <div className="flex gap-1.5 mt-0.5">
+                    {s.purchasable && <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold">شراء</span>}
+                    {s.sellable && <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-semibold">بيع</span>}
+                    <span className="text-[10px] text-gray-400">{s.productCount} صنف</span>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => { setEditId(s.id); setName(s.name); setSortOrder(String(s.sortOrder)) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
+                <button onClick={() => { setEditId(s.id); setForm({ name: s.name, sortOrder: String(s.sortOrder), sellable: s.sellable, purchasable: s.purchasable }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
                   <Pencil className="w-4 h-4" />
                 </button>
                 <button onClick={() => remove(s.id, s.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
@@ -589,8 +626,111 @@ function StagesTab({ stages }: { stages: StageRow[] }) {
               </div>
             </div>
           ))}
-          {stages.length === 0 && (
-            <p className="text-sm text-gray-500">مفيش مراحل معرّفة — ضيف مراحلك (مثال: تسوية، تحميص، طحن، تعبئة).</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ================= عمليات التصنيع ================= */
+function OperationsTab({ operations, stages }: { operations: OperationRow[]; stages: StockStageRow[] }) {
+  const router = useRouter()
+  const empty = { name: '', inputStageId: '', outputStageId: '', hasYieldLoss: false, sortOrder: '0' }
+  const [form, setForm] = useState<any>(empty)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    try {
+      await apiCall(editId ? `/api/operations/${editId}` : '/api/operations', editId ? 'PUT' : 'POST', {
+        ...form,
+        sortOrder: Number(form.sortOrder),
+      })
+      setForm(empty)
+      setEditId(null)
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`متأكد من حذف عملية "${name}"؟`)) return
+    try {
+      await apiCall(`/api/operations/${id}`, 'DELETE')
+      router.refresh()
+    } catch (err: any) {
+      alert(err.message)
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
+        <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل عملية' : 'عملية تصنيع جديدة'}</h3>
+        <p className="text-xs text-gray-500">
+          كل عملية بتحدد: بتسحب من أنهي مرحلة مخزنية وبتنتج في أنهي مرحلة. مثال: "تحميص" تسحب من (بن أخضر) وتنتج (بن محمّص).
+        </p>
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم العملية (مثال: تحميص، طحن، تعبئة)" className={inputCls} />
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">تسحب من مرحلة</label>
+          <select value={form.inputStageId} onChange={(e) => setForm({ ...form, inputStageId: e.target.value })} className={inputCls}>
+            <option value="">اختار المرحلة</option>
+            {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">تنتج في مرحلة</label>
+          <select value={form.outputStageId} onChange={(e) => setForm({ ...form, outputStageId: e.target.value })} className={inputCls}>
+            <option value="">اختار المرحلة</option>
+            {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" checked={form.hasYieldLoss} onChange={(e) => setForm({ ...form, hasYieldLoss: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
+          فيها هدر في الوزن (زي التحميص 15-20%)
+        </label>
+        <div className="flex gap-2">
+          <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
+            {editId ? 'حفظ' : 'إضافة'}
+          </button>
+          {editId && (
+            <button type="button" onClick={() => { setEditId(null); setForm(empty) }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">إلغاء</button>
+          )}
+        </div>
+      </form>
+
+      <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
+        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">عمليات التصنيع ({operations.length})</h3>
+        <div className="space-y-2">
+          {operations.map((op) => (
+            <div key={op.id} className="flex items-center justify-between border border-gray-100 rounded-lg p-3">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm flex items-center gap-2">
+                  {op.name}
+                  {op.hasYieldLoss && <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded font-semibold">هدر</span>}
+                </p>
+                <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                  <span className="bg-gray-100 px-1.5 py-0.5 rounded">{op.inputStageName || '؟'}</span>
+                  <ArrowLeft className="w-3 h-3" />
+                  <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">{op.outputStageName || '؟'}</span>
+                </p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => { setEditId(op.id); setForm({ name: op.name, inputStageId: op.inputStageId || '', outputStageId: op.outputStageId || '', hasYieldLoss: op.hasYieldLoss, sortOrder: String(op.sortOrder) }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => remove(op.id, op.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+          {operations.length === 0 && (
+            <p className="text-sm text-gray-500">مفيش عمليات معرّفة — ضيف عملياتك (تحميص، طحن، تعبئة).</p>
           )}
         </div>
       </div>

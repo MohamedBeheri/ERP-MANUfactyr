@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      lineType, // ROASTING | PROCESSING
+      lineType, // ROASTING | PROCESSING (توافق قديم)
+      operationId, // عملية التصنيع (تحدد مرحلة السحب والإنتاج)
       stage,
       batchNo,
       roastLevel,
@@ -56,6 +57,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'أدخل منتج ناتج واحد على الأقل' }, { status: 400 })
     }
 
+    // العملية بتحدد المرحلة المخزنية للسحب والإنتاج
+    const operation = operationId
+      ? await prisma.productionOperation.findUnique({ where: { id: operationId } })
+      : null
+    const derivedLine = operation
+      ? operation.hasYieldLoss
+        ? 'ROASTING'
+        : 'PROCESSING'
+      : lineType === 'PROCESSING'
+        ? 'PROCESSING'
+        : 'ROASTING'
+
     const cleanInputs = inputs
       .filter((i: any) => i.productId && Number(i.quantity) > 0)
       .map((i: any) => ({ productId: i.productId, quantity: Number(i.quantity) }))
@@ -67,20 +80,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'تأكد من إدخال كميات صحيحة للمدخلات والمخرجات' }, { status: 400 })
     }
 
-    // تحقق من رصيد كل خامة في المخزن المختار
-    const productMap = new Map<string, { name: string; unit: string }>()
+    // تحقق من رصيد كل خامة + إن مرحلتها المخزنية تطابق مدخل العملية
     for (const inp of cleanInputs) {
       const product = await prisma.product.findUnique({ where: { id: inp.productId } })
       if (!product) {
         return NextResponse.json({ error: 'خامة غير موجودة' }, { status: 400 })
       }
-      productMap.set(inp.productId, { name: product.name, unit: product.unit })
+      if (operation?.inputStageId && product.stageId && product.stageId !== operation.inputStageId) {
+        return NextResponse.json(
+          { error: `${product.name} مش من مرحلة السحب الصحيحة للعملية دي` },
+          { status: 400 }
+        )
+      }
       const stock = await getStock(warehouseId, inp.productId)
       if (stock < inp.quantity) {
         return NextResponse.json(
           { error: `رصيد ${product.name} في المخزن ده غير كافي (المتاح: ${stock} ${product.unit})` },
           { status: 400 }
         )
+      }
+    }
+
+    // تحقق إن المخرجات في مرحلة الإنتاج الصحيحة للعملية
+    if (operation?.outputStageId) {
+      for (const item of cleanItems) {
+        const product = await prisma.product.findUnique({ where: { id: item.productId } })
+        if (product?.stageId && product.stageId !== operation.outputStageId) {
+          return NextResponse.json(
+            { error: `${product.name} مش من مرحلة الإنتاج الصحيحة للعملية دي` },
+            { status: 400 }
+          )
+        }
       }
     }
 
@@ -99,8 +129,9 @@ export async function POST(req: NextRequest) {
       const created = await tx.production.create({
         data: {
           orderNo: `PROD-${Date.now()}`,
-          lineType: lineType === 'PROCESSING' ? 'PROCESSING' : 'ROASTING',
-          stage: stage || (lineType === 'PROCESSING' ? 'خلط وطحن وتعبئة' : 'تحميص'),
+          lineType: derivedLine,
+          operationId: operation?.id || null,
+          stage: stage || operation?.name || (derivedLine === 'PROCESSING' ? 'خلط وطحن وتعبئة' : 'تحميص'),
           batchNo: batchNo || null,
           roastLevel: roastLevel || null,
           grindType: grindType || null,

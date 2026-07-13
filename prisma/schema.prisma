@@ -93,7 +93,7 @@ model Category {
   @@map("categories")
 }
 
-// ============== PRODUCTION STAGES (مراحل التصنيع) ==============
+// ============== PRODUCTION STAGES (مراحل التصنيع - قديم) ==============
 model ProductionStage {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -102,6 +102,44 @@ model ProductionStage {
   createdAt DateTime @default(now())
 
   @@map("production_stages")
+}
+
+// ============== STOCK STAGES (التصنيف المخزني — قابل للتخصيص) ==============
+// أمثلة: بن أخضر (خام) / بن محمّص / بن مطحون / منتج نهائي معبّأ
+model StockStage {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  sortOrder   Int      @default(0)
+  sellable    Boolean  @default(false) // يظهر في المبيعات ونقطة البيع
+  purchasable Boolean  @default(false) // يدخل بأمر شراء (خامات)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  products  Product[]
+  opInputs  ProductionOperation[] @relation("OpInputStage")
+  opOutputs ProductionOperation[] @relation("OpOutputStage")
+
+  @@map("stock_stages")
+}
+
+// ============== PRODUCTION OPERATIONS (عمليات التصنيع — قابلة للتخصيص) ==============
+// كل عملية بتحدد: بتسحب من أنهي مرحلة مخزنية وبتنتج في أنهي مرحلة
+// مثال: "تحميص" تسحب من (بن أخضر) وتنتج في (بن محمّص) — "طحن وتعبئة" تسحب من (بن محمّص) وتنتج في (منتج نهائي)
+model ProductionOperation {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  inputStageId  String?
+  outputStageId String?
+  hasYieldLoss  Boolean  @default(true) // فيها هدر (زي التحميص)
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  inputStage  StockStage?  @relation("OpInputStage", fields: [inputStageId], references: [id])
+  outputStage StockStage?  @relation("OpOutputStage", fields: [outputStageId], references: [id])
+  productions Production[]
+
+  @@map("production_operations")
 }
 
 // ============== WAREHOUSES (المخازن) ==============
@@ -139,6 +177,7 @@ model Product {
   name           String
   type           ProductType
   categoryId     String?
+  stageId        String? // التصنيف المخزني (خام / محمّص / مطحون / نهائي)
   costPrice      Decimal     @db.Decimal(10, 2) // سعر التكلفة
   sellPrice      Decimal     @db.Decimal(10, 2) // سعر البيع قطاعي
   wholesalePrice Decimal     @default(0) @db.Decimal(10, 2) // سعر البيع جملة
@@ -152,6 +191,7 @@ model Product {
 
   // Relations
   category         Category?         @relation(fields: [categoryId], references: [id])
+  stockStage       StockStage?       @relation(fields: [stageId], references: [id])
   stocks           ProductStock[]
   purchaseItems    PurchaseItem[]
   productionItems  ProductionItem[]
@@ -233,6 +273,7 @@ model Production {
   wastePercent Decimal     @default(0) @db.Decimal(5, 2) // نسبة الهدر %
   expiryDate   DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
   recipeId     String? // الوصفة المستخدمة (BOM)
+  operationId  String? // عملية التصنيع المستخدمة
   // حقول قديمة للتوافق مع البيانات السابقة
   rawProductId String?
   rawUsed      Int         @default(0)
@@ -243,11 +284,12 @@ model Production {
   createdById  String
 
   // Relations
-  rawProduct Product?          @relation("ProductionRawProduct", fields: [rawProductId], references: [id])
-  recipe     Recipe?           @relation(fields: [recipeId], references: [id])
+  rawProduct Product?             @relation("ProductionRawProduct", fields: [rawProductId], references: [id])
+  recipe     Recipe?              @relation(fields: [recipeId], references: [id])
+  operation  ProductionOperation? @relation(fields: [operationId], references: [id])
   inputs     ProductionInput[]
   items      ProductionItem[]
-  creator    User              @relation(fields: [createdById], references: [id])
+  creator    User                 @relation(fields: [createdById], references: [id])
 
   @@map("productions")
 }
