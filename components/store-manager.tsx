@@ -126,48 +126,24 @@ export function StoreManager({ settings, warehouses, orders, storeUrl }: { setti
         </a>
       </div>
 
-      {/* 1) طلبات الموقع */}
-      <CollapseSection
-        title="طلبات الموقع"
-        subtitle="متابعة الطلبات الأونلاين وتغيير حالتها"
-        icon={<Package className="w-5 h-5 text-[#e94560]" />}
-        badge={pendingCount}
-        defaultOpen={pendingCount > 0}
-      >
-        <div className="divide-y divide-gray-50 max-h-[560px] overflow-y-auto -mx-1 px-1">
-          {orders.length === 0 && <p className="py-6 text-sm text-gray-500 text-center">مفيش طلبات أونلاين لسه.</p>}
-          {orders.map((o) => (
-            <div key={o.id} className="py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm text-[#1a1a2e] tabular-nums">{o.orderNo}</p>
-                  <p className="text-sm text-gray-700 mt-0.5">{o.customerName}</p>
-                  <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-0.5"><Phone className="w-3 h-3" /> {o.phone}</p>
-                  <p className="text-xs text-gray-400 flex items-center gap-1.5"><MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{o.address}</span></p>
-                  <p className="text-xs text-gray-500 mt-1">{o.itemsText}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">💳 {o.paymentMethod}</p>
-                </div>
-                <div className="text-left shrink-0">
-                  <p className="font-bold text-sm tabular-nums">{fmt(o.total)} ج.م</p>
-                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS[o.status]?.color}`}>
-                    {STATUS[o.status]?.label}
-                  </span>
-                  <p className="text-[10px] text-gray-400 mt-1 tabular-nums">{new Date(o.createdAt).toLocaleDateString('ar-EG')}</p>
-                </div>
-              </div>
-              {NEXT[o.status]?.length > 0 && (
-                <div className="flex gap-2 mt-3">
-                  {NEXT[o.status].map((n) => (
-                    <button key={n.to} onClick={() => setStatus(o.id, n.to)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${n.to === 'CANCELLED' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-[#1a1a2e] text-white hover:bg-[#0f3460]'}`}>
-                      {n.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+      {/* 1) رابط صفحة الطلبات المنفصلة */}
+      <a href="/online-orders" className="block bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#e94560]/10 flex items-center justify-center">
+              <Package className="w-5 h-5 text-[#e94560]" />
             </div>
-          ))}
+            <div>
+              <p className="font-bold text-[#1a1a2e] flex items-center gap-2">
+                إدارة طلبات الموقع
+                {pendingCount > 0 && <span className="text-xs bg-[#e94560] text-white px-2 py-0.5 rounded-full font-bold tabular-nums">{pendingCount} جديد</span>}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">صفحة كاملة: بحث، تعديل، حذف، تواصل واتساب مع العميل</p>
+            </div>
+          </div>
+          <span className="text-sm font-bold text-[#0f3460]">فتح ←</span>
         </div>
-      </CollapseSection>
+      </a>
 
       {/* 2) الإعدادات العامة */}
       <CollapseSection title="الإعدادات العامة" subtitle="تشغيل المتجر، الاسم، المخزن، التوصيل" icon={<Settings2 className="w-5 h-5 text-[#0f3460]" />}>
