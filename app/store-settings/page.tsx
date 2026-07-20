@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getStoreSettings } from '@/lib/store'
 import { StoreManager } from '@/components/store-manager'
+import { HeroManager } from '@/components/hero-manager'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,13 +15,14 @@ export default async function StoreSettingsPage() {
 
   const settings = await getStoreSettings()
 
-  const [warehouses, orders] = await Promise.all([
+  const [warehouses, orders, slides] = await Promise.all([
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
     prisma.onlineOrder.findMany({
       include: { items: true },
       orderBy: { createdAt: 'desc' },
       take: 60,
     }),
+    prisma.heroSlide.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
   ])
 
   const h = headers()
@@ -62,6 +64,21 @@ export default async function StoreSettingsPage() {
           itemsText: o.items.map((i) => `${i.productName} ×${i.quantity}`).join('، '),
         }))}
         storeUrl={storeUrl}
+      />
+
+      <HeroManager
+        slides={slides.map((s) => ({
+          id: s.id,
+          type: s.type,
+          media: s.media,
+          badge: s.badge,
+          title1: s.title1,
+          title2: s.title2,
+          subtitle: s.subtitle,
+          ctaText: s.ctaText,
+          ctaLink: s.ctaLink,
+          sortOrder: s.sortOrder,
+        }))}
       />
     </div>
   )

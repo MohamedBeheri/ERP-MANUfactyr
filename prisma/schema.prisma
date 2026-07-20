@@ -647,3 +647,20 @@ model OnlineOrderItem {
 
   @@map("online_order_items")
 }
+
+model HeroSlide {
+  id        String   @id @default(cuid())
+  type      String   @default("IMAGE") // IMAGE | VIDEO
+  media     String // رابط أو data URL
+  badge     String?
+  title1    String?
+  title2    String?
+  subtitle  String?
+  ctaText   String?
+  ctaLink   String?  @default("/store")
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("hero_slides")
+}

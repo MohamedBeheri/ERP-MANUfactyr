@@ -13,7 +13,7 @@ export default async function StorePage() {
   const sellableStages = await prisma.stockStage.findMany({ where: { isActive: true, sellable: true }, select: { id: true } })
   const sellableIds = sellableStages.map((s) => s.id)
 
-  const [productsRaw, categories] = await Promise.all([
+  const [productsRaw, categories, slides] = await Promise.all([
     prisma.product.findMany({
       where: {
         isActive: true,
@@ -26,6 +26,7 @@ export default async function StorePage() {
       orderBy: { name: 'asc' },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.heroSlide.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
   ])
 
   const products = productsRaw
@@ -58,6 +59,17 @@ export default async function StorePage() {
       }}
       products={products}
       categories={categories.filter((c) => usedCategoryIds.has(c.id)).map((c) => ({ id: c.id, name: c.name }))}
+      slides={slides.map((s) => ({
+        id: s.id,
+        type: s.type,
+        media: s.media,
+        badge: s.badge,
+        title1: s.title1,
+        title2: s.title2,
+        subtitle: s.subtitle,
+        ctaText: s.ctaText,
+        ctaLink: s.ctaLink,
+      }))}
     />
   )
 }
