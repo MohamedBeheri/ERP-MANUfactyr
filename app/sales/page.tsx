@@ -5,6 +5,7 @@ import { Printer, ReceiptText } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
+import { ensureTiers } from '@/lib/tiers'
 import { Pos } from '@/components/pos'
 import { ExportButtons } from '@/components/export-buttons'
 
@@ -15,6 +16,7 @@ export default async function SalesPage() {
   if (!session) redirect('/')
 
   await ensureStockStages()
+  await ensureTiers()
 
   // الأصناف اللي بتتباع = اللي على مرحلة مخزنية معلّم عليها "بيع"
   const sellableStages = await prisma.stockStage.findMany({ where: { isActive: true, sellable: true }, select: { id: true } })
@@ -26,7 +28,7 @@ export default async function SalesPage() {
       orderBy: { createdAt: 'desc' },
       take: 30,
     }),
-    prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, include: { tier: true } }),
     prisma.product.findMany({
       where: {
         isActive: true,
@@ -69,7 +71,14 @@ export default async function SalesPage() {
           categoryId: p.categoryId,
           imageUrl: p.imageUrl,
         }))}
-        customers={customers.map((c) => ({ id: c.id, name: c.name, customerType: c.customerType }))}
+        customers={customers.map((c) => ({
+          id: c.id,
+          name: c.name,
+          customerType: c.customerType,
+          tier: c.tier
+            ? { name: c.tier.name, priceSource: c.tier.priceSource, discountPercent: Number(c.tier.discountPercent) }
+            : null,
+        }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
       />

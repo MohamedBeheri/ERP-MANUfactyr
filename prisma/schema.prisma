@@ -404,6 +404,23 @@ model WarehouseOut {
   @@map("warehouse_outs")
 }
 
+// ============== CUSTOMER TIERS (فئات العملاء والبونص) ==============
+// كبار الموردين/الموزعين، كبار العملاء، تاجر تجزئة، متوسط، قطاعي — لكل فئة تسعير وبونص خاص
+model CustomerTier {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  priceSource     String   @default("RETAIL") // RETAIL (سعر قطاعي) | WHOLESALE (سعر جملة)
+  discountPercent Decimal  @default(0) @db.Decimal(5, 2) // خصم إضافي على السعر الأساسي %
+  bonusPercent    Decimal  @default(0) @db.Decimal(5, 2) // بونص يُكسب كنسبة من قيمة المشتريات %
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  customers Customer[]
+
+  @@map("customer_tiers")
+}
+
 // ============== CUSTOMERS (العملاء) ==============
 model Customer {
   id             String       @id @default(cuid())
@@ -412,6 +429,8 @@ model Customer {
   address        String?
   type           PaymentType  @default(CASH)
   customerType   CustomerType @default(RETAIL) // جملة أو قطاعي
+  tierId         String? // فئة العميل (كبار عملاء / تجزئة / متوسط...)
+  bonusPoints    Decimal      @default(0) @db.Decimal(12, 2) // رصيد البونص (1 نقطة = 1 ج.م)
   creditLimit    Decimal      @default(0) @db.Decimal(12, 2) // الحد الائتماني
   balance        Decimal      @default(0) @db.Decimal(12, 2) // الرصيد المدين
   totalPurchases Decimal      @default(0) @db.Decimal(12, 2)
@@ -419,6 +438,7 @@ model Customer {
   createdAt      DateTime     @default(now())
 
   // Relations
+  tier         CustomerTier? @relation(fields: [tierId], references: [id])
   invoices     Invoice[]
   onlineOrders OnlineOrder[]
 

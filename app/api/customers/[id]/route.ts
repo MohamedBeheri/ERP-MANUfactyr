@@ -20,6 +20,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         phone: b.phone !== undefined ? b.phone || null : undefined,
         address: b.address !== undefined ? b.address || null : undefined,
         customerType: b.customerType === 'WHOLESALE' ? 'WHOLESALE' : 'RETAIL',
+        tierId: b.tierId !== undefined ? b.tierId || null : undefined,
         creditLimit: b.creditLimit !== undefined ? Number(b.creditLimit) || 0 : undefined,
       },
     })

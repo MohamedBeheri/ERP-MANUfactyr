@@ -105,15 +105,26 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      // بونص الفئة: نسبة من صافي الفاتورة تتضاف لرصيد نقاط العميل (1 نقطة = 1 ج.م)
+      const buyer = await tx.customer.findUnique({ where: { id: customerId }, include: { tier: true } })
+      const bonusEarned = buyer?.tier ? (netAmount * Number(buyer.tier.bonusPercent)) / 100 : 0
+
       if (type === 'CREDIT') {
         await tx.customer.update({
           where: { id: customerId },
-          data: { balance: { increment: netAmount }, totalPurchases: { increment: netAmount } },
+          data: {
+            balance: { increment: netAmount },
+            totalPurchases: { increment: netAmount },
+            ...(bonusEarned > 0 ? { bonusPoints: { increment: bonusEarned } } : {}),
+          },
         })
       } else {
         await tx.customer.update({
           where: { id: customerId },
-          data: { totalPurchases: { increment: netAmount } },
+          data: {
+            totalPurchases: { increment: netAmount },
+            ...(bonusEarned > 0 ? { bonusPoints: { increment: bonusEarned } } : {}),
+          },
         })
       }
 

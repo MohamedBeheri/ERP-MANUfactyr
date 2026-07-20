@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getDefaultWarehouseId } from '@/lib/warehouse'
 import { ensureStockStages } from '@/lib/stock-stages'
+import { ensureTiers } from '@/lib/tiers'
 import { SettingsManager } from '@/components/settings-manager'
 
 export const dynamic = 'force-dynamic'
@@ -14,8 +15,9 @@ export default async function SettingsPage() {
 
   await getDefaultWarehouseId() // يضمن وجود مخزن افتراضي
   await ensureStockStages() // يضمن وجود المراحل والعمليات الافتراضية
+  await ensureTiers() // يضمن وجود فئات العملاء الافتراضية
 
-  const [suppliers, categories, products, stockStages, operations, warehouses] = await Promise.all([
+  const [suppliers, categories, products, stockStages, operations, warehouses, tiers] = await Promise.all([
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.category.findMany({
       where: { isActive: true },
@@ -36,6 +38,11 @@ export default async function SettingsPage() {
     prisma.warehouse.findMany({
       where: { isActive: true },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    }),
+    prisma.customerTier.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      include: { _count: { select: { customers: true } } },
     }),
   ])
 
@@ -98,6 +105,15 @@ export default async function SettingsPage() {
           name: w.name,
           location: w.location,
           isDefault: w.isDefault,
+        }))}
+        tiers={tiers.map((t) => ({
+          id: t.id,
+          name: t.name,
+          priceSource: t.priceSource,
+          discountPercent: Number(t.discountPercent),
+          bonusPercent: Number(t.bonusPercent),
+          sortOrder: t.sortOrder,
+          customerCount: t._count.customers,
         }))}
       />
     </div>

@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ensureTiers } from '@/lib/tiers'
 import { CustomersManager } from '@/components/customers-manager'
 
 export const dynamic = 'force-dynamic'
@@ -10,9 +11,14 @@ export default async function CustomersPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
+  await ensureTiers()
+
+  const tiers = await prisma.customerTier.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }] })
+
   const customers = await prisma.customer.findMany({
     where: { isActive: true },
     include: {
+      tier: true,
       invoices: { select: { invoiceNo: true, netAmount: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 5 },
       onlineOrders: { select: { orderNo: true, total: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 5 },
       _count: { select: { invoices: true, onlineOrders: true } },
@@ -51,6 +57,7 @@ export default async function CustomersPage() {
       </div>
 
       <CustomersManager
+        tiers={tiers.map((t) => ({ id: t.id, name: t.name }))}
         customers={customers.map((c) => {
           const lastOrders = [
             ...c.invoices.map((i) => ({ no: i.invoiceNo, total: Number(i.netAmount), date: i.createdAt.toISOString(), source: 'محل' })),
@@ -64,6 +71,9 @@ export default async function CustomersPage() {
             phone: c.phone,
             address: c.address,
             customerType: c.customerType,
+            tierId: c.tierId,
+            tierName: c.tier?.name || null,
+            bonusPoints: Number(c.bonusPoints),
             balance: Number(c.balance),
             totalPurchases: Number(c.totalPurchases),
             creditLimit: Number(c.creditLimit),

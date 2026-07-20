@@ -82,9 +82,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             },
           })
         }
+        // بونص الفئة على طلبات الموقع عند التأكيد
+        const buyer = await tx.customer.findUnique({ where: { id: order.customerId! }, include: { tier: true } })
+        const bonusEarned = buyer?.tier ? (Number(order.total) * Number(buyer.tier.bonusPercent)) / 100 : 0
         await tx.customer.update({
           where: { id: order.customerId! },
-          data: { totalPurchases: { increment: order.total } },
+          data: {
+            totalPurchases: { increment: order.total },
+            ...(bonusEarned > 0 ? { bonusPoints: { increment: bonusEarned } } : {}),
+          },
         })
         await tx.onlineOrder.update({ where: { id: order.id }, data: { invoiceId: invoice.id } })
       }

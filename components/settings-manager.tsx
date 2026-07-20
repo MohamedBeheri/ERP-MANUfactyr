@@ -14,6 +14,7 @@ import {
   Plus,
   Star,
   ArrowLeft,
+  Crown,
 } from 'lucide-react'
 
 /* ================= أنواع البيانات ================= */
@@ -87,6 +88,15 @@ function fileToDataUrl(file: File, maxSize = 400): Promise<string> {
     reader.readAsDataURL(file)
   })
 }
+interface TierRow {
+  id: string
+  name: string
+  priceSource: string
+  discountPercent: number
+  bonusPercent: number
+  sortOrder: number
+  customerCount: number
+}
 interface WarehouseRow {
   id: string
   name: string
@@ -101,6 +111,7 @@ interface Props {
   stockStages: StockStageRow[]
   operations: OperationRow[]
   warehouses: WarehouseRow[]
+  tiers: TierRow[]
 }
 
 const TABS = [
@@ -108,6 +119,7 @@ const TABS = [
   { key: 'categories', label: 'تصنيفات البيع', Icon: Tags },
   { key: 'stockStages', label: 'المراحل المخزنية', Icon: Layers },
   { key: 'operations', label: 'عمليات التصنيع', Icon: Flame },
+  { key: 'tiers', label: 'فئات العملاء والبونص', Icon: Crown },
   { key: 'suppliers', label: 'الموردين', Icon: TruckIcon },
   { key: 'warehouses', label: 'المخازن', Icon: WarehouseIcon },
 ] as const
@@ -126,7 +138,7 @@ async function apiCall(url: string, method: string, body?: any) {
   return data
 }
 
-export function SettingsManager({ suppliers, categories, products, stockStages, operations, warehouses }: Props) {
+export function SettingsManager({ suppliers, categories, products, stockStages, operations, warehouses, tiers }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('products')
 
   return (
@@ -150,6 +162,7 @@ export function SettingsManager({ suppliers, categories, products, stockStages, 
       {tab === 'categories' && <CategoriesTab categories={categories} />}
       {tab === 'stockStages' && <StockStagesTab stages={stockStages} warehouses={warehouses} />}
       {tab === 'operations' && <OperationsTab operations={operations} stages={stockStages} />}
+      {tab === 'tiers' && <TiersTab tiers={tiers} />}
       {tab === 'suppliers' && <SuppliersTab suppliers={suppliers} />}
       {tab === 'warehouses' && <WarehousesTab warehouses={warehouses} />}
     </div>
@@ -748,6 +761,109 @@ function OperationsTab({ operations, stages }: { operations: OperationRow[]; sta
           {operations.length === 0 && (
             <p className="text-sm text-gray-500">مفيش عمليات معرّفة — ضيف عملياتك (تحميص، طحن، تعبئة).</p>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+/* ================= فئات العملاء والبونص ================= */
+function TiersTab({ tiers }: { tiers: TierRow[] }) {
+  const router = useRouter()
+  const empty = { name: '', priceSource: 'RETAIL', discountPercent: '0', bonusPercent: '0', sortOrder: '0' }
+  const [form, setForm] = useState<any>(empty)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    try {
+      await apiCall(editId ? `/api/tiers/${editId}` : '/api/tiers', editId ? 'PUT' : 'POST', {
+        ...form,
+        discountPercent: Number(form.discountPercent),
+        bonusPercent: Number(form.bonusPercent),
+        sortOrder: Number(form.sortOrder),
+      })
+      setForm(empty); setEditId(null); router.refresh()
+    } catch (err: any) { setError(err.message) }
+  }
+
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`حذف فئة "${name}"؟ العملاء المرتبطين هيبقوا بدون فئة.`)) return
+    try { await apiCall(`/api/tiers/${id}`, 'DELETE'); router.refresh() } catch (err: any) { alert(err.message) }
+  }
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
+        <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل فئة' : 'فئة عملاء جديدة'}</h3>
+        <p className="text-xs text-gray-500">
+          كل فئة ليها تسعير خاص (سعر أساسي + خصم إضافي) ونسبة بونص بيكسبها العميل من كل فاتورة (1 نقطة = 1 ج.م).
+        </p>
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="مثال: كبار العملاء" className={inputCls} />
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">السعر الأساسي للفئة</label>
+          <select value={form.priceSource} onChange={(e) => setForm({ ...form, priceSource: e.target.value })} className={inputCls}>
+            <option value="RETAIL">سعر القطاعي</option>
+            <option value="WHOLESALE">سعر الجملة</option>
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">خصم إضافي %</label>
+            <input type="number" min="0" max="100" step="0.5" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">نسبة البونص %</label>
+            <input type="number" min="0" max="100" step="0.5" value={form.bonusPercent} onChange={(e) => setForm({ ...form, bonusPercent: e.target.value })} className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">الترتيب</label>
+          <input type="number" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
+            {editId ? 'حفظ' : 'إضافة'}
+          </button>
+          {editId && (
+            <button type="button" onClick={() => { setEditId(null); setForm(empty) }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">إلغاء</button>
+          )}
+        </div>
+      </form>
+
+      <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
+        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">الفئات ({tiers.length})</h3>
+        <div className="space-y-2">
+          {tiers.map((t) => (
+            <div key={t.id} className="flex items-center justify-between border border-gray-100 rounded-lg p-3.5">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+                  {t.name}
+                  <span className="text-[10px] text-gray-400">({t.customerCount} عميل)</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-semibold">
+                    {t.priceSource === 'WHOLESALE' ? 'سعر الجملة' : 'سعر القطاعي'}
+                  </span>
+                  {t.discountPercent > 0 && <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-semibold tabular-nums">خصم {t.discountPercent}%</span>}
+                  {t.bonusPercent > 0 && <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">بونص {t.bonusPercent}%</span>}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => { setEditId(t.id); setForm({ name: t.name, priceSource: t.priceSource, discountPercent: String(t.discountPercent), bonusPercent: String(t.bonusPercent), sortOrder: String(t.sortOrder) }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => remove(t.id, t.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

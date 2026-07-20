@@ -32,6 +32,7 @@ interface Customer {
   id: string
   name: string
   customerType: 'RETAIL' | 'WHOLESALE'
+  tier: { name: string; priceSource: string; discountPercent: number } | null
 }
 
 interface Category {
@@ -89,8 +90,14 @@ export function Pos({
   // العميل القطاعي مفيش آجل — دفع فوري بس
   const effectiveType = isWholesale ? type : 'CASH'
 
-  const priceOf = (p: Product) =>
-    isWholesale && p.wholesalePrice > 0 ? p.wholesalePrice : p.sellPrice
+  const activeTier = showNewCustomer ? null : selectedCustomer?.tier || null
+  const priceOf = (p: Product) => {
+    if (activeTier) {
+      const base = activeTier.priceSource === 'WHOLESALE' && p.wholesalePrice > 0 ? p.wholesalePrice : p.sellPrice
+      return Math.max(0, Math.round(base * (1 - activeTier.discountPercent / 100) * 100) / 100)
+    }
+    return isWholesale && p.wholesalePrice > 0 ? p.wholesalePrice : p.sellPrice
+  }
 
   const filtered = useMemo(
     () =>
@@ -103,13 +110,20 @@ export function Pos({
   )
 
   // لما نوع العميل يتغيّر، الأسعار اللي متعدّلتش يدوي بتتحدث تلقائي
-  const repriceCart = (wholesale: boolean) => {
+  const repriceCart = (cust?: Customer | null, newTypeWholesale?: boolean) => {
     setCart((prev) =>
       prev.map((c) => {
         if (c.priceEdited) return c
         const p = products.find((pr) => pr.id === c.productId)
         if (!p) return c
-        const price = wholesale && p.wholesalePrice > 0 ? p.wholesalePrice : p.sellPrice
+        let price: number
+        if (cust?.tier) {
+          const base = cust.tier.priceSource === 'WHOLESALE' && p.wholesalePrice > 0 ? p.wholesalePrice : p.sellPrice
+          price = Math.max(0, Math.round(base * (1 - cust.tier.discountPercent / 100) * 100) / 100)
+        } else {
+          const wholesale = cust ? cust.customerType === 'WHOLESALE' : !!newTypeWholesale
+          price = wholesale && p.wholesalePrice > 0 ? p.wholesalePrice : p.sellPrice
+        }
         return { ...c, unitPrice: price }
       })
     )
@@ -325,9 +339,13 @@ export function Pos({
           <ShoppingCart className="w-5 h-5 text-[#e94560]" />
           الفاتورة الحالية
           {cart.length > 0 && <span className="text-xs text-gray-400">({cart.length} صنف)</span>}
-          {isWholesale && (
+          {activeTier ? (
+            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-semibold mr-auto">
+              {activeTier.name}{activeTier.discountPercent > 0 ? ` −${activeTier.discountPercent}%` : ''}
+            </span>
+          ) : isWholesale ? (
             <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-semibold mr-auto">أسعار جملة</span>
-          )}
+          ) : null}
         </h3>
 
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
@@ -413,7 +431,7 @@ export function Pos({
               />
               <select
                 value={newCustomerType}
-                onChange={(e) => { const v = e.target.value as 'RETAIL' | 'WHOLESALE'; setNewCustomerType(v); repriceCart(v === 'WHOLESALE') }}
+                onChange={(e) => { const v = e.target.value as 'RETAIL' | 'WHOLESALE'; setNewCustomerType(v); repriceCart(null, v === 'WHOLESALE') }}
                 className="w-24 shrink-0 px-2 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
               >
                 <option value="RETAIL">قطاعي</option>
@@ -426,14 +444,14 @@ export function Pos({
               onChange={(e) => {
                 setCustomerId(e.target.value)
                 const cust = customers.find((c) => c.id === e.target.value)
-                repriceCart(cust?.customerType === 'WHOLESALE')
+                repriceCart(cust || null)
               }}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
             >
               <option value="">اختار العميل</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} ({c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي'})
+                  {c.name} ({c.tier ? c.tier.name : c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي'})
                 </option>
               ))}
             </select>

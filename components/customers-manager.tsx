@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Phone, MapPin, Pencil, Trash2, X, MessageCircle, ChevronDown, User,
-  ReceiptText, Globe, Scale, Wallet,
+  ReceiptText, Globe, Scale, Wallet, Star,
 } from 'lucide-react'
 
 export interface CustomerRow {
@@ -13,6 +13,9 @@ export interface CustomerRow {
   phone: string | null
   address: string | null
   customerType: string
+  tierId: string | null
+  tierName: string | null
+  bonusPoints: number
   balance: number
   totalPurchases: number
   creditLimit: number
@@ -30,13 +33,13 @@ function waUrl(phone: string) {
   return `https://wa.me/${p.startsWith('0') ? `2${p}` : p}`
 }
 
-export function CustomersManager({ customers }: { customers: CustomerRow[] }) {
+export function CustomersManager({ customers, tiers = [] }: { customers: CustomerRow[]; tiers?: { id: string; name: string }[] }) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState<CustomerRow | null>(null)
-  const [form, setForm] = useState({ name: '', phone: '', address: '', customerType: 'RETAIL', creditLimit: '0' })
+  const [form, setForm] = useState({ name: '', phone: '', address: '', customerType: 'RETAIL', tierId: '', creditLimit: '0' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -51,7 +54,7 @@ export function CustomersManager({ customers }: { customers: CustomerRow[] }) {
 
   const startEdit = (c: CustomerRow) => {
     setEditing(c)
-    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', customerType: c.customerType, creditLimit: String(c.creditLimit) })
+    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', customerType: c.customerType, tierId: c.tierId || '', creditLimit: String(c.creditLimit) })
     setError('')
   }
 
@@ -66,6 +69,17 @@ export function CustomersManager({ customers }: { customers: CustomerRow[] }) {
     setSaving(false)
     if (!res.ok) { setError(data.error || 'فشل الحفظ'); return }
     setEditing(null)
+    router.refresh()
+  }
+
+  const redeem = async (c: CustomerRow) => {
+    const val = prompt(`رصيد بونص "${c.name}": ${fmt(c.bonusPoints)} نقطة\nاكتب عدد النقاط اللي هتستبدلها:`)
+    if (!val) return
+    const res = await fetch(`/api/customers/${c.id}/redeem`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ points: Number(val) }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { alert(data.error || 'فشل الاستبدال'); return }
     router.refresh()
   }
 
@@ -116,8 +130,9 @@ export function CustomersManager({ customers }: { customers: CustomerRow[] }) {
                   <p className="font-bold text-[#1a1a2e] flex items-center gap-2 flex-wrap">
                     {c.name}
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.customerType === 'WHOLESALE' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
-                      {c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي'}
+                      {c.tierName || (c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي')}
                     </span>
+                    {c.bonusPoints > 0 && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 tabular-nums">🎁 {fmt(c.bonusPoints)} نقطة</span>}
                     {c.balance > 0 && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 tabular-nums">مديونية {fmt(c.balance)} ج.م</span>}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">
@@ -130,11 +145,12 @@ export function CustomersManager({ customers }: { customers: CustomerRow[] }) {
               {/* تفاصيل البروفايل */}
               {open && (
                 <div className="border-t border-gray-50 p-5 space-y-4">
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <Stat icon={<Wallet className="w-4 h-4 text-green-600" />} label="إجمالي المشتريات" value={`${fmt(c.totalPurchases)} ج.م`} />
                     <Stat icon={<Scale className="w-4 h-4 text-red-500" />} label="المديونية" value={`${fmt(c.balance)} ج.م`} danger={c.balance > 0} />
                     <Stat icon={<ReceiptText className="w-4 h-4 text-blue-600" />} label="فواتير المحل" value={String(c.invoiceCount)} />
                     <Stat icon={<Globe className="w-4 h-4 text-purple-600" />} label="طلبات الموقع" value={String(c.onlineCount)} />
+                    <Stat icon={<Star className="w-4 h-4 text-amber-500" />} label="رصيد البونص" value={`${fmt(c.bonusPoints)} نقطة`} />
                   </div>
 
                   {(c.phone || c.address) && (
@@ -172,6 +188,11 @@ export function CustomersManager({ customers }: { customers: CustomerRow[] }) {
                       <a href={waUrl(c.phone)} target="_blank" className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">
                         <MessageCircle className="w-3.5 h-3.5" /> واتساب
                       </a>
+                    )}
+                    {c.bonusPoints > 0 && (
+                      <button onClick={() => redeem(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-500 text-white text-xs font-bold hover:bg-amber-600">
+                        <Star className="w-3.5 h-3.5" /> استبدال بونص
+                      </button>
                     )}
                     <button onClick={() => startEdit(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2545]">
                       <Pencil className="w-3.5 h-3.5" /> تعديل البيانات
@@ -213,6 +234,13 @@ export function CustomersManager({ customers }: { customers: CustomerRow[] }) {
                   <option value="WHOLESALE">جملة</option>
                 </select>
               </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">فئة العميل (التسعير والبونص)</label>
+              <select value={form.tierId} onChange={(e) => setForm({ ...form, tierId: e.target.value })} className={inputCls}>
+                <option value="">بدون فئة</option>
+                {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">العنوان</label>
