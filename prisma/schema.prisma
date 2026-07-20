@@ -192,6 +192,7 @@ model Product {
   stageId        String? // التصنيف المخزني (خام / محمّص / مطحون / نهائي)
   costPrice      Decimal     @db.Decimal(10, 2) // سعر التكلفة
   sellPrice      Decimal     @db.Decimal(10, 2) // سعر البيع قطاعي
+  oldPrice       Decimal?    @db.Decimal(10, 2) // السعر قبل الخصم (لشارة التخفيض)
   wholesalePrice Decimal     @default(0) @db.Decimal(10, 2) // سعر البيع جملة
   minStock       Int         @default(0) // الحد الأدنى
   quantity       Int         @default(0) // الكمية الإجمالية (كل المخازن)

@@ -10,7 +10,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     const body = await req.json()
-    const { name, categoryId, stageId, costPrice, sellPrice, wholesalePrice, minStock, unit, imageUrl } = body
+    const { name, categoryId, stageId, costPrice, sellPrice, oldPrice, wholesalePrice, minStock, unit, imageUrl } = body
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
@@ -32,6 +32,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         stageId: stageId || null,
         costPrice: Number(costPrice) || 0,
         sellPrice: Number(sellPrice) || 0,
+        oldPrice: oldPrice ? Number(oldPrice) : null,
         wholesalePrice: Number(wholesalePrice) || 0,
         minStock: Number(minStock) || 0,
         unit: unit || 'كجم',

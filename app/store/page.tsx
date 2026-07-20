@@ -40,6 +40,7 @@ export default async function StorePage() {
       name: p.name,
       unit: p.unit,
       price: Number(p.sellPrice),
+      oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
       stock: p.stocks[0]?.quantity ?? 0,
       categoryId: p.categoryId,
       imageUrl: p.imageUrl,

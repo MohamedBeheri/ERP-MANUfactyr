@@ -38,6 +38,7 @@ interface ProductRow {
   stageId: string | null
   costPrice: number
   sellPrice: number
+  oldPrice: number | null
   wholesalePrice: number
   minStock: number
   quantity: number
@@ -159,7 +160,7 @@ export function SettingsManager({ suppliers, categories, products, stockStages, 
 function ProductsTab({ products, categories, stockStages }: { products: ProductRow[]; categories: CategoryRow[]; stockStages: StockStageRow[] }) {
   const router = useRouter()
   const defaultStage = stockStages.find((s) => s.sellable)?.id || stockStages[0]?.id || ''
-  const empty = { name: '', stageId: defaultStage, categoryId: '', costPrice: '', sellPrice: '', wholesalePrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
+  const empty = { name: '', stageId: defaultStage, categoryId: '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
   const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -173,6 +174,7 @@ function ProductsTab({ products, categories, stockStages }: { products: ProductR
       categoryId: p.categoryId || '',
       costPrice: String(p.costPrice),
       sellPrice: String(p.sellPrice),
+      oldPrice: p.oldPrice ? String(p.oldPrice) : '',
       wholesalePrice: String(p.wholesalePrice),
       minStock: String(p.minStock),
       unit: p.unit,
@@ -254,6 +256,10 @@ function ProductsTab({ products, categories, stockStages }: { products: ProductR
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">سعر القطاعي</label>
             <input type="number" min="0" step="0.01" value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">السعر قبل الخصم <span className="text-gray-400 font-normal">(لشارة تخفيض)</span></label>
+            <input type="number" min="0" step="0.01" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} className={inputCls} placeholder="اختياري" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">سعر الجملة</label>

@@ -66,6 +66,7 @@ export default async function SettingsPage() {
           stageId: p.stageId,
           costPrice: Number(p.costPrice),
           sellPrice: Number(p.sellPrice),
+          oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
           wholesalePrice: Number(p.wholesalePrice),
           minStock: p.minStock,
           quantity: p.quantity,

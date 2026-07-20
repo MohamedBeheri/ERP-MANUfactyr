@@ -15,7 +15,7 @@ const InstagramIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
 )
 import { AlBadrLogo } from '@/components/albadr-logo'
 
-interface StoreProduct { id: string; name: string; unit: string; price: number; stock: number; categoryId: string | null; imageUrl: string | null; isNew: boolean; bestRank: number | null }
+interface StoreProduct { id: string; name: string; unit: string; price: number; oldPrice: number | null; stock: number; categoryId: string | null; imageUrl: string | null; isNew: boolean; bestRank: number | null }
 interface Category { id: string; name: string }
 interface Slide { id: string; type: string; media: string; badge: string | null; title1: string | null; title2: string | null; subtitle: string | null; ctaText: string | null; ctaLink: string | null }
 interface Settings {
@@ -125,37 +125,78 @@ export function Storefront({ settings, products, categories, slides, blocks = []
   const sub = light ? 'text-gray-500' : 'text-gray-400'
   const headerBg = light ? 'bg-[#f5f1ea]/90 border-black/10' : 'bg-[#0a0a0b]/90 border-white/10'
 
+  // كارت منتج بأسلوب بن نجار: صورة عايمة بدون إطار + شارات + بادج الوزن + سعر قبل/بعد الخصم
   const card = (p: StoreProduct, compact = false) => {
     const out = p.stock <= 0
     const wished = wish.includes(p.id)
+    const off = p.oldPrice && p.oldPrice > p.price ? Math.round((1 - p.price / p.oldPrice) * 100) : 0
     return (
-      <div key={p.id} className={`group flex flex-col overflow-hidden rounded-2xl border ${panel} transition hover:-translate-y-1 hover:border-acc-40 ${compact ? 'w-40 shrink-0' : ''}`}>
-        <div className="relative">
-          <div className={`flex aspect-square items-center justify-center overflow-hidden ${light ? 'bg-black/5' : 'bg-gradient-to-br from-[#1b1b1e] to-[#0a0a0b]'}`}>
+      <div key={p.id} className={`group flex flex-col text-center ${compact ? 'w-44 shrink-0' : ''}`}>
+        <div className="relative px-2 pt-6">
+          {/* الصورة عايمة على الخلفية */}
+          <div className="flex aspect-square items-center justify-center overflow-visible">
             {p.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
-            ) : <Coffee className="w-14 h-14 opacity-15 transition group-hover:scale-110" />}
+              <img
+                src={p.imageUrl}
+                alt={p.name}
+                className={`h-full w-full object-contain drop-shadow-xl transition duration-300 group-hover:scale-105 group-hover:-translate-y-1 ${out ? 'opacity-50 grayscale' : ''}`}
+                loading="lazy"
+              />
+            ) : (
+              <div className={`w-3/4 h-3/4 rounded-3xl flex items-center justify-center ${light ? 'bg-black/5' : 'bg-white/5'}`}>
+                <Coffee className="w-14 h-14 opacity-20 transition group-hover:scale-110" />
+              </div>
+            )}
           </div>
-          {/* شارات */}
-          <div className="absolute top-2.5 right-2.5 flex flex-col gap-1">
-            {p.isNew && <span className="rounded-md bg-acc px-2 py-0.5 text-[10px] font-black text-black">جديد</span>}
-            {p.bestRank !== null && p.bestRank < 5 && <span className="rounded-md bg-[#e94560] px-2 py-0.5 text-[10px] font-black text-white flex items-center gap-0.5"><Flame className="w-3 h-3" /> الأكثر</span>}
+
+          {/* شارات فوق */}
+          <div className="absolute top-0 right-0 flex flex-col items-end gap-1 z-10">
+            {off > 0 && <span className="rounded-full bg-[#e94560] px-2.5 py-1 text-[11px] font-black text-white shadow">تخفيض {off}%</span>}
+            {p.isNew && off === 0 && <span className="rounded-full bg-acc px-2.5 py-1 text-[11px] font-black text-black shadow">جديد ✦</span>}
+            {p.bestRank !== null && p.bestRank < 5 && (
+              <span className="rounded-full bg-acc-10 border border-acc-40 text-acc px-2.5 py-1 text-[10px] font-black flex items-center gap-0.5"><Flame className="w-3 h-3" /> الأكثر مبيعًا</span>
+            )}
           </div>
-          {out && <span className="absolute top-2.5 left-2.5 rounded-md bg-black/80 px-2 py-0.5 text-xs font-bold text-white">نفد</span>}
-          <button onClick={() => toggleWish(p.id)} className={`absolute bottom-2.5 left-2.5 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur transition ${wished ? 'bg-[#e94560] text-white' : 'bg-black/50 text-white hover:bg-black/70'}`} aria-label="المفضلة">
+          {out && (
+            <span className={`absolute top-0 left-0 z-10 rounded-full px-2.5 py-1 text-[11px] font-black shadow ${light ? 'bg-[#1a1a2e] text-white' : 'bg-white text-black'}`}>
+              نفدت الكمية
+            </span>
+          )}
+
+          {/* المفضلة */}
+          <button
+            onClick={() => toggleWish(p.id)}
+            className={`absolute top-10 left-1 z-10 w-9 h-9 rounded-full flex items-center justify-center shadow transition ${wished ? 'bg-[#e94560] text-white' : light ? 'bg-white text-gray-500 hover:text-[#e94560]' : 'bg-white/10 text-white backdrop-blur hover:bg-white/20'}`}
+            aria-label="المفضلة"
+          >
             <Heart className={`w-4 h-4 ${wished ? 'fill-current' : ''}`} />
           </button>
-        </div>
-        <div className="flex flex-1 flex-col p-2.5">
-          <h3 className="line-clamp-2 text-sm font-bold min-h-10 transition group-hover:text-acc">{p.name}</h3>
-          <div className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="text-base font-black text-acc tabular-nums">{fmt(p.price)}</span>
-            <span className={`text-[11px] ${sub}`}>ج.م</span>
-          </div>
-          <button onClick={() => add(p)} disabled={out || !settings.isOpen} className={`mt-2.5 w-full py-2 rounded-xl ${panelSoft} text-sm font-bold hover:bg-acc hover:text-black transition disabled:opacity-30 disabled:cursor-not-allowed`}>
-            {out ? 'غير متاح' : 'أضف للسلة'}
+
+          {/* زرار سلة دائري */}
+          <button
+            onClick={() => add(p)}
+            disabled={out || !settings.isOpen}
+            className="absolute bottom-10 left-1 z-10 w-11 h-11 rounded-full bg-acc text-black flex items-center justify-center shadow-lg transition hover:scale-110 disabled:opacity-0 glow-acc"
+            aria-label="أضف للسلة"
+          >
+            <ShoppingBag className="w-5 h-5" />
           </button>
+
+          {/* بادج الوزن/العبوة أسفل الصورة */}
+          <span className={`absolute bottom-0 right-1/2 translate-x-1/2 z-10 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-black shadow ${light ? 'bg-[#1a1a2e] text-white' : 'bg-white text-[#1a1a2e]'}`}>
+            {p.unit}
+          </span>
+        </div>
+
+        {/* الاسم والسعر */}
+        <h3 className="mt-3 line-clamp-2 text-sm font-black text-acc min-h-10 transition group-hover:opacity-80">{p.name}</h3>
+        <div className="mt-1 flex items-baseline justify-center gap-2 flex-wrap">
+          {off > 0 && <span className={`text-xs line-through ${sub} tabular-nums`}>{fmt(p.oldPrice!)} ج.م</span>}
+          <span className="text-sm font-bold tabular-nums">
+            <span className={`text-[11px] font-normal ${sub}`}>ابتداءً من </span>
+            {fmt(p.price)} ج.م
+          </span>
         </div>
       </div>
     )
@@ -694,9 +735,12 @@ function AccentStyles() {
 }
 function SectionTitle({ title, icon, onMore }: { title: string; icon?: React.ReactNode; onMore: () => void }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <h2 className="text-xl font-black flex items-center gap-2">{icon || <span className="w-1.5 h-6 rounded bg-acc" />}{title}</h2>
-      <button onClick={onMore} className="text-sm text-acc font-bold flex items-center gap-1 hover:gap-2 transition-all">عرض الكل <ChevronLeft className="w-4 h-4" /></button>
+    <div className="relative flex items-center justify-center mb-8">
+      <h2 className="text-2xl sm:text-3xl font-black flex items-center gap-2 text-center">{icon}{title}</h2>
+      <button onClick={onMore} className="absolute right-0 text-sm text-acc font-bold flex flex-col items-start leading-tight hover:opacity-80 transition">
+        <span>شاهد</span>
+        <span className="underline underline-offset-4">المزيد</span>
+      </button>
     </div>
   )
 }
