@@ -27,6 +27,11 @@ export default async function StorePage() {
     prisma.invoiceItem.groupBy({ by: ['productId'], _sum: { quantity: true }, orderBy: { _sum: { quantity: 'desc' } }, take: 12 }),
   ])
 
+  const storeBlocks = await prisma.storeBlock.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  })
+
   const bestRank = new Map(bestSellerRows.map((r, i) => [r.productId, i]))
 
   const products = productsRaw
@@ -60,12 +65,23 @@ export default async function StorePage() {
         showOutOfStock: settings.showOutOfStock,
         accentColor: settings.accentColor,
         light: settings.bgTheme === 'light',
+        promoText: settings.promoText,
+        promoLink: settings.promoLink,
+        aboutTitle: settings.aboutTitle,
+        aboutText: settings.aboutText,
+        facebook: settings.facebook,
+        instagram: settings.instagram,
+        email: settings.email,
       }}
       products={products}
       categories={categories.filter((c) => usedCategoryIds.has(c.id)).map((c) => ({ id: c.id, name: c.name }))}
       slides={slides.map((s) => ({
         id: s.id, type: s.type, media: s.media, badge: s.badge,
         title1: s.title1, title2: s.title2, subtitle: s.subtitle, ctaText: s.ctaText, ctaLink: s.ctaLink,
+      }))}
+      blocks={storeBlocks.map((b) => ({
+        id: b.id, kind: b.kind, title: b.title, subtitle: b.subtitle,
+        imageUrl: b.imageUrl, link: b.link, rating: b.rating,
       }))}
     />
   )

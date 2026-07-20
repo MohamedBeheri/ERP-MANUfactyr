@@ -608,6 +608,13 @@ model StoreSettings {
   accentColor    String   @default("#e9b44c") // لون الموقع الأساسي
   bgTheme        String   @default("dark") // dark | light
   fontFamily     String   @default("Cairo") // خط الموقع
+  promoText      String? // شريط العرض الترويجي
+  promoLink      String?
+  aboutTitle     String? // عنوان قصة العلامة
+  aboutText      String? // نص قصة العلامة
+  facebook       String?
+  instagram      String?
+  email          String?
   updatedAt      DateTime @updatedAt
 
   @@map("store_settings")
@@ -666,4 +673,21 @@ model HeroSlide {
   createdAt DateTime @default(now())
 
   @@map("hero_slides")
+}
+
+// بلوكات محتوى الموقع — كلها dynamic من الداشبورد
+// ROAST_CARD (كروت التحميص) | BRAND_CARD (خطوط المنتجات) | LOYALTY_STEP (خطوات الولاء) | REVIEW (آراء العملاء)
+model StoreBlock {
+  id        String   @id @default(cuid())
+  kind      String // ROAST_CARD | BRAND_CARD | LOYALTY_STEP | REVIEW
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  link      String? // رابط أو categoryId للكروت القابلة للضغط
+  rating    Int      @default(5) // للتقييمات
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("store_blocks")
 }

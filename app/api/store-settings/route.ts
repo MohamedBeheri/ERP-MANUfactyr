@@ -37,6 +37,13 @@ export async function PUT(req: NextRequest) {
         accentColor: b.accentColor ?? undefined,
         bgTheme: b.bgTheme ?? undefined,
         fontFamily: b.fontFamily ?? undefined,
+        promoText: b.promoText !== undefined ? b.promoText || null : undefined,
+        promoLink: b.promoLink !== undefined ? b.promoLink || null : undefined,
+        aboutTitle: b.aboutTitle !== undefined ? b.aboutTitle || null : undefined,
+        aboutText: b.aboutText !== undefined ? b.aboutText || null : undefined,
+        facebook: b.facebook !== undefined ? b.facebook || null : undefined,
+        instagram: b.instagram !== undefined ? b.instagram || null : undefined,
+        email: b.email !== undefined ? b.email || null : undefined,
       },
     })
     return NextResponse.json(settings)

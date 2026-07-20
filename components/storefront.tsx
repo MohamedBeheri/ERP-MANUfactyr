@@ -3,8 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Coffee, ShoppingBag, Heart, Plus, Minus, Trash2, X, Search, Phone, MessageCircle,
-  CheckCircle2, MapPin, ChevronLeft, ChevronRight, Home, Grid3x3, Clock, Truck, ShieldCheck, Sparkles, Flame, SlidersHorizontal,
+  CheckCircle2, MapPin, ChevronLeft, ChevronRight, Home, Grid3x3, Clock, Truck, ShieldCheck,
+  Sparkles, Flame, SlidersHorizontal, Star, Mail, Banknote,
 } from 'lucide-react'
+
+const FacebookIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
+)
+const InstagramIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></svg>
+)
 import { AlBadrLogo } from '@/components/albadr-logo'
 
 interface StoreProduct { id: string; name: string; unit: string; price: number; stock: number; categoryId: string | null; imageUrl: string | null; isNew: boolean; bestRank: number | null }
@@ -13,14 +21,17 @@ interface Slide { id: string; type: string; media: string; badge: string | null;
 interface Settings {
   storeName: string; tagline: string; heroImage: string | null; phone: string | null; whatsapp: string | null; address: string | null
   deliveryFee: number; minOrder: number; isOpen: boolean; showOutOfStock: boolean; accentColor: string; light: boolean
+  promoText: string | null; promoLink: string | null; aboutTitle: string | null; aboutText: string | null
+  facebook: string | null; instagram: string | null; email: string | null
 }
+interface Block { id: string; kind: string; title: string; subtitle: string | null; imageUrl: string | null; link: string | null; rating: number }
 interface CartLine { productId: string; name: string; price: number; unit: string; quantity: number; stock: number; imageUrl: string | null }
 
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 const CART_KEY = 'albadr-cart'
 const WISH_KEY = 'albadr-wishlist'
 
-export function Storefront({ settings, products, categories, slides }: { settings: Settings; products: StoreProduct[]; categories: Category[]; slides: Slide[] }) {
+export function Storefront({ settings, products, categories, slides, blocks = [] }: { settings: Settings; products: StoreProduct[]; categories: Category[]; slides: Slide[]; blocks?: Block[] }) {
   const light = settings.light
   const [tab, setTab] = useState<'home' | 'products' | 'contact'>('home')
   const [cart, setCart] = useState<CartLine[]>([])
@@ -58,6 +69,13 @@ export function Storefront({ settings, products, categories, slides }: { setting
   const newest = useMemo(() => products.slice(0, 10), [products])
   const bestSellers = useMemo(() => products.filter((p) => p.bestRank !== null).sort((a, b) => (a.bestRank! - b.bestRank!)).slice(0, 8), [products])
   const featured = useMemo(() => (bestSellers.length >= 4 ? bestSellers : products.slice(0, 8)), [bestSellers, products])
+
+  // بلوكات المحتوى الديناميكي (زي بن نجار)
+  const roastCards = blocks.filter((b) => b.kind === 'ROAST_CARD')
+  const brandCards = blocks.filter((b) => b.kind === 'BRAND_CARD')
+  const loyaltySteps = blocks.filter((b) => b.kind === 'LOYALTY_STEP')
+  const reviews = blocks.filter((b) => b.kind === 'REVIEW')
+  const avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0
 
   const add = (p: StoreProduct) => {
     if (p.stock <= 0) return
@@ -170,14 +188,46 @@ export function Storefront({ settings, products, categories, slides }: { setting
         </nav>
       </header>
 
-      {/* ===== الرئيسية ===== */}
+      {/* ===== الرئيسية (هيكل بن نجار) ===== */}
       {tab === 'home' && (
         <>
+          {/* 1) البانر الرئيسي */}
           <HeroCarousel slides={slides} settings={settings} onCta={() => goProducts()} light={light} />
 
-          {/* شريط أحدث المنتجات */}
-          {newest.length > 0 && (
+          {/* 2) كروت التحميص/الاختيار */}
+          {roastCards.length > 0 && (
+            <div className="max-w-6xl mx-auto px-4 pt-10" data-reveal>
+              <h2 className="text-2xl font-black text-center mb-1">اختار تحميصك</h2>
+              <p className={`${sub} text-center text-sm mb-6`}>كل درجة تحميص ليها طعمها الخاص</p>
+              <div className={`grid gap-4 ${roastCards.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                {roastCards.map((b) => (
+                  <button key={b.id} onClick={() => goProducts()} className={`group relative overflow-hidden rounded-3xl border ${panel} p-6 text-center hover:border-acc-40 hover:-translate-y-1 transition`}>
+                    {b.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={b.imageUrl} alt={b.title} className="w-20 h-20 object-cover rounded-2xl mx-auto mb-3" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-acc-10 flex items-center justify-center mx-auto mb-3"><Flame className="w-8 h-8 text-acc" /></div>
+                    )}
+                    <p className="text-lg font-black group-hover:text-acc transition">{b.title}</p>
+                    {b.subtitle && <p className={`text-xs ${sub} mt-1.5 leading-relaxed`}>{b.subtitle}</p>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 3) شريط العرض الترويجي */}
+          {settings.promoText && (
             <div className="max-w-6xl mx-auto px-4 pt-8" data-reveal>
+              <button onClick={() => goProducts()} className="w-full rounded-2xl bg-acc text-black px-6 py-4 text-center font-black text-sm sm:text-base glow-acc hover:brightness-95 transition">
+                🎁 {settings.promoText}
+              </button>
+            </div>
+          )}
+
+          {/* 4) أحدث المنتجات */}
+          {newest.length > 0 && (
+            <div className="max-w-6xl mx-auto px-4 pt-10" data-reveal>
               <SectionTitle title="أحدث المنتجات" icon={<Sparkles className="w-5 h-5 text-acc" />} onMore={() => goProducts()} />
               <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
                 {newest.map((p) => <div key={p.id} className="snap-start">{card(p, true)}</div>)}
@@ -185,25 +235,41 @@ export function Storefront({ settings, products, categories, slides }: { setting
             </div>
           )}
 
-          {/* مميزات */}
-          <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-2 md:grid-cols-4 gap-3" data-reveal>
-            {[
-              { Icon: Coffee, t: 'قهوة طازجة', s: 'تتحمّص وتُطحن حسب طلبك' },
-              { Icon: Truck, t: 'توصيل سريع', s: 'لحد باب البيت' },
-              { Icon: ShieldCheck, t: 'جودة مضمونة', s: 'أجود أنواع البن' },
-              { Icon: Clock, t: 'دفع عند الاستلام', s: 'اطلب وادفع باستلامك' },
-            ].map((f) => (
-              <div key={f.t} className={`rounded-2xl border ${panel} p-4 text-center`}>
-                <div className="w-11 h-11 rounded-xl bg-acc-10 flex items-center justify-center mx-auto mb-2"><f.Icon className="w-5 h-5 text-acc" /></div>
-                <p className="font-bold text-sm">{f.t}</p>
-                <p className={`text-[11px] ${sub} mt-0.5`}>{f.s}</p>
+          {/* 5) الأكثر مبيعًا */}
+          {bestSellers.length > 0 && (
+            <div className="max-w-6xl mx-auto px-4 pt-8" data-reveal>
+              <SectionTitle title="الأكثر مبيعًا" icon={<Flame className="w-5 h-5 text-[#e94560]" />} onMore={() => goProducts()} />
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">{bestSellers.map((p) => card(p))}</div>
+            </div>
+          )}
+
+          {/* 6) خطوط المنتجات (كروت العلامة) */}
+          {(brandCards.length > 0 ? brandCards : null) && (
+            <div className="max-w-6xl mx-auto px-4 pt-10" data-reveal>
+              <h2 className="text-2xl font-black text-center mb-6">خطوط منتجاتنا</h2>
+              <div className={`grid gap-4 ${brandCards.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                {brandCards.map((b) => (
+                  <button key={b.id} onClick={() => goProducts(b.link || undefined)} className={`group relative overflow-hidden rounded-3xl border ${panel} text-right hover:border-acc-40 hover:-translate-y-1 transition`}>
+                    {b.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={b.imageUrl} alt={b.title} className="w-full h-40 object-cover" />
+                    ) : (
+                      <div className={`w-full h-40 flex items-center justify-center ${light ? 'bg-black/5' : 'bg-gradient-to-br from-[#1b1b1e] to-[#0a0a0b]'}`}><Coffee className="w-14 h-14 text-acc opacity-60" /></div>
+                    )}
+                    <div className="p-5">
+                      <p className="text-lg font-black group-hover:text-acc transition">{b.title}</p>
+                      {b.subtitle && <p className={`text-xs ${sub} mt-1`}>{b.subtitle}</p>}
+                      <span className="mt-3 inline-flex items-center gap-1 text-sm text-acc font-bold">تسوّق الآن <ChevronLeft className="w-4 h-4" /></span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           {/* الفئات */}
-          {categories.length > 0 && (
-            <div className="max-w-6xl mx-auto px-4 py-4" data-reveal>
+          {categories.length > 0 && brandCards.length === 0 && (
+            <div className="max-w-6xl mx-auto px-4 pt-10" data-reveal>
               <SectionTitle title="تسوّق حسب الفئة" icon={<Grid3x3 className="w-5 h-5 text-acc" />} onMore={() => goProducts()} />
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {categories.map((c) => (
@@ -217,18 +283,82 @@ export function Storefront({ settings, products, categories, slides }: { setting
             </div>
           )}
 
-          {/* الأكثر مبيعًا */}
-          {bestSellers.length > 0 && (
-            <div className="max-w-6xl mx-auto px-4 py-4" data-reveal>
-              <SectionTitle title="الأكثر مبيعًا" icon={<Flame className="w-5 h-5 text-[#e94560]" />} onMore={() => goProducts()} />
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">{bestSellers.map((p) => card(p))}</div>
+          {/* 7) قصة العلامة */}
+          {(settings.aboutTitle || settings.aboutText) && (
+            <div className="max-w-6xl mx-auto px-4 pt-12" data-reveal>
+              <div className={`rounded-3xl border ${panel} p-8 sm:p-12 text-center relative overflow-hidden`}>
+                <div className="absolute inset-0 opacity-[0.04] flex items-center justify-center pointer-events-none"><AlBadrLogo className="w-96 h-96" /></div>
+                <div className="relative">
+                  <AlBadrLogo className="w-16 h-16 text-acc mx-auto mb-4" />
+                  {settings.aboutTitle && <h2 className="text-2xl sm:text-3xl font-black leading-snug max-w-2xl mx-auto">{settings.aboutTitle}</h2>}
+                  {settings.aboutText && <p className={`${sub} mt-4 max-w-xl mx-auto leading-relaxed`}>{settings.aboutText}</p>}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* منتجات مميزة */}
-          <div className="max-w-6xl mx-auto px-4 py-4 pb-12" data-reveal>
-            <SectionTitle title="تصفّح منتجاتنا" icon={<Coffee className="w-5 h-5 text-acc" />} onMore={() => goProducts()} />
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">{featured.map((p) => card(p))}</div>
+          {/* 8) خطوات الولاء */}
+          {loyaltySteps.length > 0 && (
+            <div className="max-w-6xl mx-auto px-4 pt-12" data-reveal>
+              <h2 className="text-2xl font-black text-center mb-6">اطلب من البدر… واكسب مع كل فنجان</h2>
+              <div className={`grid gap-4 ${loyaltySteps.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                {loyaltySteps.map((b, i) => (
+                  <div key={b.id} className={`rounded-3xl border ${panel} p-6 text-center relative`}>
+                    <span className="absolute top-4 right-4 w-8 h-8 rounded-full bg-acc text-black font-black text-sm flex items-center justify-center tabular-nums">{i + 1}</span>
+                    {b.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={b.imageUrl} alt={b.title} className="w-16 h-16 object-cover rounded-2xl mx-auto mb-3" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-2xl bg-acc-10 flex items-center justify-center mx-auto mb-3"><Coffee className="w-7 h-7 text-acc" /></div>
+                    )}
+                    <p className="font-black">{b.title}</p>
+                    {b.subtitle && <p className={`text-xs ${sub} mt-1.5`}>{b.subtitle}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 9) آراء العملاء */}
+          {reviews.length > 0 && (
+            <div className="max-w-6xl mx-auto px-4 pt-12" data-reveal>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-black">آراء عملائنا</h2>
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`w-5 h-5 ${i < Math.round(avgRating) ? 'text-yellow-400 fill-yellow-400' : light ? 'text-gray-300' : 'text-gray-600'}`} />)}
+                  </div>
+                  <span className={`text-sm ${sub} tabular-nums`}>{avgRating.toFixed(1)} من {reviews.length} تقييم</span>
+                </div>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-2 snap-x">
+                {reviews.map((r) => (
+                  <div key={r.id} className={`snap-start w-72 shrink-0 rounded-3xl border ${panel} p-5`}>
+                    <div className="flex gap-0.5 mb-3">
+                      {Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`w-4 h-4 ${i < r.rating ? 'text-yellow-400 fill-yellow-400' : light ? 'text-gray-300' : 'text-gray-600'}`} />)}
+                    </div>
+                    {r.subtitle && <p className="text-sm leading-relaxed line-clamp-4">&ldquo;{r.subtitle}&rdquo;</p>}
+                    <p className="mt-3 font-bold text-sm text-acc">{r.title}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* مميزات ثابتة */}
+          <div className="max-w-6xl mx-auto px-4 py-12 grid grid-cols-2 md:grid-cols-4 gap-3" data-reveal>
+            {[
+              { Icon: Coffee, t: 'قهوة طازجة', s: 'تتحمّص وتُطحن حسب طلبك' },
+              { Icon: Truck, t: 'توصيل سريع', s: 'لحد باب البيت' },
+              { Icon: ShieldCheck, t: 'جودة مضمونة', s: 'أجود أنواع البن' },
+              { Icon: Clock, t: 'دفع عند الاستلام', s: 'اطلب وادفع باستلامك' },
+            ].map((f) => (
+              <div key={f.t} className={`rounded-2xl border ${panel} p-4 text-center`}>
+                <div className="w-11 h-11 rounded-xl bg-acc-10 flex items-center justify-center mx-auto mb-2"><f.Icon className="w-5 h-5 text-acc" /></div>
+                <p className="font-bold text-sm">{f.t}</p>
+                <p className={`text-[11px] ${sub} mt-0.5`}>{f.s}</p>
+              </div>
+            ))}
           </div>
         </>
       )}
@@ -280,16 +410,75 @@ export function Storefront({ settings, products, categories, slides }: { setting
         </div>
       )}
 
-      {/* الفوتر */}
-      <footer className={`border-t ${light ? 'border-black/10' : 'border-white/10'}`}>
-        <div className={`max-w-6xl mx-auto px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm ${sub}`}>
-          <div className="flex items-center gap-2"><AlBadrLogo className="w-8 h-8 text-acc" /> <span>© {settings.storeName}</span></div>
-          <div className="flex items-center gap-4">
-            {settings.phone && <span className="flex items-center gap-1.5"><Phone className="w-4 h-4" /> {settings.phone}</span>}
-            {settings.address && <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {settings.address}</span>}
+      {/* الفوتر (أعمدة زي بن نجار) */}
+      <footer className={`border-t ${light ? 'border-black/10 bg-black/[0.03]' : 'border-white/10 bg-white/[0.02]'}`}>
+        <div className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* العلامة */}
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <AlBadrLogo className="w-14 h-14 text-acc" />
+              <div>
+                <p className="font-black">{settings.storeName}</p>
+                <p className={`text-xs ${sub}`}>{settings.tagline}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              {settings.facebook && <a href={settings.facebook} target="_blank" aria-label="فيسبوك" className={`w-9 h-9 rounded-xl ${panelSoft} flex items-center justify-center hover:text-acc transition`}><FacebookIcon /></a>}
+              {settings.instagram && <a href={settings.instagram} target="_blank" aria-label="انستجرام" className={`w-9 h-9 rounded-xl ${panelSoft} flex items-center justify-center hover:text-acc transition`}><InstagramIcon /></a>}
+              {waLink && <a href={waLink} target="_blank" aria-label="واتساب" className={`w-9 h-9 rounded-xl ${panelSoft} flex items-center justify-center hover:text-green-500 transition`}><MessageCircle className="w-4 h-4" /></a>}
+              {settings.email && <a href={`mailto:${settings.email}`} aria-label="إيميل" className={`w-9 h-9 rounded-xl ${panelSoft} flex items-center justify-center hover:text-acc transition`}><Mail className="w-4 h-4" /></a>}
+            </div>
+          </div>
+
+          {/* روابط مهمة */}
+          <div>
+            <h4 className="font-black mb-3">روابط مهمة</h4>
+            <ul className={`space-y-2 text-sm ${sub}`}>
+              <li><button onClick={() => { setTab('home'); window.scrollTo({ top: 0 }) }} className="hover:text-acc transition">الرئيسية</button></li>
+              <li><button onClick={() => goProducts()} className="hover:text-acc transition">كل المنتجات</button></li>
+              <li><button onClick={() => { setTab('contact'); window.scrollTo({ top: 0 }) }} className="hover:text-acc transition">تواصل معنا</button></li>
+            </ul>
+          </div>
+
+          {/* المنتجات (تصنيفات) */}
+          <div>
+            <h4 className="font-black mb-3">منتجاتنا</h4>
+            <ul className={`space-y-2 text-sm ${sub}`}>
+              {categories.slice(0, 5).map((c) => (
+                <li key={c.id}><button onClick={() => goProducts(c.id)} className="hover:text-acc transition">{c.name}</button></li>
+              ))}
+              {categories.length === 0 && <li>—</li>}
+            </ul>
+          </div>
+
+          {/* التواصل والدفع */}
+          <div>
+            <h4 className="font-black mb-3">تواصل ودفع</h4>
+            <ul className={`space-y-2 text-sm ${sub}`}>
+              {settings.phone && <li className="flex items-center gap-2"><Phone className="w-4 h-4 shrink-0" /> <span dir="ltr" className="tabular-nums">{settings.phone}</span></li>}
+              {settings.email && <li className="flex items-center gap-2"><Mail className="w-4 h-4 shrink-0" /> {settings.email}</li>}
+              {settings.address && <li className="flex items-start gap-2"><MapPin className="w-4 h-4 shrink-0 mt-0.5" /> {settings.address}</li>}
+              <li className="flex items-center gap-2 pt-1"><Banknote className="w-4 h-4 shrink-0 text-green-500" /> الدفع عند الاستلام</li>
+            </ul>
           </div>
         </div>
+        <div className={`border-t ${light ? 'border-black/10' : 'border-white/10'}`}>
+          <p className={`max-w-6xl mx-auto px-4 py-4 text-center text-xs ${sub}`}>© {new Date().getFullYear()} {settings.storeName} — جميع الحقوق محفوظة</p>
+        </div>
       </footer>
+
+      {/* زرار واتساب عائم */}
+      {waLink && (
+        <a
+          href={waLink}
+          target="_blank"
+          aria-label="تواصل واتساب"
+          className="fixed bottom-5 left-5 z-40 w-14 h-14 rounded-full bg-green-600 hover:bg-green-500 text-white flex items-center justify-center shadow-2xl transition hover:scale-105"
+          style={{ boxShadow: '0 8px 30px -6px rgba(22,163,74,0.6)' }}
+        >
+          <MessageCircle className="w-7 h-7" />
+        </a>
+      )}
 
       {/* درج السلة/المفضلة */}
       {drawer && (

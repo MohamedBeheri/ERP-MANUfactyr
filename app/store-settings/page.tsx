@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { getStoreSettings } from '@/lib/store'
 import { StoreManager } from '@/components/store-manager'
 import { HeroManager } from '@/components/hero-manager'
+import { StoreBlocksManager } from '@/components/store-blocks-manager'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,11 @@ export default async function StoreSettingsPage() {
     }),
     prisma.heroSlide.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
   ])
+
+  const storeBlocks = await prisma.storeBlock.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  })
 
   const h = headers()
   const host = h.get('x-forwarded-host') || h.get('host') || ''
@@ -53,6 +59,13 @@ export default async function StoreSettingsPage() {
           accentColor: settings.accentColor,
           bgTheme: settings.bgTheme,
           fontFamily: settings.fontFamily,
+          promoText: settings.promoText,
+          promoLink: settings.promoLink,
+          aboutTitle: settings.aboutTitle,
+          aboutText: settings.aboutText,
+          facebook: settings.facebook,
+          instagram: settings.instagram,
+          email: settings.email,
         }}
         warehouses={warehouses.map((w) => ({ id: w.id, name: w.name }))}
         orders={orders.map((o) => ({
@@ -81,6 +94,19 @@ export default async function StoreSettingsPage() {
           ctaText: s.ctaText,
           ctaLink: s.ctaLink,
           sortOrder: s.sortOrder,
+        }))}
+      />
+
+      <StoreBlocksManager
+        blocks={storeBlocks.map((b) => ({
+          id: b.id,
+          kind: b.kind,
+          title: b.title,
+          subtitle: b.subtitle,
+          imageUrl: b.imageUrl,
+          link: b.link,
+          rating: b.rating,
+          sortOrder: b.sortOrder,
         }))}
       />
     </div>

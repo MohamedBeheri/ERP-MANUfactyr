@@ -19,6 +19,13 @@ interface Settings {
   accentColor: string
   bgTheme: string
   fontFamily: string
+  promoText: string | null
+  promoLink: string | null
+  aboutTitle: string | null
+  aboutText: string | null
+  facebook: string | null
+  instagram: string | null
+  email: string | null
 }
 
 const ACCENT_PRESETS = ['#e9b44c', '#c9a227', '#b5651d', '#8b5e3c', '#e94560', '#16a34a', '#0f766e', '#7c3aed']
@@ -166,6 +173,37 @@ export function StoreManager({ settings, warehouses, orders, storeUrl }: { setti
             <input type="checkbox" checked={form.showOutOfStock} onChange={(e) => setForm({ ...form, showOutOfStock: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
             عرض المنتجات اللي نفد مخزونها
           </label>
+
+          {/* محتوى الموقع */}
+          <div className="border-t border-gray-100 pt-3 space-y-3">
+            <p className="text-sm font-bold text-[#1a1a2e]">محتوى الموقع</p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">شريط العرض الترويجي (يظهر تحت البانر)</label>
+              <input value={form.promoText || ''} onChange={(e) => setForm({ ...form, promoText: e.target.value })} placeholder="مثال: اطلب بـ 1200ج واحصل على هدية" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">عنوان قصة العلامة</label>
+              <input value={form.aboutTitle || ''} onChange={(e) => setForm({ ...form, aboutTitle: e.target.value })} placeholder="مثال: من أكتر من 30 سنة..." className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">نص قصة العلامة</label>
+              <textarea value={form.aboutText || ''} onChange={(e) => setForm({ ...form, aboutText: e.target.value })} rows={3} className={`${inputCls} resize-none`} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">فيسبوك</label>
+                <input value={form.facebook || ''} onChange={(e) => setForm({ ...form, facebook: e.target.value })} className={inputCls} dir="ltr" placeholder="https://facebook.com/..." />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">انستجرام</label>
+                <input value={form.instagram || ''} onChange={(e) => setForm({ ...form, instagram: e.target.value })} className={inputCls} dir="ltr" placeholder="https://instagram.com/..." />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">الإيميل</label>
+              <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} dir="ltr" type="email" />
+            </div>
+          </div>
 
           {/* مظهر الموقع */}
           <div className="border-t border-gray-100 pt-3 space-y-3">
