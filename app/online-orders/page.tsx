@@ -26,7 +26,7 @@ export default async function OnlineOrdersPage() {
   const revenue = orders.filter((o) => o.status === 'DELIVERED').reduce((s, o) => s + Number(o.total), 0)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#1a1a2e]">طلبات الموقع</h1>
         <p className="text-sm text-gray-500 mt-0.5">إدارة كاملة لطلبات المتجر — بحث وتعديل وحذف وتواصل مع العميل</p>

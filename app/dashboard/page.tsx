@@ -110,7 +110,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     days === 1 ? 'مبيعات اليوم (بالساعة)' : `المبيعات آخر ${days} يوم`
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1a1a2e]">لوحة التحكم — شركة البدر لتجارة البن</h1>

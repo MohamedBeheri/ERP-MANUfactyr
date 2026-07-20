@@ -37,7 +37,7 @@ export default async function StoreSettingsPage() {
   const storeUrl = host ? `${proto}://${host}/store` : '/store'
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#1a1a2e]">إعداد موقع العميل</h1>
         <p className="text-sm text-gray-500 mt-0.5">متجر أونلاين مربوط بمنتجات ومخازن المصنع — العميل يطلب والطلب يوصلك هنا</p>

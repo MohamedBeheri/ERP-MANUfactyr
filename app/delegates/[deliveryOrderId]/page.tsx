@@ -66,7 +66,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
   const creditTotal = deliveryOrder.invoices.filter((i) => i.type === 'CREDIT').reduce((s, i) => s + Number(i.netAmount), 0)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* الترويسة */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">

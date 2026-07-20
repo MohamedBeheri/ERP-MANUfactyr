@@ -49,7 +49,7 @@ export default async function WarehousePage() {
   const totalStockValue = products.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1a1a2e]">المخزن</h1>

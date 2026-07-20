@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Settings,
   LogOut,
+  X,
 } from 'lucide-react'
 import { effectivePermissions } from '@/lib/permissions'
 
@@ -36,19 +37,28 @@ const menuItems = [
   { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },
 ]
 
-export function Sidebar({ user }: { user: any }) {
+export function Sidebar({ user, open = false, onClose }: { user: any; open?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const allowed = effectivePermissions(user?.role, user?.permissions)
   const filteredMenu = menuItems.filter((item) => !item.perm || allowed.includes(item.perm))
 
   return (
-    <aside className="no-print fixed right-0 top-0 bottom-0 w-64 bg-[#1a1a2e] text-white overflow-y-auto z-50">
+    <aside
+      className={`no-print fixed right-0 top-0 bottom-0 w-64 bg-[#1a1a2e] text-white overflow-y-auto z-50 transition-transform duration-300 ease-out lg:translate-x-0 ${
+        open ? 'translate-x-0 shadow-2xl' : 'translate-x-full'
+      }`}
+    >
       <div className="p-5 border-b border-white/10 flex items-center gap-3">
         <AlBadrLogo className="w-11 h-11 shrink-0 text-white" />
-        <div>
+        <div className="min-w-0">
           <h2 className="text-base font-bold text-white leading-tight">شركة البدر</h2>
           <p className="text-[11px] text-gray-400">لتجارة البن — نظام الإدارة</p>
         </div>
+        {onClose && (
+          <button onClick={onClose} className="mr-auto p-2 text-gray-400 hover:text-white lg:hidden" aria-label="إغلاق القائمة">
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
       <div className="p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
@@ -68,6 +78,7 @@ export function Sidebar({ user }: { user: any }) {
             <Link
               key={href}
               href={href}
+              onClick={onClose}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
                 active
                   ? 'bg-[#e94560]/10 text-[#e94560]'
