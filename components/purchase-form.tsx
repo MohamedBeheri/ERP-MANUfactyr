@@ -19,7 +19,7 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [supplierId, setSupplierId] = useState('')
-  const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
+  const [warehouseId, setWarehouseId] = useState('') // فاضي = تلقائي (مخزن مرحلة الصنف)
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ productId: '', quantity: '', unitPrice: '' }])
   const [error, setError] = useState('')
@@ -66,11 +66,15 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
         <option value="">اختار المورد</option>
         {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
       </select>
-      {warehouses.length > 1 && (
-        <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]">
-          {warehouses.map((w) => <option key={w.id} value={w.id}>التوريد لمخزن: {w.name}</option>)}
-        </select>
+      {warehouses.length > 0 && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">التوريد لمخزن</label>
+          <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]">
+            <option value="">تلقائي (مخزن الخام حسب الصنف)</option>
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
       )}
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-gray-700">الأصناف</label>

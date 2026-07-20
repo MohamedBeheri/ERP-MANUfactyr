@@ -50,6 +50,8 @@ interface StockStageRow {
   sortOrder: number
   sellable: boolean
   purchasable: boolean
+  warehouseId: string | null
+  warehouseName: string | null
   productCount: number
 }
 interface OperationRow {
@@ -145,7 +147,7 @@ export function SettingsManager({ suppliers, categories, products, stockStages, 
 
       {tab === 'products' && <ProductsTab products={products} categories={categories} stockStages={stockStages} />}
       {tab === 'categories' && <CategoriesTab categories={categories} />}
-      {tab === 'stockStages' && <StockStagesTab stages={stockStages} />}
+      {tab === 'stockStages' && <StockStagesTab stages={stockStages} warehouses={warehouses} />}
       {tab === 'operations' && <OperationsTab operations={operations} stages={stockStages} />}
       {tab === 'suppliers' && <SuppliersTab suppliers={suppliers} />}
       {tab === 'warehouses' && <WarehousesTab warehouses={warehouses} />}
@@ -536,9 +538,9 @@ function SuppliersTab({ suppliers }: { suppliers: Supplier[] }) {
 }
 
 /* ================= المراحل المخزنية ================= */
-function StockStagesTab({ stages }: { stages: StockStageRow[] }) {
+function StockStagesTab({ stages, warehouses }: { stages: StockStageRow[]; warehouses: WarehouseRow[] }) {
   const router = useRouter()
-  const empty = { name: '', sortOrder: '0', sellable: false, purchasable: false }
+  const empty = { name: '', sortOrder: '0', sellable: false, purchasable: false, warehouseId: '' }
   const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -579,6 +581,13 @@ function StockStagesTab({ stages }: { stages: StockStageRow[] }) {
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم المرحلة (مثال: بن محمّص)" className={inputCls} />
         <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">المخزن المرتبط</label>
+          <select value={form.warehouseId} onChange={(e) => setForm({ ...form, warehouseId: e.target.value })} className={inputCls}>
+            <option value="">بدون مخزن محدد</option>
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+        <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">الترتيب</label>
           <input type="number" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
         </div>
@@ -609,15 +618,16 @@ function StockStagesTab({ stages }: { stages: StockStageRow[] }) {
                 <span className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold flex items-center justify-center">{i + 1}</span>
                 <div>
                   <p className="font-semibold text-sm">{s.name}</p>
-                  <div className="flex gap-1.5 mt-0.5">
+                  <div className="flex flex-wrap gap-1.5 mt-0.5 items-center">
                     {s.purchasable && <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold">شراء</span>}
                     {s.sellable && <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-semibold">بيع</span>}
+                    {s.warehouseName && <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-semibold">{s.warehouseName}</span>}
                     <span className="text-[10px] text-gray-400">{s.productCount} صنف</span>
                   </div>
                 </div>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => { setEditId(s.id); setForm({ name: s.name, sortOrder: String(s.sortOrder), sellable: s.sellable, purchasable: s.purchasable }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
+                <button onClick={() => { setEditId(s.id); setForm({ name: s.name, sortOrder: String(s.sortOrder), sellable: s.sellable, purchasable: s.purchasable, warehouseId: s.warehouseId || '' }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
                   <Pencil className="w-4 h-4" />
                 </button>
                 <button onClick={() => remove(s.id, s.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">

@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { ArrowDownToLine, ArrowUpFromLine, PackageSearch } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getDefaultWarehouseId } from '@/lib/warehouse'
+import { ensureStockStages } from '@/lib/stock-stages'
 import { StocktakeForm } from '@/components/stocktake-form'
 import { ExportButtons } from '@/components/export-buttons'
+import { WarehouseTabs } from '@/components/warehouse-tabs'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,7 @@ export default async function WarehousePage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  await getDefaultWarehouseId() // يضمن وجود مخزن افتراضي وترحيل الأرصدة القديمة
+  await ensureStockStages() // يضمن وجود المخازن والمراحل وترحيل الأرصدة
 
   const [products, warehouseIns, warehouseOuts, warehouses] = await Promise.all([
     prisma.product.findMany({
@@ -63,9 +64,24 @@ export default async function WarehousePage() {
         />
       </div>
 
+      {/* عرض المخزون لكل مخزن */}
+      {warehouses.length > 1 && (
+        <WarehouseTabs
+          warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+          products={products.map((p) => ({
+            id: p.id,
+            name: p.name,
+            unit: p.unit,
+            minStock: p.minStock,
+            costPrice: Number(p.costPrice),
+            stocks: p.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: s.quantity })),
+          }))}
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* جدول المخزون */}
+          {/* جدول المخزون الإجمالي */}
           <div className="bg-white rounded-xl shadow-sm overflow-hidden print-area">
             <div className="flex items-center justify-between p-5 pb-3">
               <div className="flex items-center gap-2">

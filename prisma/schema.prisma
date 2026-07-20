@@ -112,9 +112,11 @@ model StockStage {
   sortOrder   Int      @default(0)
   sellable    Boolean  @default(false) // يظهر في المبيعات ونقطة البيع
   purchasable Boolean  @default(false) // يدخل بأمر شراء (خامات)
+  warehouseId String? // المخزن الافتراضي للمرحلة دي
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  warehouse Warehouse?            @relation(fields: [warehouseId], references: [id])
   products  Product[]
   opInputs  ProductionOperation[] @relation("OpInputStage")
   opOutputs ProductionOperation[] @relation("OpOutputStage")
@@ -154,6 +156,7 @@ model Warehouse {
   stocks ProductStock[]
   ins    WarehouseIn[]
   outs   WarehouseOut[]
+  stages StockStage[]
 
   @@map("warehouses")
 }

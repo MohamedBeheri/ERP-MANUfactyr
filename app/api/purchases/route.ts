@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock } from '@/lib/warehouse'
+import { warehouseForStage } from '@/lib/stock-stages'
 
 const ALLOWED_ROLES = ['ADMIN', 'FACTORY'] as const
 
@@ -28,11 +29,20 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { supplierId, items, notes } = body
-    const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
+    const manualWarehouse = body.warehouseId || null
 
     if (!supplierId || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'اختار المورد وأدخل صنف واحد على الأقل' }, { status: 400 })
     }
+
+    // كل صنف بيدخل مخزن مرحلته (الخام يدخل مخزن الخام) — إلا لو اختار المستخدم مخزن معين
+    const productStages = await prisma.product.findMany({
+      where: { id: { in: items.map((i: any) => i.productId) } },
+      select: { id: true, stageId: true },
+    })
+    const stageOf = new Map(productStages.map((p) => [p.id, p.stageId]))
+    const warehouseOf = async (productId: string) =>
+      manualWarehouse || (await warehouseForStage(stageOf.get(productId)))
 
     const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
 
@@ -57,15 +67,16 @@ export async function POST(req: NextRequest) {
       })
 
       for (const item of items) {
+        const whId = await warehouseOf(item.productId)
         await tx.product.update({
           where: { id: item.productId },
           data: { quantity: { increment: item.quantity } },
         })
-        await adjustStock(tx, warehouseId, item.productId, item.quantity)
+        await adjustStock(tx, whId, item.productId, item.quantity)
         await tx.warehouseIn.create({
           data: {
             productId: item.productId,
-            warehouseId,
+            warehouseId: whId,
             quantity: item.quantity,
             source: `أمر شراء ${created.invoiceNo}`,
             createdById: session.user.id,

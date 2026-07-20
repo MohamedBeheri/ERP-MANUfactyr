@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if ('response' in auth) return auth.response
 
   try {
-    const { name, sortOrder, sellable, purchasable } = await req.json()
+    const { name, sortOrder, sellable, purchasable, warehouseId } = await req.json()
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم المرحلة مطلوب' }, { status: 400 })
     }
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
         sortOrder: Number(sortOrder) || 0,
         sellable: !!sellable,
         purchasable: !!purchasable,
+        warehouseId: warehouseId || null,
       },
     })
     return NextResponse.json(stage, { status: 201 })

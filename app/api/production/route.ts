@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
+import { warehouseForStage } from '@/lib/stock-stages'
 
 const ALLOWED_ROLES = ['ADMIN', 'FACTORY'] as const
 
@@ -47,7 +48,6 @@ export async function POST(req: NextRequest) {
       inputs, // [{ productId, quantity }]
       items, // [{ productId, quantity }]
     } = body
-    const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
 
     // تحقق أساسي
     if (!Array.isArray(inputs) || inputs.length === 0) {
@@ -61,6 +61,11 @@ export async function POST(req: NextRequest) {
     const operation = operationId
       ? await prisma.productionOperation.findUnique({ where: { id: operationId } })
       : null
+
+    // المخزن اللي بنسحب منه = مخزن مرحلة المدخل ، والمخزن اللي بننتج فيه = مخزن مرحلة المخرج
+    const fallbackWh = body.warehouseId || (await getDefaultWarehouseId())
+    const inputWarehouseId = operation ? await warehouseForStage(operation.inputStageId) : fallbackWh
+    const outputWarehouseId = operation ? await warehouseForStage(operation.outputStageId) : fallbackWh
     const derivedLine = operation
       ? operation.hasYieldLoss
         ? 'ROASTING'
@@ -92,10 +97,10 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
-      const stock = await getStock(warehouseId, inp.productId)
+      const stock = await getStock(inputWarehouseId, inp.productId)
       if (stock < inp.quantity) {
         return NextResponse.json(
-          { error: `رصيد ${product.name} في المخزن ده غير كافي (المتاح: ${stock} ${product.unit})` },
+          { error: `رصيد ${product.name} في مخزن السحب غير كافي (المتاح: ${stock} ${product.unit})` },
           { status: 400 }
         )
       }
@@ -152,17 +157,17 @@ export async function POST(req: NextRequest) {
         include: { inputs: true, items: true },
       })
 
-      // صرف كل الخامات المدخلة + إذن صرف
+      // صرف كل الخامات المدخلة من مخزن السحب + إذن صرف
       for (const inp of cleanInputs) {
         await tx.product.update({
           where: { id: inp.productId },
           data: { quantity: { decrement: inp.quantity } },
         })
-        await adjustStock(tx, warehouseId, inp.productId, -inp.quantity)
+        await adjustStock(tx, inputWarehouseId, inp.productId, -inp.quantity)
         await tx.warehouseOut.create({
           data: {
             productId: inp.productId,
-            warehouseId,
+            warehouseId: inputWarehouseId,
             quantity: inp.quantity,
             target: 'خط الإنتاج',
             reason: `أمر تصنيع ${created.orderNo} (${created.stage})`,
@@ -171,17 +176,17 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // إضافة المنتجات الناتجة + إذن إضافة
+      // إضافة المنتجات الناتجة في مخزن الإنتاج + إذن إضافة
       for (const item of cleanItems) {
         await tx.product.update({
           where: { id: item.productId },
           data: { quantity: { increment: item.quantity } },
         })
-        await adjustStock(tx, warehouseId, item.productId, item.quantity)
+        await adjustStock(tx, outputWarehouseId, item.productId, item.quantity)
         await tx.warehouseIn.create({
           data: {
             productId: item.productId,
-            warehouseId,
+            warehouseId: outputWarehouseId,
             quantity: item.quantity,
             source: `المصنع - أمر تصنيع ${created.orderNo}${batchNo ? ` (تشغيلة ${batchNo})` : ''}`,
             createdById: session.user.id,

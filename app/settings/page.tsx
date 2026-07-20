@@ -26,7 +26,7 @@ export default async function SettingsPage() {
     prisma.stockStage.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      include: { _count: { select: { products: true } } },
+      include: { _count: { select: { products: true } }, warehouse: true },
     }),
     prisma.productionOperation.findMany({
       where: { isActive: true },
@@ -78,6 +78,8 @@ export default async function SettingsPage() {
           sortOrder: s.sortOrder,
           sellable: s.sellable,
           purchasable: s.purchasable,
+          warehouseId: s.warehouseId,
+          warehouseName: s.warehouse?.name || null,
           productCount: s._count.products,
         }))}
         operations={operations.map((op) => ({

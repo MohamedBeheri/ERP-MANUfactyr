@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if ('response' in auth) return auth.response
 
   try {
-    const { name, sortOrder, sellable, purchasable } = await req.json()
+    const { name, sortOrder, sellable, purchasable, warehouseId } = await req.json()
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم المرحلة مطلوب' }, { status: 400 })
     }
@@ -18,6 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         sortOrder: sortOrder !== undefined ? Number(sortOrder) : undefined,
         sellable: sellable !== undefined ? !!sellable : undefined,
         purchasable: purchasable !== undefined ? !!purchasable : undefined,
+        warehouseId: warehouseId !== undefined ? warehouseId || null : undefined,
       },
     })
     return NextResponse.json(stage)
