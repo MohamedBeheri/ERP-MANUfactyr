@@ -608,6 +608,9 @@ model StoreSettings {
   accentColor    String   @default("#e9b44c") // لون الموقع الأساسي
   bgTheme        String   @default("dark") // dark | light
   fontFamily     String   @default("Cairo") // خط الموقع
+  heroInterval   Int      @default(6) // زمن تحرك السلايدر بالثواني
+  heroMotion     String   @default("slide") // slide | fade — حركة الانتقال
+  cardEnabled    Boolean  @default(false) // الدفع بالفيزا
   promoText      String? // شريط العرض الترويجي
   promoLink      String?
   aboutTitle     String? // عنوان قصة العلامة

@@ -56,6 +56,9 @@ export default async function StoreSettingsPage() {
           isOpen: settings.isOpen,
           showOutOfStock: settings.showOutOfStock,
           codEnabled: settings.codEnabled,
+          cardEnabled: settings.cardEnabled,
+          heroInterval: settings.heroInterval,
+          heroMotion: settings.heroMotion,
           accentColor: settings.accentColor,
           bgTheme: settings.bgTheme,
           fontFamily: settings.fontFamily,
@@ -78,6 +81,7 @@ export default async function StoreSettingsPage() {
           status: o.status,
           createdAt: o.createdAt.toISOString(),
           itemsText: o.items.map((i) => `${i.productName} ×${i.quantity}`).join('، '),
+          paymentMethod: o.paymentMethod,
         }))}
         storeUrl={storeUrl}
       />

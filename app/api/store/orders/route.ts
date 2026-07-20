@@ -13,13 +13,24 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { customerName, phone, address, notes, items } = body as {
+    const { customerName, phone, address, notes, items, paymentMethod } = body as {
       customerName: string
       phone: string
       address: string
       notes?: string
+      paymentMethod?: string
       items: { productId: string; quantity: number }[]
     }
+
+    // طريقة الدفع لازم تكون مفعّلة من الأدمن
+    const wantsCard = paymentMethod === 'فيزا'
+    if (wantsCard && !settings.cardEnabled) {
+      return NextResponse.json({ error: 'الدفع بالفيزا غير متاح حاليًا' }, { status: 400 })
+    }
+    if (!wantsCard && !settings.codEnabled) {
+      return NextResponse.json({ error: 'الدفع عند الاستلام غير متاح حاليًا' }, { status: 400 })
+    }
+    const finalPayment = wantsCard ? 'فيزا' : 'الدفع عند الاستلام'
 
     if (!customerName?.trim() || !phone?.trim() || !address?.trim()) {
       return NextResponse.json({ error: 'الاسم والتليفون والعنوان مطلوبين' }, { status: 400 })
@@ -77,7 +88,7 @@ export async function POST(req: NextRequest) {
         subtotal,
         deliveryFee,
         total,
-        paymentMethod: 'الدفع عند الاستلام',
+        paymentMethod: finalPayment,
         warehouseId: storeWarehouse,
         items: { create: orderItems },
       },

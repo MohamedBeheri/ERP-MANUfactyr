@@ -23,6 +23,7 @@ interface Settings {
   deliveryFee: number; minOrder: number; isOpen: boolean; showOutOfStock: boolean; accentColor: string; light: boolean
   promoText: string | null; promoLink: string | null; aboutTitle: string | null; aboutText: string | null
   facebook: string | null; instagram: string | null; email: string | null
+  heroInterval: number; heroMotion: string; codEnabled: boolean; cardEnabled: boolean
 }
 interface Block { id: string; kind: string; title: string; subtitle: string | null; imageUrl: string | null; link: string | null; rating: number }
 interface CartLine { productId: string; name: string; price: number; unit: string; quantity: number; stock: number; imageUrl: string | null }
@@ -44,6 +45,8 @@ export function Storefront({ settings, products, categories, slides, blocks = []
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [payMethod, setPayMethod] = useState<string>(settings.codEnabled ? 'الدفع عند الاستلام' : 'فيزا')
 
   useEffect(() => {
     try {
@@ -84,7 +87,9 @@ export function Storefront({ settings, products, categories, slides, blocks = []
       if (ex) { if (ex.quantity >= p.stock) return prev; return prev.map((c) => (c.productId === p.id ? { ...c, quantity: c.quantity + 1 } : c)) }
       return [...prev, { productId: p.id, name: p.name, price: p.price, unit: p.unit, quantity: 1, stock: p.stock, imageUrl: p.imageUrl }]
     })
-    setDrawer('cart')
+    // إشعار خفيف بدل ما نفتح السلة
+    setToast(`✓ ${p.name} اتضاف للسلة`)
+    setTimeout(() => setToast(null), 1800)
   }
   const changeQty = (id: string, d: number) => setCart((prev) => prev.map((c) => (c.productId === id ? { ...c, quantity: Math.min(c.stock, Math.max(0, c.quantity + d)) } : c)).filter((c) => c.quantity > 0))
   const removeCart = (id: string) => setCart((prev) => prev.filter((c) => c.productId !== id))
@@ -101,7 +106,7 @@ export function Storefront({ settings, products, categories, slides, blocks = []
     if (!form.customerName || !form.phone || !form.address) { setError('اكتب الاسم والتليفون والعنوان'); return }
     if (settings.minOrder > 0 && subtotal < settings.minOrder) { setError(`الحد الأدنى للطلب ${fmt(settings.minOrder)} ج.م`); return }
     setLoading(true)
-    const res = await fetch('/api/store/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity })) }) })
+    const res = await fetch('/api/store/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, paymentMethod: payMethod, items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity })) }) })
     const data = await res.json(); setLoading(false)
     if (!res.ok) { setError(data.error || 'فشل الطلب'); return }
     setDone(data.orderNo); setCart([]); setCheckout(false); setDrawer(null)
@@ -467,6 +472,13 @@ export function Storefront({ settings, products, categories, slides, blocks = []
         </div>
       </footer>
 
+      {/* إشعار إضافة للسلة */}
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] bg-acc text-black px-5 py-2.5 rounded-2xl text-sm font-black shadow-2xl toast-in" dir="rtl">
+          {toast}
+        </div>
+      )}
+
       {/* زرار واتساب عائم */}
       {waLink && (
         <a
@@ -544,7 +556,25 @@ export function Storefront({ settings, products, categories, slides, blocks = []
             <Field placeholder="رقم التليفون" type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} light={light} />
             <textarea placeholder="العنوان بالتفصيل" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:border-acc-40 text-sm resize-none ${light ? 'bg-black/5 border-black/10' : 'bg-[#0f0f11] border-white/10'}`} />
             <Field placeholder="ملاحظات (اختياري)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} light={light} />
-            <div className="bg-acc-10 text-acc p-3 rounded-xl text-sm text-center font-bold">💵 الدفع عند الاستلام</div>
+
+            {/* اختيار طريقة الدفع */}
+            <div>
+              <p className="text-sm font-bold mb-2">طريقة الدفع</p>
+              <div className="grid grid-cols-1 gap-2">
+                {settings.codEnabled && (
+                  <button type="button" onClick={() => setPayMethod('الدفع عند الاستلام')} className={`flex items-center justify-between p-3.5 rounded-xl border text-sm font-bold transition ${payMethod === 'الدفع عند الاستلام' ? 'border-acc-40 bg-acc-10 text-acc' : light ? 'border-black/10' : 'border-white/10'}`}>
+                    <span>💵 الدفع عند الاستلام</span>
+                    {payMethod === 'الدفع عند الاستلام' && <CheckCircle2 className="w-5 h-5" />}
+                  </button>
+                )}
+                {settings.cardEnabled && (
+                  <button type="button" onClick={() => setPayMethod('فيزا')} className={`flex items-center justify-between p-3.5 rounded-xl border text-sm font-bold transition ${payMethod === 'فيزا' ? 'border-acc-40 bg-acc-10 text-acc' : light ? 'border-black/10' : 'border-white/10'}`}>
+                    <span>💳 الدفع بالفيزا</span>
+                    {payMethod === 'فيزا' && <CheckCircle2 className="w-5 h-5" />}
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="flex justify-between font-black text-lg"><span>المجموع</span><span className="tabular-nums text-acc">{fmt(total)} ج.م</span></div>
             <button onClick={submit} disabled={loading} className="w-full py-3.5 rounded-2xl bg-acc text-black font-black hover:bg-acc-dark disabled:opacity-50">{loading ? 'جاري الإرسال...' : 'تأكيد الطلب'}</button>
           </div>
@@ -573,7 +603,13 @@ function HeroCarousel({ slides, settings, onCta, light }: { slides: Slide[]; set
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
   const n = slides.length
-  useEffect(() => { if (n <= 1 || paused) return; const t = setInterval(() => setI((x) => (x + 1) % n), 6000); return () => clearInterval(t) }, [n, paused])
+  const intervalSec = Math.max(2, Math.min(30, settings.heroInterval || 6))
+  const slideMode = settings.heroMotion !== 'fade'
+  useEffect(() => {
+    if (n <= 1 || paused) return
+    const t = setInterval(() => setI((x) => (x + 1) % n), intervalSec * 1000)
+    return () => clearInterval(t)
+  }, [n, paused, intervalSec])
 
   if (n === 0) {
     return (
@@ -590,20 +626,39 @@ function HeroCarousel({ slides, settings, onCta, light }: { slides: Slide[]; set
   const go = (idx: number) => setI(((idx % n) + n) % n)
   return (
     <section className="relative h-[60vh] max-h-[580px] min-h-[380px] overflow-hidden" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} dir="rtl">
-      {slides.map((s, idx) => (
-        <div key={s.id} className={`absolute inset-0 transition-opacity duration-700 ${idx === i ? 'opacity-100' : 'pointer-events-none opacity-0'}`} aria-hidden={idx !== i}>
-          {s.type === 'VIDEO' ? <video src={s.media} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" /> :
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={s.media} alt={s.title1 ?? 'بانر'} className="absolute inset-0 h-full w-full object-cover" />}
-          <div className="absolute inset-0 bg-gradient-to-l from-black/85 via-black/55 to-black/20" />
-          <div className="relative mx-auto flex h-full max-w-6xl flex-col items-start justify-center px-4 text-white">
-            {s.badge && <span className="mb-5 rounded-full bg-acc px-4 py-1.5 text-xs font-black text-black">{s.badge}</span>}
-            {(s.title1 || s.title2) && <h1 className="max-w-2xl text-4xl font-black leading-[1.15] sm:text-6xl">{s.title1}{s.title2 && <><br /><span className="text-acc">{s.title2}</span></>}</h1>}
-            {s.subtitle && <p className="mt-5 max-w-xl text-base opacity-90 sm:text-lg">{s.subtitle}</p>}
-            {s.ctaText && <button onClick={onCta} className="mt-7 rounded-xl bg-acc px-8 py-3.5 font-black text-black transition hover:bg-acc-dark glow-acc">{s.ctaText}</button>}
+      {/* شريط الشرائح — انزلاق ناعم أو تلاشي حسب الإعدادات */}
+      <div
+        className={slideMode ? 'flex h-full' : 'relative h-full'}
+        style={
+          slideMode
+            ? { width: `${n * 100}%`, transform: `translateX(${i * (100 / n)}%)`, transition: 'transform 0.85s cubic-bezier(0.16, 1, 0.3, 1)' }
+            : undefined
+        }
+      >
+        {slides.map((s, idx) => (
+          <div
+            key={s.id}
+            className={
+              slideMode
+                ? 'relative h-full'
+                : `absolute inset-0 transition-opacity duration-700 ${idx === i ? 'opacity-100' : 'pointer-events-none opacity-0'}`
+            }
+            style={slideMode ? { width: `${100 / n}%` } : undefined}
+            aria-hidden={idx !== i}
+          >
+            {s.type === 'VIDEO' ? <video src={s.media} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" /> :
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.media} alt={s.title1 ?? 'بانر'} className="absolute inset-0 h-full w-full object-cover" />}
+            <div className="absolute inset-0 bg-gradient-to-l from-black/85 via-black/55 to-black/20" />
+            <div className={`relative mx-auto flex h-full max-w-6xl flex-col items-start justify-center px-4 text-white transition-all duration-700 ${idx === i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+              {s.badge && <span className="mb-5 rounded-full bg-acc px-4 py-1.5 text-xs font-black text-black">{s.badge}</span>}
+              {(s.title1 || s.title2) && <h1 className="max-w-2xl text-4xl font-black leading-[1.15] sm:text-6xl">{s.title1}{s.title2 && <><br /><span className="text-acc">{s.title2}</span></>}</h1>}
+              {s.subtitle && <p className="mt-5 max-w-xl text-base opacity-90 sm:text-lg">{s.subtitle}</p>}
+              {s.ctaText && <button onClick={onCta} className="mt-7 rounded-xl bg-acc px-8 py-3.5 font-black text-black transition hover:bg-acc-dark glow-acc">{s.ctaText}</button>}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
       {n > 1 && (
         <>
           <button onClick={() => go(i - 1)} aria-label="السابق" className="absolute top-1/2 right-3 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-acc hover:text-black"><ChevronRight className="w-6 h-6" /></button>
@@ -632,6 +687,8 @@ function AccentStyles() {
       .glow-acc{box-shadow:0 0 40px -8px color-mix(in srgb, var(--acc) 55%, transparent)}
       [data-reveal]{opacity:0;transform:translateY(24px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1)}
       [data-reveal].reveal-in{opacity:1;transform:none}
+      @keyframes toast-up{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+      .toast-in{animation:toast-up .25s cubic-bezier(.16,1,.3,1)}
     `}</style>
   )
 }
