@@ -55,6 +55,15 @@ enum InvoiceStatus {
   REFUNDED
 }
 
+enum OnlineOrderStatus {
+  PENDING // طلب جديد
+  CONFIRMED // اتأكد + اتخصم من المخزن
+  PREPARING // بيتجهّز
+  SHIPPED // خرج للتوصيل
+  DELIVERED // اتسلّم
+  CANCELLED // اتلغى
+}
+
 // ============== USERS & AUTH ==============
 model User {
   id          String     @id @default(cuid())
@@ -205,6 +214,7 @@ model Product {
   deliveryItems    DeliveryItem[]
   warehouseIns     WarehouseIn[]
   warehouseOuts    WarehouseOut[]
+  onlineOrderItems OnlineOrderItem[]
 
   @@map("products")
 }
@@ -408,7 +418,8 @@ model Customer {
   createdAt      DateTime     @default(now())
 
   // Relations
-  invoices Invoice[]
+  invoices     Invoice[]
+  onlineOrders OnlineOrder[]
 
   @@map("customers")
 }
@@ -577,4 +588,62 @@ model AuditLog {
   user User @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
+}
+
+// ============== ONLINE STORE (متجر العميل أونلاين) ==============
+model StoreSettings {
+  id             String   @id @default("store")
+  storeName      String   @default("شركة البدر لتجارة البن")
+  tagline        String   @default("قهوة طازجة تتحمّص وتُطحن حسب طلبك")
+  heroImage      String?
+  phone          String?
+  whatsapp       String?
+  address        String?
+  deliveryFee    Decimal  @default(0) @db.Decimal(10, 2)
+  minOrder       Decimal  @default(0) @db.Decimal(10, 2)
+  warehouseId    String? // المخزن اللي بيتباع منه أونلاين
+  isOpen         Boolean  @default(true) // المتجر شغّال ولا لأ
+  showOutOfStock Boolean  @default(true)
+  codEnabled     Boolean  @default(true) // الدفع عند الاستلام
+  updatedAt      DateTime @updatedAt
+
+  @@map("store_settings")
+}
+
+model OnlineOrder {
+  id            String            @id @default(cuid())
+  orderNo       String            @unique
+  customerId    String?
+  customerName  String
+  phone         String
+  address       String
+  notes         String?
+  subtotal      Decimal           @db.Decimal(12, 2)
+  deliveryFee   Decimal           @default(0) @db.Decimal(10, 2)
+  total         Decimal           @db.Decimal(12, 2)
+  paymentMethod String            @default("الدفع عند الاستلام")
+  status        OnlineOrderStatus @default(PENDING)
+  warehouseId   String?
+  invoiceId     String?
+  createdAt     DateTime          @default(now())
+
+  customer Customer?         @relation(fields: [customerId], references: [id])
+  items    OnlineOrderItem[]
+
+  @@map("online_orders")
+}
+
+model OnlineOrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalPrice  Decimal @db.Decimal(10, 2)
+
+  order   OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product     @relation(fields: [productId], references: [id])
+
+  @@map("online_order_items")
 }

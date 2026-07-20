@@ -6,6 +6,7 @@ export const PERMISSIONS = [
   { key: 'delegates', label: 'المندوبين وجولات التوزيع', path: '/delegates' },
   { key: 'drivers', label: 'شاشة السائقين (الحمولة والمرتجعات)', path: '/drivers' },
   { key: 'finance', label: 'التقارير الشاملة', path: '/finance' },
+  { key: 'store', label: 'موقع العميل أونلاين', path: '/store-settings' },
   { key: 'governance', label: 'الحوكمة وإدارة المستخدمين', path: '/governance' },
   { key: 'settings', label: 'الإعدادات والبيانات الأساسية', path: '/settings' },
 ] as const
@@ -17,7 +18,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
   ADMIN: PERMISSIONS.map((p) => p.key),
   FACTORY: ['factory', 'warehouse'],
   WAREHOUSE: ['warehouse'],
-  SALES: ['sales', 'delegates', 'drivers'],
+  SALES: ['sales', 'delegates', 'drivers', 'store'],
   ACCOUNTANT: ['finance'],
   DELEGATE: ['drivers'],
 }

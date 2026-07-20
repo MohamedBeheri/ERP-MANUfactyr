@@ -33,6 +33,7 @@ export const config = {
     '/delegates/:path*',
     '/drivers/:path*',
     '/finance/:path*',
+    '/store-settings/:path*',
     '/governance/:path*',
     '/settings/:path*',
     '/print/:path*',
