@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import Image from 'next/image'
+import { AlBadrLogo } from '@/components/albadr-logo'
 import {
   LayoutDashboard,
   Factory,
@@ -40,7 +40,7 @@ export function Sidebar({ user }: { user: any }) {
   return (
     <aside className="no-print fixed right-0 top-0 bottom-0 w-64 bg-[#1a1a2e] text-white overflow-y-auto z-50">
       <div className="p-5 border-b border-white/10 flex items-center gap-3">
-        <Image src="/logo.png" alt="شعار شركة البدر" width={44} height={67} className="shrink-0" />
+        <AlBadrLogo className="w-11 h-11 shrink-0 text-white" />
         <div>
           <h2 className="text-base font-bold text-white leading-tight">شركة البدر</h2>
           <p className="text-[11px] text-gray-400">لتجارة البن — نظام الإدارة</p>

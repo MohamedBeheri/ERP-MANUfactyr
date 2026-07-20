@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import Image from 'next/image'
+import { AlBadrLogo } from '@/components/albadr-logo'
 
 interface PrintDocProps {
   title: string
@@ -18,7 +18,7 @@ export function PrintDoc({ title, docNo, date, meta = [], children, footerNote, 
       {/* رأس الشركة */}
       <div className="flex items-start justify-between border-b-2 border-[#1a1a2e] pb-4 mb-6">
         <div className="flex items-center gap-3">
-          <Image src="/logo-header.png" alt="شعار شركة البدر" width={56} height={56} className="shrink-0" />
+          <AlBadrLogo className="w-14 h-14 shrink-0 text-[#1a1a2e]" />
           <div>
             <h1 className="text-xl font-bold text-[#1a1a2e]">شركة البدر لتجارة البن</h1>
             <p className="text-sm text-gray-500">Al Badr Coffee</p>

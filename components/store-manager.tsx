@@ -16,7 +16,12 @@ interface Settings {
   isOpen: boolean
   showOutOfStock: boolean
   codEnabled: boolean
+  accentColor: string
+  bgTheme: string
+  fontFamily: string
 }
+
+const ACCENT_PRESETS = ['#e9b44c', '#c9a227', '#b5651d', '#8b5e3c', '#e94560', '#16a34a', '#0f766e', '#7c3aed']
 interface WarehouseLite {
   id: string
   name: string
@@ -161,6 +166,39 @@ export function StoreManager({ settings, warehouses, orders, storeUrl }: { setti
             <input type="checkbox" checked={form.showOutOfStock} onChange={(e) => setForm({ ...form, showOutOfStock: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
             عرض المنتجات اللي نفد مخزونها
           </label>
+
+          {/* مظهر الموقع */}
+          <div className="border-t border-gray-100 pt-3 space-y-3">
+            <p className="text-sm font-bold text-[#1a1a2e]">مظهر الموقع</p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">لون الموقع الأساسي</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {ACCENT_PRESETS.map((c) => (
+                  <button key={c} type="button" onClick={() => setForm({ ...form, accentColor: c })} className={`w-8 h-8 rounded-lg border-2 ${form.accentColor.toLowerCase() === c.toLowerCase() ? 'border-[#1a1a2e]' : 'border-transparent'}`} style={{ backgroundColor: c }} aria-label={c} />
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.accentColor} onChange={(e) => setForm({ ...form, accentColor: e.target.value })} className="w-10 h-9 rounded border border-gray-200 cursor-pointer" />
+                <input value={form.accentColor} onChange={(e) => setForm({ ...form, accentColor: e.target.value })} className={inputCls} dir="ltr" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">خلفية الموقع</label>
+                <select value={form.bgTheme} onChange={(e) => setForm({ ...form, bgTheme: e.target.value })} className={inputCls}>
+                  <option value="dark">داكن (فخم)</option>
+                  <option value="light">فاتح</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">خط الموقع</label>
+                <select value={form.fontFamily} onChange={(e) => setForm({ ...form, fontFamily: e.target.value })} className={inputCls}>
+                  <option value="Cairo">Cairo</option>
+                  <option value="Tajawal">Tajawal</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
           <button onClick={save} disabled={saving} className="w-full flex items-center justify-center gap-2 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] disabled:opacity-50 text-sm">
             <Save className="w-4 h-4" /> {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}

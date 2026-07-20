@@ -605,6 +605,9 @@ model StoreSettings {
   isOpen         Boolean  @default(true) // المتجر شغّال ولا لأ
   showOutOfStock Boolean  @default(true)
   codEnabled     Boolean  @default(true) // الدفع عند الاستلام
+  accentColor    String   @default("#e9b44c") // لون الموقع الأساسي
+  bgTheme        String   @default("dark") // dark | light
+  fontFamily     String   @default("Cairo") // خط الموقع
   updatedAt      DateTime @updatedAt
 
   @@map("store_settings")

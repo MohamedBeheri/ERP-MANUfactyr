@@ -34,6 +34,9 @@ export async function PUT(req: NextRequest) {
         isOpen: b.isOpen !== undefined ? !!b.isOpen : undefined,
         showOutOfStock: b.showOutOfStock !== undefined ? !!b.showOutOfStock : undefined,
         codEnabled: b.codEnabled !== undefined ? !!b.codEnabled : undefined,
+        accentColor: b.accentColor ?? undefined,
+        bgTheme: b.bgTheme ?? undefined,
+        fontFamily: b.fontFamily ?? undefined,
       },
     })
     return NextResponse.json(settings)

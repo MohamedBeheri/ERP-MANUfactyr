@@ -50,6 +50,9 @@ export default async function StoreSettingsPage() {
           isOpen: settings.isOpen,
           showOutOfStock: settings.showOutOfStock,
           codEnabled: settings.codEnabled,
+          accentColor: settings.accentColor,
+          bgTheme: settings.bgTheme,
+          fontFamily: settings.fontFamily,
         }}
         warehouses={warehouses.map((w) => ({ id: w.id, name: w.name }))}
         orders={orders.map((o) => ({

@@ -9,28 +9,28 @@ export default async function StorePage() {
   const settings = await getStoreSettings()
   const storeWarehouse = settings.warehouseId || (await warehouseForStage(null))
 
-  // الأصناف المعروضة = المنتجات على مراحل "بيع"، مع رصيدها في مخزن المتجر
   const sellableStages = await prisma.stockStage.findMany({ where: { isActive: true, sellable: true }, select: { id: true } })
   const sellableIds = sellableStages.map((s) => s.id)
 
-  const [productsRaw, categories, slides] = await Promise.all([
+  const [productsRaw, categories, slides, bestSellerRows] = await Promise.all([
     prisma.product.findMany({
       where: {
         isActive: true,
-        OR: [
-          { stageId: { in: sellableIds } },
-          ...(sellableIds.length === 0 ? [{ type: 'FINISHED' as const }] : []),
-        ],
+        OR: [{ stageId: { in: sellableIds } }, ...(sellableIds.length === 0 ? [{ type: 'FINISHED' as const }] : [])],
       },
       include: { stocks: { where: { warehouseId: storeWarehouse } } },
-      orderBy: { name: 'asc' },
+      orderBy: { createdAt: 'desc' }, // الأحدث أولاً
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.heroSlide.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
+    // الأكثر مبيعًا من بنود الفواتير
+    prisma.invoiceItem.groupBy({ by: ['productId'], _sum: { quantity: true }, orderBy: { _sum: { quantity: 'desc' } }, take: 12 }),
   ])
 
+  const bestRank = new Map(bestSellerRows.map((r, i) => [r.productId, i]))
+
   const products = productsRaw
-    .map((p) => ({
+    .map((p, idx) => ({
       id: p.id,
       name: p.name,
       unit: p.unit,
@@ -38,6 +38,8 @@ export default async function StorePage() {
       stock: p.stocks[0]?.quantity ?? 0,
       categoryId: p.categoryId,
       imageUrl: p.imageUrl,
+      isNew: idx < 12, // الأحدث (مرتبين بتاريخ الإنشاء)
+      bestRank: bestRank.has(p.id) ? bestRank.get(p.id)! : null,
     }))
     .filter((p) => settings.showOutOfStock || p.stock > 0)
 
@@ -56,19 +58,14 @@ export default async function StorePage() {
         minOrder: Number(settings.minOrder),
         isOpen: settings.isOpen,
         showOutOfStock: settings.showOutOfStock,
+        accentColor: settings.accentColor,
+        light: settings.bgTheme === 'light',
       }}
       products={products}
       categories={categories.filter((c) => usedCategoryIds.has(c.id)).map((c) => ({ id: c.id, name: c.name }))}
       slides={slides.map((s) => ({
-        id: s.id,
-        type: s.type,
-        media: s.media,
-        badge: s.badge,
-        title1: s.title1,
-        title2: s.title2,
-        subtitle: s.subtitle,
-        ctaText: s.ctaText,
-        ctaLink: s.ctaLink,
+        id: s.id, type: s.type, media: s.media, badge: s.badge,
+        title1: s.title1, title2: s.title2, subtitle: s.subtitle, ctaText: s.ctaText, ctaLink: s.ctaLink,
       }))}
     />
   )
