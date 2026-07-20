@@ -125,41 +125,44 @@ export function Storefront({ settings, products, categories, slides, blocks = []
   const sub = light ? 'text-gray-500' : 'text-gray-400'
   const headerBg = light ? 'bg-[#f5f1ea]/90 border-black/10' : 'bg-[#0a0a0b]/90 border-white/10'
 
-  // كارت منتج بأسلوب بن نجار: صورة عايمة بدون إطار + شارات + بادج الوزن + سعر قبل/بعد الخصم
+  // كارت منتج احترافي — شغّال مع أي صورة، مرتفع وأنيق
   const card = (p: StoreProduct, compact = false) => {
     const out = p.stock <= 0
     const wished = wish.includes(p.id)
     const off = p.oldPrice && p.oldPrice > p.price ? Math.round((1 - p.price / p.oldPrice) * 100) : 0
     return (
-      <div key={p.id} className={`group flex flex-col text-center ${compact ? 'w-44 shrink-0' : ''}`}>
-        <div className="relative px-2 pt-6">
-          {/* الصورة عايمة على الخلفية */}
-          <div className="flex aspect-square items-center justify-center overflow-visible">
-            {p.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={p.imageUrl}
-                alt={p.name}
-                className={`h-full w-full object-contain drop-shadow-xl transition duration-300 group-hover:scale-105 group-hover:-translate-y-1 ${out ? 'opacity-50 grayscale' : ''}`}
-                loading="lazy"
-              />
-            ) : (
-              <div className={`w-3/4 h-3/4 rounded-3xl flex items-center justify-center ${light ? 'bg-black/5' : 'bg-white/5'}`}>
-                <Coffee className="w-14 h-14 opacity-20 transition group-hover:scale-110" />
-              </div>
-            )}
-          </div>
+      <div
+        key={p.id}
+        className={`group relative flex flex-col overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-1.5 ${
+          light ? 'bg-white shadow-sm hover:shadow-xl' : 'bg-[#141416] ring-1 ring-white/10 hover:ring-acc-40 hover:shadow-2xl'
+        } ${compact ? 'w-44 shrink-0' : ''}`}
+      >
+        {/* منطقة الصورة */}
+        <div className={`relative aspect-square flex items-center justify-center overflow-hidden ${light ? 'bg-gradient-to-b from-black/[0.04] to-transparent' : 'bg-gradient-to-b from-white/[0.05] to-transparent'}`}>
+          {p.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={p.imageUrl}
+              alt={p.name}
+              className={`h-full w-full object-contain p-4 transition-transform duration-300 ease-out group-hover:scale-[1.07] ${out ? 'opacity-40 grayscale' : ''}`}
+              loading="lazy"
+            />
+          ) : (
+            <Coffee className="w-16 h-16 opacity-15 transition-transform duration-300 group-hover:scale-110" />
+          )}
 
-          {/* شارات فوق */}
-          <div className="absolute top-0 right-0 flex flex-col items-end gap-1 z-10">
-            {off > 0 && <span className="rounded-full bg-[#e94560] px-2.5 py-1 text-[11px] font-black text-white shadow">تخفيض {off}%</span>}
-            {p.isNew && off === 0 && <span className="rounded-full bg-acc px-2.5 py-1 text-[11px] font-black text-black shadow">جديد ✦</span>}
+          {/* شارات */}
+          <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
+            {off > 0 && <span className="rounded-lg bg-[#e94560] px-2 py-1 text-[11px] font-black text-white shadow-sm">خصم {off}%</span>}
+            {p.isNew && off === 0 && <span className="rounded-lg bg-acc px-2 py-1 text-[11px] font-black text-black shadow-sm">جديد</span>}
             {p.bestRank !== null && p.bestRank < 5 && (
-              <span className="rounded-full bg-acc-10 border border-acc-40 text-acc px-2.5 py-1 text-[10px] font-black flex items-center gap-0.5"><Flame className="w-3 h-3" /> الأكثر مبيعًا</span>
+              <span className={`rounded-lg px-2 py-1 text-[10px] font-black flex items-center gap-1 shadow-sm ${light ? 'bg-[#1a1a2e] text-white' : 'bg-white text-[#1a1a2e]'}`}>
+                <Flame className="w-3 h-3 text-[#e94560]" /> الأكثر مبيعًا
+              </span>
             )}
           </div>
           {out && (
-            <span className={`absolute top-0 left-0 z-10 rounded-full px-2.5 py-1 text-[11px] font-black shadow ${light ? 'bg-[#1a1a2e] text-white' : 'bg-white text-black'}`}>
+            <span className="absolute inset-x-0 bottom-0 bg-black/70 backdrop-blur-sm py-1.5 text-center text-xs font-black text-white">
               نفدت الكمية
             </span>
           )}
@@ -167,36 +170,38 @@ export function Storefront({ settings, products, categories, slides, blocks = []
           {/* المفضلة */}
           <button
             onClick={() => toggleWish(p.id)}
-            className={`absolute top-10 left-1 z-10 w-9 h-9 rounded-full flex items-center justify-center shadow transition ${wished ? 'bg-[#e94560] text-white' : light ? 'bg-white text-gray-500 hover:text-[#e94560]' : 'bg-white/10 text-white backdrop-blur hover:bg-white/20'}`}
+            className={`absolute top-3 left-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+              wished
+                ? 'bg-[#e94560] text-white scale-105'
+                : light
+                  ? 'bg-white/90 text-gray-400 shadow-sm hover:text-[#e94560] hover:scale-105'
+                  : 'bg-black/40 text-white/70 backdrop-blur hover:text-[#e94560] hover:scale-105'
+            }`}
             aria-label="المفضلة"
           >
             <Heart className={`w-4 h-4 ${wished ? 'fill-current' : ''}`} />
           </button>
+        </div>
 
-          {/* زرار سلة دائري */}
+        {/* التفاصيل */}
+        <div className="flex flex-1 flex-col p-3.5 pt-3">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${light ? 'bg-black/5 text-gray-500' : 'bg-white/5 text-gray-400'}`}>{p.unit}</span>
+            {off > 0 && <span className={`text-[11px] line-through ${sub} tabular-nums`}>{fmt(p.oldPrice!)}</span>}
+          </div>
+          <h3 className="line-clamp-2 text-sm font-bold leading-snug min-h-10 transition-colors group-hover:text-acc">{p.name}</h3>
+          <div className="mt-1.5 flex items-baseline gap-1">
+            <span className="text-lg font-black text-acc tabular-nums">{fmt(p.price)}</span>
+            <span className={`text-[11px] ${sub}`}>ج.م</span>
+          </div>
           <button
             onClick={() => add(p)}
             disabled={out || !settings.isOpen}
-            className="absolute bottom-10 left-1 z-10 w-11 h-11 rounded-full bg-acc text-black flex items-center justify-center shadow-lg transition hover:scale-110 disabled:opacity-0 glow-acc"
-            aria-label="أضف للسلة"
+            className="mt-2.5 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-acc text-black text-sm font-black transition-all duration-200 hover:brightness-95 active:scale-[0.98] disabled:opacity-25 disabled:cursor-not-allowed"
           >
-            <ShoppingBag className="w-5 h-5" />
+            <ShoppingBag className="w-4 h-4" />
+            {out ? 'غير متاح' : 'أضف للسلة'}
           </button>
-
-          {/* بادج الوزن/العبوة أسفل الصورة */}
-          <span className={`absolute bottom-0 right-1/2 translate-x-1/2 z-10 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-black shadow ${light ? 'bg-[#1a1a2e] text-white' : 'bg-white text-[#1a1a2e]'}`}>
-            {p.unit}
-          </span>
-        </div>
-
-        {/* الاسم والسعر */}
-        <h3 className="mt-3 line-clamp-2 text-sm font-black text-acc min-h-10 transition group-hover:opacity-80">{p.name}</h3>
-        <div className="mt-1 flex items-baseline justify-center gap-2 flex-wrap">
-          {off > 0 && <span className={`text-xs line-through ${sub} tabular-nums`}>{fmt(p.oldPrice!)} ج.م</span>}
-          <span className="text-sm font-bold tabular-nums">
-            <span className={`text-[11px] font-normal ${sub}`}>ابتداءً من </span>
-            {fmt(p.price)} ج.م
-          </span>
         </div>
       </div>
     )
