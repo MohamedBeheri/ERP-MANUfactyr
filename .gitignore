@@ -42,3 +42,7 @@ prisma/migrations/
 
 # Render
 render.yaml
+
+# Word documents (proposals)
+*.docx
+~$*.docx
