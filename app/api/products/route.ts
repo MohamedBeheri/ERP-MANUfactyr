@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, categoryId, stageId, costPrice, sellPrice, oldPrice, wholesalePrice, minStock, unit, imageUrl } = body
+    const { name, categoryId, stageId, costPrice, sellPrice, oldPrice, wholesalePrice, minKeyPrice, minStock, unit, imageUrl } = body
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
         sellPrice: Number(sellPrice) || 0,
         oldPrice: oldPrice ? Number(oldPrice) : null,
         wholesalePrice: Number(wholesalePrice) || 0,
+        minKeyPrice: Number(minKeyPrice) || 0,
         minStock: Number(minStock) || 0,
         unit: unit || 'كجم',
         imageUrl: imageUrl || null,

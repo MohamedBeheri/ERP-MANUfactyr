@@ -79,6 +79,7 @@ export default async function SettingsPage() {
           sellPrice: Number(p.sellPrice),
           oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
           wholesalePrice: Number(p.wholesalePrice),
+          minKeyPrice: Number(p.minKeyPrice),
           minStock: p.minStock,
           quantity: p.quantity,
           unit: p.unit,

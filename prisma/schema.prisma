@@ -86,6 +86,7 @@ model User {
   invoices       Invoice[]
   deliveryOrders DeliveryOrder[]
   settlements    Settlement[]
+  priceQuotes    PriceQuote[]
 
   @@map("users")
 }
@@ -194,6 +195,7 @@ model Product {
   sellPrice      Decimal     @db.Decimal(10, 2) // سعر البيع قطاعي
   oldPrice       Decimal?    @db.Decimal(10, 2) // السعر قبل الخصم (لشارة التخفيض)
   wholesalePrice Decimal     @default(0) @db.Decimal(10, 2) // سعر البيع جملة
+  minKeyPrice    Decimal     @default(0) @db.Decimal(10, 2) // أقل سعر مسموح لكبار الموردين (حد أدنى لبيان السعر)
   minStock       Int         @default(0) // الحد الأدنى
   quantity       Int         @default(0) // الكمية الإجمالية (كل المخازن)
   unit           String      @default("كجم") // وحدة القياس
@@ -218,6 +220,7 @@ model Product {
   onlineOrderItems OnlineOrderItem[]
   rewardRulesQualifying RewardRule[] @relation("RewardQualifyingProduct")
   rewardRulesFree       RewardRule[] @relation("RewardFreeProduct")
+  priceQuoteItems       PriceQuoteItem[]
 
   @@map("products")
 }
@@ -468,6 +471,76 @@ model Customer {
   onlineOrders OnlineOrder[]
 
   @@map("customers")
+}
+
+// ============== KEY ACCOUNTS (كبار الموردين / بيوت الجملة) ==============
+// عميل له مقر رئيسي إداري وفروع بيع متعددة، وتعامل تجاري ببيانات سعر وعقود ومطالبات.
+model KeyAccount {
+  id             String   @id @default(cuid())
+  name           String // اسم العميل
+  brandName      String? // اسم الماركة التجارية
+  activityType   String? // نوع النشاط
+  phone          String?
+  address        String? // عنوان المقر الرئيسي
+  balance        Decimal  @default(0) @db.Decimal(12, 2) // المطالبات المجمّعة على المقر الرئيسي
+  totalPurchases Decimal  @default(0) @db.Decimal(12, 2)
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  branches KeyAccountBranch[]
+  quotes   PriceQuote[]
+
+  @@map("key_accounts")
+}
+
+model KeyAccountBranch {
+  id           String   @id @default(cuid())
+  keyAccountId String
+  name         String // اسم الفرع (مثلا: فرع المنوفية)
+  address      String?
+  phone        String?
+  manager      String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  keyAccount KeyAccount @relation(fields: [keyAccountId], references: [id], onDelete: Cascade)
+
+  @@map("key_account_branches")
+}
+
+// ============== PRICE QUOTES (بيان سعر / عرض سعر توريد) ==============
+model PriceQuote {
+  id             String   @id @default(cuid())
+  quoteNo        String   @unique
+  keyAccountId   String
+  status         String   @default("DRAFT") // DRAFT | APPROVED | CANCELLED
+  discountType   String   @default("NONE") // NONE | CASH (خصم نقدي فعلي مش بونص)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  adminExpenses  Decimal  @default(0) @db.Decimal(12, 2) // مصاريف إدارية تُحمّل على البيان
+  notes          String?
+  validUntil     DateTime?
+  createdAt      DateTime @default(now())
+  createdById    String
+
+  keyAccount KeyAccount       @relation(fields: [keyAccountId], references: [id], onDelete: Cascade)
+  creator    User             @relation(fields: [createdById], references: [id])
+  items      PriceQuoteItem[]
+
+  @@map("price_quotes")
+}
+
+model PriceQuoteItem {
+  id        String  @id @default(cuid())
+  quoteId   String
+  productId String
+  quantity  Int     @default(0) // اختياري (0 = بيان أسعار بدون كميات)
+  unitPrice Decimal @db.Decimal(10, 2) // السعر اليدوي (لا يقل عن minKeyPrice)
+
+  quote   PriceQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product    @relation(fields: [productId], references: [id])
+
+  @@map("price_quote_items")
 }
 
 // ============== SALES POINTS (نقاط البيع) ==============

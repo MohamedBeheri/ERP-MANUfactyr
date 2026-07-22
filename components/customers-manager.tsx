@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Phone, MapPin, Pencil, Trash2, X, MessageCircle, ChevronDown, User,
-  ReceiptText, Globe, Scale, Wallet, Star,
+  ReceiptText, Globe, Scale, Wallet, Star, Building2,
 } from 'lucide-react'
 
 export interface CustomerRow {
@@ -81,6 +81,17 @@ export function CustomersManager({ customers, tiers = [] }: { customers: Custome
     const data = await res.json().catch(() => ({}))
     if (!res.ok) { alert(data.error || 'فشل الاستبدال'); return }
     router.refresh()
+  }
+
+  const convertToKey = async (c: CustomerRow) => {
+    if (!confirm(`تحويل "${c.name}" إلى قسم كبار الموردين؟ هيتنقل رصيده ويتعطّل حسابه هنا.`)) return
+    const res = await fetch(`/api/customers/${c.id}/convert-to-key-account`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { alert(data.error || 'فشل التحويل'); return }
+    alert('تم التحويل. هتلاقيه في قسم كبار الموردين.')
+    router.push('/key-accounts')
   }
 
   const remove = async (c: CustomerRow) => {
@@ -196,6 +207,9 @@ export function CustomersManager({ customers, tiers = [] }: { customers: Custome
                     )}
                     <button onClick={() => startEdit(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2545]">
                       <Pencil className="w-3.5 h-3.5" /> تعديل البيانات
+                    </button>
+                    <button onClick={() => convertToKey(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold hover:bg-amber-100">
+                      <Building2 className="w-3.5 h-3.5" /> تحويل لكبار موردين
                     </button>
                     <button onClick={() => remove(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100">
                       <Trash2 className="w-3.5 h-3.5" /> حذف

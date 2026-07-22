@@ -42,6 +42,7 @@ interface ProductRow {
   sellPrice: number
   oldPrice: number | null
   wholesalePrice: number
+  minKeyPrice: number
   minStock: number
   quantity: number
   unit: string
@@ -192,7 +193,7 @@ export function SettingsManager({ suppliers, categories, products, stockStages, 
 function ProductsTab({ products, categories, stockStages }: { products: ProductRow[]; categories: CategoryRow[]; stockStages: StockStageRow[] }) {
   const router = useRouter()
   const defaultStage = stockStages.find((s) => s.sellable)?.id || stockStages[0]?.id || ''
-  const empty = { name: '', stageId: defaultStage, categoryId: '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
+  const empty = { name: '', stageId: defaultStage, categoryId: '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
   const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -208,6 +209,7 @@ function ProductsTab({ products, categories, stockStages }: { products: ProductR
       sellPrice: String(p.sellPrice),
       oldPrice: p.oldPrice ? String(p.oldPrice) : '',
       wholesalePrice: String(p.wholesalePrice),
+      minKeyPrice: p.minKeyPrice ? String(p.minKeyPrice) : '',
       minStock: String(p.minStock),
       unit: p.unit,
       imageUrl: p.imageUrl || '',
@@ -298,7 +300,11 @@ function ProductsTab({ products, categories, stockStages }: { products: ProductR
             <input type="number" min="0" step="0.01" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} className={inputCls} />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">الحد الأدنى</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">أقل سعر لكبار الموردين</label>
+            <input type="number" min="0" step="0.01" value={form.minKeyPrice} onChange={(e) => setForm({ ...form, minKeyPrice: e.target.value })} className={inputCls} placeholder="الحد الأدنى في بيان السعر" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">الحد الأدنى للمخزون</label>
             <input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inputCls} />
           </div>
         </div>
