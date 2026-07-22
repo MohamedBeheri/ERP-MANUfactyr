@@ -17,7 +17,7 @@ export default async function SettingsPage() {
   await ensureStockStages() // يضمن وجود المراحل والعمليات الافتراضية
   await ensureTiers() // يضمن وجود فئات العملاء الافتراضية
 
-  const [suppliers, categories, products, stockStages, operations, warehouses, tiers] = await Promise.all([
+  const [suppliers, categories, products, stockStages, operations, warehouses, tiers, rewards] = await Promise.all([
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.category.findMany({
       where: { isActive: true },
@@ -43,6 +43,10 @@ export default async function SettingsPage() {
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: { _count: { select: { customers: true } } },
+    }),
+    prisma.rewardRule.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { product: true, freeProduct: true, tier: true },
     }),
   ])
 
@@ -114,6 +118,21 @@ export default async function SettingsPage() {
           bonusPercent: Number(t.bonusPercent),
           sortOrder: t.sortOrder,
           customerCount: t._count.customers,
+        }))}
+        rewards={rewards.map((r) => ({
+          id: r.id,
+          name: r.name,
+          productId: r.productId,
+          productName: r.product.name,
+          buyQuantity: r.buyQuantity,
+          bundleSize: r.bundleSize,
+          freeProductId: r.freeProductId,
+          freeProductName: r.freeProduct.name,
+          freeQuantity: r.freeQuantity,
+          repeat: r.repeat,
+          tierId: r.tierId,
+          tierName: r.tier?.name || null,
+          isActive: r.isActive,
         }))}
       />
     </div>

@@ -216,6 +216,8 @@ model Product {
   warehouseIns     WarehouseIn[]
   warehouseOuts    WarehouseOut[]
   onlineOrderItems OnlineOrderItem[]
+  rewardRulesQualifying RewardRule[] @relation("RewardQualifyingProduct")
+  rewardRulesFree       RewardRule[] @relation("RewardFreeProduct")
 
   @@map("products")
 }
@@ -416,9 +418,32 @@ model CustomerTier {
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
 
-  customers Customer[]
+  customers   Customer[]
+  rewardRules RewardRule[]
 
   @@map("customer_tiers")
+}
+
+// ============== REWARD RULES (مكافآت الكمية — اشترِ X خُد Y هدية) ==============
+model RewardRule {
+  id            String   @id @default(cuid())
+  name          String // اسم العرض (مثلا: عرض أكياس 10 جم)
+  productId     String // الصنف المؤهِّل (اللي بيشتريه العميل)
+  buyQuantity   Int // الكمية المطلوبة بالوحدة الأساسية (مثلا 180 كيس = 3 شرينك)
+  bundleSize    Int      @default(1) // حجم العبوة/الشرينك للعرض فقط (60)
+  freeProductId String // الصنف الهدية (غالبًا نفس المنتج)
+  freeQuantity  Int // عدد الهدية لكل مرة تأهيل (مثلا 18)
+  repeat        Boolean  @default(true) // يتكرر مع مضاعفات الكمية
+  tierId        String? // فئة العميل المستهدفة (null = كل الفئات)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  product      Product       @relation("RewardQualifyingProduct", fields: [productId], references: [id])
+  freeProduct  Product       @relation("RewardFreeProduct", fields: [freeProductId], references: [id])
+  tier         CustomerTier? @relation(fields: [tierId], references: [id])
+  invoiceItems InvoiceItem[]
+
+  @@map("reward_rules")
 }
 
 // ============== CUSTOMERS (العملاء) ==============
@@ -490,16 +515,19 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id         String  @id @default(cuid())
-  invoiceId  String
-  productId  String
-  quantity   Int
-  unitPrice  Decimal @db.Decimal(10, 2)
-  totalPrice Decimal @db.Decimal(10, 2)
+  id           String  @id @default(cuid())
+  invoiceId    String
+  productId    String
+  quantity     Int
+  unitPrice    Decimal @db.Decimal(10, 2)
+  totalPrice   Decimal @db.Decimal(10, 2)
+  isBonus      Boolean @default(false) // بند هدية/بونص كمية (سعره صفر)
+  rewardRuleId String? // العرض اللي منح الهدية دي
 
   // Relations
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  invoice    Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product    Product     @relation(fields: [productId], references: [id])
+  rewardRule RewardRule? @relation(fields: [rewardRuleId], references: [id])
 
   @@map("invoice_items")
 }
@@ -565,7 +593,8 @@ model Settlement {
   id              String   @id @default(cuid())
   delegateId      String
   deliveryOrderId String?  @unique // الجولة اللي التسوية دي بتاعتها
-  soldQty         Int      @default(0) // المباع
+  soldQty         Int      @default(0) // المباع (بدون الهدايا)
+  bonusQty        Int      @default(0) // إجمالي الهدايا/البونص اللي اتوزّعت في الجولة
   returnedQty     Int      @default(0) // المرتجع
   cashAmount      Decimal  @default(0) @db.Decimal(12, 2) // النقدية
   creditAmount    Decimal  @default(0) @db.Decimal(12, 2) // الآجل

@@ -15,6 +15,7 @@ import {
   Star,
   ArrowLeft,
   Crown,
+  Gift,
 } from 'lucide-react'
 
 /* ================= أنواع البيانات ================= */
@@ -103,6 +104,21 @@ interface WarehouseRow {
   location: string | null
   isDefault: boolean
 }
+interface RewardRuleRow {
+  id: string
+  name: string
+  productId: string
+  productName: string
+  buyQuantity: number
+  bundleSize: number
+  freeProductId: string
+  freeProductName: string
+  freeQuantity: number
+  repeat: boolean
+  tierId: string | null
+  tierName: string | null
+  isActive: boolean
+}
 
 interface Props {
   suppliers: Supplier[]
@@ -112,6 +128,7 @@ interface Props {
   operations: OperationRow[]
   warehouses: WarehouseRow[]
   tiers: TierRow[]
+  rewards: RewardRuleRow[]
 }
 
 const TABS = [
@@ -120,6 +137,7 @@ const TABS = [
   { key: 'stockStages', label: 'المراحل المخزنية', Icon: Layers },
   { key: 'operations', label: 'عمليات التصنيع', Icon: Flame },
   { key: 'tiers', label: 'فئات العملاء والبونص', Icon: Crown },
+  { key: 'rewards', label: 'عروض ومكافآت الكمية', Icon: Gift },
   { key: 'suppliers', label: 'الموردين', Icon: TruckIcon },
   { key: 'warehouses', label: 'المخازن', Icon: WarehouseIcon },
 ] as const
@@ -138,7 +156,7 @@ async function apiCall(url: string, method: string, body?: any) {
   return data
 }
 
-export function SettingsManager({ suppliers, categories, products, stockStages, operations, warehouses, tiers }: Props) {
+export function SettingsManager({ suppliers, categories, products, stockStages, operations, warehouses, tiers, rewards }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('products')
 
   return (
@@ -163,6 +181,7 @@ export function SettingsManager({ suppliers, categories, products, stockStages, 
       {tab === 'stockStages' && <StockStagesTab stages={stockStages} warehouses={warehouses} />}
       {tab === 'operations' && <OperationsTab operations={operations} stages={stockStages} />}
       {tab === 'tiers' && <TiersTab tiers={tiers} />}
+      {tab === 'rewards' && <RewardsTab rewards={rewards} products={products} tiers={tiers} />}
       {tab === 'suppliers' && <SuppliersTab suppliers={suppliers} />}
       {tab === 'warehouses' && <WarehousesTab warehouses={warehouses} />}
     </div>
@@ -859,6 +878,200 @@ function TiersTab({ tiers }: { tiers: TierRow[] }) {
                   <Pencil className="w-4 h-4" />
                 </button>
                 <button onClick={() => remove(t.id, t.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ================= عروض ومكافآت الكمية ================= */
+function RewardsTab({
+  rewards,
+  products,
+  tiers,
+}: {
+  rewards: RewardRuleRow[]
+  products: ProductRow[]
+  tiers: TierRow[]
+}) {
+  const router = useRouter()
+  const empty = {
+    name: '',
+    productId: '',
+    buyQuantity: '',
+    bundleSize: '1',
+    freeProductId: '',
+    freeQuantity: '',
+    repeat: true,
+    tierId: '',
+  }
+  const [form, setForm] = useState<any>(empty)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    try {
+      await apiCall(editId ? `/api/rewards/${editId}` : '/api/rewards', editId ? 'PUT' : 'POST', {
+        ...form,
+        freeProductId: form.freeProductId || form.productId, // افتراضيًا نفس المنتج هدية
+        buyQuantity: Number(form.buyQuantity),
+        bundleSize: Number(form.bundleSize) || 1,
+        freeQuantity: Number(form.freeQuantity),
+        tierId: form.tierId || null,
+      })
+      setForm(empty)
+      setEditId(null)
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`حذف عرض "${name}"؟`)) return
+    try {
+      await apiCall(`/api/rewards/${id}`, 'DELETE')
+      router.refresh()
+    } catch (err: any) {
+      alert(err.message)
+    }
+  }
+
+  const bundlesHint = () => {
+    const bs = Number(form.bundleSize) || 0
+    const bq = Number(form.buyQuantity) || 0
+    if (bs > 1 && bq > 0) return `= ${(bq / bs).toLocaleString('ar-EG', { maximumFractionDigits: 2 })} شرينك (الشرينك ${bs} قطعة)`
+    return ''
+  }
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
+        <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل عرض' : 'عرض مكافأة جديد'}</h3>
+        <p className="text-xs text-gray-500">
+          مثال: يشتري 180 كيس (3 شرينك × 60) ← يأخذ 18 كيس هدية. الهدية بتظهر تلقائيًا في فواتير البيع وتسليم العربيات.
+        </p>
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+
+        <input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="اسم العرض (مثلا: عرض أكياس 10 جم)"
+          className={inputCls}
+        />
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">الصنف المؤهِّل (اللي بيشتريه)</label>
+          <select value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} className={inputCls}>
+            <option value="">اختار الصنف</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">كمية الشراء المطلوبة</label>
+            <input type="number" min="1" value={form.buyQuantity} onChange={(e) => setForm({ ...form, buyQuantity: e.target.value })} className={inputCls} placeholder="180" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">حجم الشرينك (للعرض)</label>
+            <input type="number" min="1" value={form.bundleSize} onChange={(e) => setForm({ ...form, bundleSize: e.target.value })} className={inputCls} placeholder="60" />
+          </div>
+        </div>
+        {bundlesHint() && <p className="text-[11px] text-[#0f3460] font-medium -mt-1">{bundlesHint()}</p>}
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">الصنف الهدية (فاضي = نفس المنتج)</label>
+          <select value={form.freeProductId} onChange={(e) => setForm({ ...form, freeProductId: e.target.value })} className={inputCls}>
+            <option value="">نفس الصنف المشترى</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">كمية الهدية</label>
+          <input type="number" min="1" value={form.freeQuantity} onChange={(e) => setForm({ ...form, freeQuantity: e.target.value })} className={inputCls} placeholder="18" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">الفئة المستهدفة</label>
+          <select value={form.tierId} onChange={(e) => setForm({ ...form, tierId: e.target.value })} className={inputCls}>
+            <option value="">كل الفئات</option>
+            {tiers.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={form.repeat} onChange={(e) => setForm({ ...form, repeat: e.target.checked })} className="w-4 h-4" />
+          يتكرر مع المضاعفات (يشتري الضعف ← هدية مضاعفة)
+        </label>
+
+        <div className="flex gap-2">
+          <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
+            {editId ? 'حفظ' : 'إضافة'}
+          </button>
+          {editId && (
+            <button type="button" onClick={() => { setEditId(null); setForm(empty) }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">إلغاء</button>
+          )}
+        </div>
+      </form>
+
+      <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
+        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">العروض ({rewards.length})</h3>
+        {rewards.length === 0 && <p className="text-sm text-gray-500">مفيش عروض لسه. ضيف أول عرض من الشمال.</p>}
+        <div className="space-y-2">
+          {rewards.map((r) => (
+            <div key={r.id} className={`flex items-center justify-between border rounded-lg p-3.5 ${r.isActive ? 'border-gray-100' : 'border-gray-100 opacity-50'}`}>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm flex items-center gap-2 flex-wrap">
+                  <Gift className="w-4 h-4 text-amber-500 shrink-0" />
+                  {r.name}
+                  {!r.isActive && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">موقوف</span>}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  يشتري <span className="font-bold text-gray-700 tabular-nums">{r.buyQuantity.toLocaleString('ar-EG')}</span> من {r.productName}
+                  {' ← '}يأخذ <span className="font-bold text-green-700 tabular-nums">{r.freeQuantity.toLocaleString('ar-EG')}</span> هدية من {r.freeProductName}
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-semibold">{r.tierName || 'كل الفئات'}</span>
+                  {r.repeat && <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-semibold">يتكرر</span>}
+                  {r.bundleSize > 1 && <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold tabular-nums">الشرينك {r.bundleSize}</span>}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => {
+                    setEditId(r.id)
+                    setForm({
+                      name: r.name,
+                      productId: r.productId,
+                      buyQuantity: String(r.buyQuantity),
+                      bundleSize: String(r.bundleSize),
+                      freeProductId: r.freeProductId,
+                      freeQuantity: String(r.freeQuantity),
+                      repeat: r.repeat,
+                      tierId: r.tierId || '',
+                    })
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded"
+                  aria-label="تعديل"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => remove(r.id, r.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
+import { computeBonuses } from '@/lib/rewards'
 
 const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
@@ -53,6 +54,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
     const netAmount = totalAmount - (totalAmount * (discount || 0)) / 100
 
+    // ===== مكافآت الكمية (هدايا) =====
+    // نحسب الهدية المستحقّة حسب فئة العميل، ونقصّها على المتاح فعليًا على العربية.
+    const buyer = await prisma.customer.findUnique({ where: { id: customerId } })
+    const rawBonuses = await computeBonuses(prisma, buyer?.tierId ?? null, items)
+    const bonusLines = rawBonuses
+      .map((b) => {
+        const loaded = deliveryOrder.items.find((i) => i.productId === b.productId)?.quantity || 0
+        const alreadyDelivered = deliveryOrder.invoices
+          .flatMap((inv) => inv.items)
+          .filter((it) => it.productId === b.productId)
+          .reduce((s, it) => s + it.quantity, 0)
+        const paidThisInvoice = items
+          .filter((it: any) => it.productId === b.productId)
+          .reduce((s: number, it: any) => s + it.quantity, 0)
+        const available = loaded - alreadyDelivered - paidThisInvoice
+        return { ...b, quantity: Math.max(0, Math.min(b.quantity, available)) }
+      })
+      .filter((b) => b.quantity > 0)
+
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNo: `INV-${Date.now()}`,
@@ -65,12 +85,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         deliveryOrderId: deliveryOrder.id,
         createdById: session.user.id,
         items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.quantity * item.unitPrice,
-          })),
+          create: [
+            ...items.map((item: any) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.quantity * item.unitPrice,
+            })),
+            ...bonusLines.map((b) => ({
+              productId: b.productId,
+              quantity: b.quantity,
+              unitPrice: 0,
+              totalPrice: 0,
+              isBonus: true,
+              rewardRuleId: b.rewardRuleId,
+            })),
+          ],
         },
       },
       include: { items: true, customer: true },
@@ -88,12 +118,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       })
     }
 
+    const bonusTotal = bonusLines.reduce((s, b) => s + b.quantity, 0)
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
         action: 'تسليم مندوب',
         description: `تسليم للعميل ${invoice.customer.name} - فاتورة ${invoice.invoiceNo} - أمر ${deliveryOrder.orderNo}`,
-        impact: `+${netAmount} ج.م`,
+        impact: `+${netAmount} ج.م${bonusTotal > 0 ? ` + ${bonusTotal} هدية` : ''}`,
       },
     })
 

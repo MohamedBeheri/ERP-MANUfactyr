@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
+import { computeBonuses } from '@/lib/rewards'
 
 const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
@@ -63,6 +64,21 @@ export async function POST(req: NextRequest) {
     const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
     const netAmount = totalAmount - (totalAmount * (discount || 0)) / 100
 
+    // ===== مكافآت الكمية (هدايا) =====
+    // نحسب الهدية حسب فئة العميل، ونقصّها على المتاح في المخزن بعد الأصناف المدفوعة.
+    const buyerForBonus = await prisma.customer.findUnique({ where: { id: customerId } })
+    const rawBonuses = await computeBonuses(prisma, buyerForBonus?.tierId ?? null, items)
+    const bonusLines: { productId: string; quantity: number; rewardRuleId: string }[] = []
+    for (const b of rawBonuses) {
+      const stock = await getStock(warehouseId, b.productId)
+      const paidSame = items
+        .filter((it: any) => it.productId === b.productId)
+        .reduce((s: number, it: any) => s + it.quantity, 0)
+      const available = stock - paidSame
+      const qty = Math.max(0, Math.min(b.quantity, available))
+      if (qty > 0) bonusLines.push({ productId: b.productId, quantity: qty, rewardRuleId: b.rewardRuleId })
+    }
+
     const invoice = await prisma.$transaction(async (tx) => {
       const created = await tx.invoice.create({
         data: {
@@ -76,30 +92,45 @@ export async function POST(req: NextRequest) {
           pointId,
           createdById: session.user.id,
           items: {
-            create: items.map((item: any) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              totalPrice: item.quantity * item.unitPrice,
-            })),
+            create: [
+              ...items.map((item: any) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: item.quantity * item.unitPrice,
+              })),
+              ...bonusLines.map((b) => ({
+                productId: b.productId,
+                quantity: b.quantity,
+                unitPrice: 0,
+                totalPrice: 0,
+                isBonus: true,
+                rewardRuleId: b.rewardRuleId,
+              })),
+            ],
           },
         },
         include: { items: true },
       })
 
-      for (const item of items) {
+      // صرف الأصناف المدفوعة + الهدايا من المخزن (كلها بتخرج فعليًا)
+      const stockMoves = [
+        ...items.map((it: any) => ({ productId: it.productId, quantity: it.quantity, bonus: false })),
+        ...bonusLines.map((b) => ({ productId: b.productId, quantity: b.quantity, bonus: true })),
+      ]
+      for (const move of stockMoves) {
         await tx.product.update({
-          where: { id: item.productId },
-          data: { quantity: { decrement: item.quantity } },
+          where: { id: move.productId },
+          data: { quantity: { decrement: move.quantity } },
         })
-        await adjustStock(tx, warehouseId, item.productId, -item.quantity)
+        await adjustStock(tx, warehouseId, move.productId, -move.quantity)
         await tx.warehouseOut.create({
           data: {
-            productId: item.productId,
+            productId: move.productId,
             warehouseId,
-            quantity: item.quantity,
+            quantity: move.quantity,
             target: `عميل - فاتورة ${created.invoiceNo}`,
-            reason: 'فاتورة بيع',
+            reason: move.bonus ? 'هدية كمية' : 'فاتورة بيع',
             createdById: session.user.id,
           },
         })

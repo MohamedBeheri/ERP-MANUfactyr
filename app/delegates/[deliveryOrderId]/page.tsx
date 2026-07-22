@@ -159,11 +159,18 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
               {deliveryOrder.invoices.length === 0 && (
                 <p className="text-sm text-gray-500 py-2">لسه مفيش تسليمات مسجّلة.</p>
               )}
-              {deliveryOrder.invoices.map((inv) => (
+              {deliveryOrder.invoices.map((inv) => {
+                const bonusItems = inv.items.filter((it) => it.isBonus)
+                return (
                 <div key={inv.id} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <p className="font-semibold text-sm truncate">{inv.customer.name}</p>
                     <p className="text-xs text-gray-400 tabular-nums">{inv.invoiceNo}</p>
+                    {bonusItems.map((b) => (
+                      <p key={b.id} className="text-[11px] text-amber-700 flex items-center gap-1 mt-0.5">
+                        🎁 هدية: {b.quantity} {b.product.unit} {b.product.name}
+                      </p>
+                    ))}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-left">
@@ -179,7 +186,8 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
                     </Link>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -202,6 +210,12 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
                 <span className="text-gray-500">المباع</span>
                 <span className="font-semibold tabular-nums">{deliveryOrder.settlement.soldQty}</span>
               </div>
+              {deliveryOrder.settlement.bonusQty > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">🎁 هدايا/بونص</span>
+                  <span className="font-semibold text-amber-700 tabular-nums">{deliveryOrder.settlement.bonusQty}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">المرتجع</span>
                 <span className="font-semibold tabular-nums">{deliveryOrder.settlement.returnedQty}</span>

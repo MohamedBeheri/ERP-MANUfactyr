@@ -56,7 +56,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
-    const soldQty = Array.from(deliveredByProduct.values()).reduce((s, q) => s + q, 0)
+    // إجمالي الهدايا اللي اتوزّعت في الجولة (بنود البونص)، والمباع المدفوع = الكل − الهدايا
+    const bonusQty = deliveryOrder.invoices
+      .flatMap((inv) => inv.items)
+      .filter((it) => it.isBonus)
+      .reduce((s, it) => s + it.quantity, 0)
+    const totalDelivered = Array.from(deliveredByProduct.values()).reduce((s, q) => s + q, 0)
+    const soldQty = Math.max(0, totalDelivered - bonusQty)
     const returnedQty = returns.reduce((s, r) => s + r.quantity, 0)
     const cashAmount = deliveryOrder.invoices
       .filter((inv) => inv.type === 'CASH')
@@ -92,6 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         delegateId: deliveryOrder.delegateId,
         deliveryOrderId: deliveryOrder.id,
         soldQty,
+        bonusQty,
         returnedQty,
         cashAmount,
         creditAmount,
@@ -119,7 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         userId: session.user.id,
         action: 'تسوية',
         description: `تسوية جولة ${deliveryOrder.orderNo} للمندوب ${deliveryOrder.delegate.name}`,
-        impact: `مبيعات ${totalSalesValue} ج.م - عمولة ${commission} ج.م - مرتجع ${returnedQty}`,
+        impact: `مبيعات ${totalSalesValue} ج.م - عمولة ${commission} ج.م - مرتجع ${returnedQty}${bonusQty > 0 ? ` - هدايا ${bonusQty}` : ''}`,
       },
     })
 
