@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Printer, Package, MapPin, FileCheck2 } from 'lucide-react'
+import { ArrowRight, Printer, Package, MapPin, FileCheck2, Undo2 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DeliverForm } from '@/components/deliver-form'
@@ -302,6 +302,34 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* المرتجعات من العملاء */}
+          {deliveryOrder.returns.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Undo2 className="w-5 h-5 text-orange-500" />
+                <h3 className="text-base font-bold text-[#1a1a2e]">المرتجعات من العملاء ({deliveryOrder.returns.length})</h3>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {deliveryOrder.returns.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{r.customer?.name || r.customerName || 'عميل'}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {r.returnNo} · {r.items.map((it) => `${it.product.name} ×${it.quantity}`).join('، ')} · {r.refundCash ? 'رد نقدي' : 'خصم آجل'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-semibold text-sm text-orange-600 tabular-nums">{Number(r.totalValue).toLocaleString('ar-EG')} ج.م</span>
+                      <Link href={`/print/return/${r.id}`} className="p-2 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded-lg" aria-label="طباعة إشعار المرتجع">
+                        <Printer className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

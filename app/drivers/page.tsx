@@ -18,6 +18,8 @@ export default async function DriversPage() {
         delegate: true,
         items: { include: { product: true } },
         invoices: { include: { items: true } },
+        keyAccountSupplies: { include: { items: true } },
+        returns: { include: { items: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -37,14 +39,26 @@ export default async function DriversPage() {
         deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
       }
     }
+    for (const sup of order.keyAccountSupplies) {
+      for (const item of sup.items) {
+        deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
+      }
+    }
+    const returnedByProduct = new Map<string, number>()
+    for (const r of order.returns) {
+      for (const item of r.items) {
+        returnedByProduct.set(item.productId, (returnedByProduct.get(item.productId) || 0) + item.quantity)
+      }
+    }
     const cargo = order.items.map((item) => {
       const delivered = deliveredByProduct.get(item.productId) || 0
+      const returned = returnedByProduct.get(item.productId) || 0
       return {
         name: item.product.name,
         unit: item.product.unit,
         loaded: item.quantity,
         delivered,
-        remaining: item.quantity - delivered,
+        remaining: item.quantity - delivered + returned,
       }
     })
     const totalLoaded = cargo.reduce((s, c) => s + c.loaded, 0)
@@ -97,9 +111,9 @@ export default async function DriversPage() {
                 </Link>
                 <Link
                   href={`/delegates/${order.id}`}
-                  className="px-3 py-2 bg-[#e94560] hover:bg-[#c73e54] rounded-lg text-xs font-semibold"
+                  className="px-3.5 py-2 bg-[#e9b44c] text-[#1a1a2e] hover:bg-[#d9a43c] rounded-lg text-xs font-bold"
                 >
-                  التفاصيل
+                  فتح شاشة التسليم
                 </Link>
               </div>
             </div>
