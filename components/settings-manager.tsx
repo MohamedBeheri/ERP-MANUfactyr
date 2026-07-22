@@ -26,6 +26,7 @@ interface Supplier {
   address: string | null
   email: string | null
   rating: number
+  balance: number
 }
 interface CategoryRow {
   id: string
@@ -487,6 +488,12 @@ function SuppliersTab({ suppliers }: { suppliers: Supplier[] }) {
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
+  const pay = async (sup: Supplier) => {
+    const val = prompt(`المستحق للمورد "${sup.name}": ${sup.balance.toLocaleString('ar-EG')} ج.م\nاكتب المبلغ اللي هتسدده:`)
+    if (!val) return
+    try { await apiCall(`/api/suppliers/${sup.id}/pay`, 'POST', { amount: Number(val) }); router.refresh() } catch (err: any) { alert(err.message) }
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -557,8 +564,12 @@ function SuppliersTab({ suppliers }: { suppliers: Supplier[] }) {
                 <p className="text-xs text-gray-400 truncate">
                   {s.phone || 'بدون تليفون'} · {s.address || 'بدون عنوان'} {s.email ? `· ${s.email}` : ''}
                 </p>
+                {s.balance > 0 && <span className="inline-block mt-1 text-[10px] font-bold bg-red-50 text-red-600 px-1.5 py-0.5 rounded tabular-nums">مستحق {s.balance.toLocaleString('ar-EG')} ج.م</span>}
               </div>
               <div className="flex items-center gap-3 shrink-0">
+                {s.balance > 0 && (
+                  <button onClick={() => pay(s)} className="px-2.5 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">تسديد</button>
+                )}
                 <div className="flex gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} className={`w-3.5 h-3.5 ${i < s.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`} />

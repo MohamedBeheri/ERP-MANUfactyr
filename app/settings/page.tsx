@@ -67,6 +67,7 @@ export default async function SettingsPage() {
           address: s.address,
           email: s.email,
           rating: s.rating,
+          balance: Number(s.balance),
         }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name, productCount: c._count.products }))}
         products={products.map((p) => ({

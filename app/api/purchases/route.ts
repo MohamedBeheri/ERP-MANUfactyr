@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { supplierId, items, notes } = body
     const manualWarehouse = body.warehouseId || null
+    const paymentMethod = ['نقدي فوري', 'آجل', 'نقدي جزئي'].includes(body.paymentMethod) ? body.paymentMethod : 'نقدي فوري'
+    const supplierInvoiceNo = body.supplierInvoiceNo?.trim() || null
+    const invoiceImage = body.invoiceImage || null
 
     if (!supplierId || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'اختار المورد وأدخل صنف واحد على الأقل' }, { status: 400 })
@@ -45,13 +48,22 @@ export async function POST(req: NextRequest) {
       manualWarehouse || (await warehouseForStage(stageOf.get(productId)))
 
     const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
+    // المدفوع للمورد حسب طريقة الدفع
+    let paidAmount = totalAmount
+    if (paymentMethod === 'آجل') paidAmount = 0
+    else if (paymentMethod === 'نقدي جزئي') paidAmount = Math.max(0, Math.min(totalAmount, Number(body.paidAmount) || 0))
+    const owed = totalAmount - paidAmount // المستحق للمورد
 
     const purchase = await prisma.$transaction(async (tx) => {
       const created = await tx.purchase.create({
         data: {
           invoiceNo: `PUR-${Date.now()}`,
+          supplierInvoiceNo,
+          invoiceImage,
           supplierId,
           totalAmount,
+          paymentMethod,
+          paidAmount,
           notes,
           createdById: session.user.id,
           items: {
@@ -86,15 +98,18 @@ export async function POST(req: NextRequest) {
 
       await tx.supplier.update({
         where: { id: supplierId },
-        data: { totalPurchases: { increment: totalAmount } },
+        data: {
+          totalPurchases: { increment: totalAmount },
+          ...(owed > 0 ? { balance: { increment: owed } } : {}),
+        },
       })
 
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
           action: 'شراء',
-          description: `فاتورة شراء ${created.invoiceNo}`,
-          impact: `+${items.reduce((s: number, i: any) => s + i.quantity, 0)} للمخزن`,
+          description: `فاتورة شراء ${created.invoiceNo}${supplierInvoiceNo ? ` (فاتورة مورد ${supplierInvoiceNo})` : ''} — ${paymentMethod}`,
+          impact: `إجمالي ${totalAmount} · مدفوع ${paidAmount}${owed > 0 ? ` · مستحق ${owed}` : ''}`,
         },
       })
 

@@ -90,6 +90,7 @@ model User {
   keyAccountSupplies KeyAccountSupply[]
   keyAccountPayments KeyAccountPayment[]
   deliveryReturns    DeliveryReturn[]
+  supplierPayments   SupplierPayment[]
 
   @@map("users")
 }
@@ -271,26 +272,51 @@ model Supplier {
   address        String?
   email          String?
   totalPurchases Decimal  @default(0) @db.Decimal(12, 2)
+  balance        Decimal  @default(0) @db.Decimal(12, 2) // المستحق للمورد (مطلوب دفعه)
   rating         Int      @default(5)
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
 
   // Relations
   purchases Purchase[]
+  payments  SupplierPayment[]
 
   @@map("suppliers")
 }
 
+// ============== SUPPLIER PAYMENTS (تسديد للموردين) ==============
+model SupplierPayment {
+  id            String   @id @default(cuid())
+  receiptNo     String?  @unique
+  supplierId    String
+  amount        Decimal  @db.Decimal(12, 2)
+  method        String   @default("نقدي")
+  balanceBefore Decimal  @default(0) @db.Decimal(12, 2)
+  balanceAfter  Decimal  @default(0) @db.Decimal(12, 2)
+  notes         String?
+  createdAt     DateTime @default(now())
+  createdById   String
+
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  creator  User     @relation(fields: [createdById], references: [id])
+
+  @@map("supplier_payments")
+}
+
 // ============== PURCHASES (شراء بن أخضر) ==============
 model Purchase {
-  id          String      @id @default(cuid())
-  invoiceNo   String      @unique // رقم الفاتورة الورقية
-  supplierId  String
-  totalAmount Decimal     @db.Decimal(12, 2)
-  notes       String?
-  status      OrderStatus @default(COMPLETED)
-  createdAt   DateTime    @default(now())
-  createdById String
+  id                String      @id @default(cuid())
+  invoiceNo         String      @unique // رقم أمر الشراء في النظام
+  supplierInvoiceNo String? // رقم فاتورة المورد الورقية الفعلية
+  invoiceImage      String? // صورة فاتورة المورد المرفقة (data URL)
+  supplierId        String
+  totalAmount       Decimal     @db.Decimal(12, 2)
+  paymentMethod     String      @default("نقدي فوري") // نقدي فوري / آجل / نقدي جزئي
+  paidAmount        Decimal     @default(0) @db.Decimal(12, 2) // المدفوع للمورد وقت الشراء
+  notes             String?
+  status            OrderStatus @default(COMPLETED)
+  createdAt         DateTime    @default(now())
+  createdById       String
 
   // Relations
   supplier Supplier       @relation(fields: [supplierId], references: [id])

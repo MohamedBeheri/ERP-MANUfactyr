@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Printer, Flame, ShoppingBag, Blend, TrendingDown, Package2 } from 'lucide-react'
+import { Printer, Flame, ShoppingBag, Blend, TrendingDown, Package2, Image as ImageIcon } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
@@ -240,12 +240,13 @@ export default async function FactoryPage() {
                     <th className="p-3 font-medium">المورد</th>
                     <th className="p-3 font-medium">الأصناف</th>
                     <th className="p-3 font-medium">الإجمالي</th>
+                    <th className="p-3 font-medium">الدفع للمورد</th>
                     <th className="p-3 font-medium no-print"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {purchases.length === 0 && (
-                    <tr><td colSpan={5} className="p-6 text-center text-gray-500">مفيش فواتير شراء لسه.</td></tr>
+                    <tr><td colSpan={6} className="p-6 text-center text-gray-500">مفيش فواتير شراء لسه.</td></tr>
                   )}
                   {purchases.map((pur) => (
                     <tr key={pur.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
@@ -261,10 +262,29 @@ export default async function FactoryPage() {
                         </div>
                       </td>
                       <td className="p-3 font-semibold tabular-nums">{Number(pur.totalAmount).toLocaleString('ar-EG')} ج.م</td>
+                      <td className="p-3">
+                        {(() => {
+                          const owed = Number(pur.totalAmount) - Number(pur.paidAmount)
+                          const cls = owed <= 0 ? 'bg-green-50 text-green-600' : Number(pur.paidAmount) > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-600'
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className={`w-fit px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>{pur.paymentMethod}</span>
+                              {owed > 0 && <span className="text-[10px] text-red-600 tabular-nums">مستحق {owed.toLocaleString('ar-EG')} ج.م</span>}
+                            </div>
+                          )
+                        })()}
+                      </td>
                       <td className="p-3 no-print">
-                        <Link href={`/print/purchase/${pur.id}`} className="inline-flex items-center gap-1 text-xs text-[#0f3460] font-medium hover:underline">
-                          <Printer className="w-3.5 h-3.5" /> أمر شراء
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          {pur.invoiceImage && (
+                            <a href={pur.invoiceImage} target="_blank" className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium hover:underline">
+                              <ImageIcon className="w-3.5 h-3.5" /> الفاتورة
+                            </a>
+                          )}
+                          <Link href={`/print/purchase/${pur.id}`} className="inline-flex items-center gap-1 text-xs text-[#0f3460] font-medium hover:underline">
+                            <Printer className="w-3.5 h-3.5" /> أمر شراء
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
