@@ -17,17 +17,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const acc = await prisma.keyAccount.findUnique({ where: { id: params.id } })
     if (!acc) return NextResponse.json({ error: 'العميل غير موجود' }, { status: 404 })
-    if (amount > Number(acc.balance)) {
-      return NextResponse.json({ error: `المبلغ أكبر من المطالبات المستحقة (${Number(acc.balance).toFixed(2)} ج.م)` }, { status: 400 })
+    const balanceBefore = Number(acc.balance)
+    if (amount > balanceBefore) {
+      return NextResponse.json({ error: `المبلغ أكبر من المطالبات المستحقة (${balanceBefore.toFixed(2)} ج.م)` }, { status: 400 })
     }
+    const balanceAfter = balanceBefore - amount
+    const count = await prisma.keyAccountPayment.count()
 
-    await prisma.$transaction([
+    const [, payment] = await prisma.$transaction([
       prisma.keyAccount.update({ where: { id: params.id }, data: { balance: { decrement: amount } } }),
       prisma.keyAccountPayment.create({
         data: {
+          receiptNo: `RCP-${String(count + 1).padStart(4, '0')}`,
           keyAccountId: params.id,
           amount,
           method: b.method || 'نقدي',
+          balanceBefore,
+          balanceAfter,
           notes: b.notes?.trim() || null,
           createdById: session.user.id,
         },
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }),
     ])
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, paymentId: payment.id })
   } catch {
     return NextResponse.json({ error: 'فشل التحصيل' }, { status: 500 })
   }

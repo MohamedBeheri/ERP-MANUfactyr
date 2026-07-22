@@ -406,6 +406,7 @@ function ClaimsSection({ account }: { account: Account }) {
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) { alert(data.error || 'فشل التحصيل'); return }
+    if (data.paymentId) window.open(`/print/key-account-payment/${data.paymentId}`, '_blank')
     router.refresh()
   }
 
@@ -413,9 +414,14 @@ function ClaimsSection({ account }: { account: Account }) {
     <div>
       <div className="flex items-center justify-between mb-2">
         <h4 className="font-bold text-sm text-[#1a1a2e] flex items-center gap-1.5"><Wallet className="w-4 h-4 text-red-500" /> المطالبات والتحصيل</h4>
-        <button onClick={collect} disabled={account.balance <= 0} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
-          <HandCoins className="w-3.5 h-3.5" /> تحصيل
-        </button>
+        <div className="flex gap-1.5">
+          <a href={`/print/key-account-statement/${account.id}`} target="_blank" className="text-xs bg-[#0f3460] text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
+            <Printer className="w-3.5 h-3.5" /> كشف حساب
+          </a>
+          <button onClick={collect} disabled={account.balance <= 0} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
+            <HandCoins className="w-3.5 h-3.5" /> تحصيل
+          </button>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="bg-red-50 rounded-lg p-2.5">
@@ -435,7 +441,10 @@ function ClaimsSection({ account }: { account: Account }) {
             {account.supplies.map((s) => (
               <div key={s.id} className="flex items-center justify-between text-xs border border-gray-100 rounded-lg p-2">
                 <span className="flex items-center gap-1.5"><PackageCheck className="w-3.5 h-3.5 text-amber-600" /> {s.branchName} · {s.qty} قطعة</span>
-                <span className="font-semibold tabular-nums text-amber-700">{fmt(s.netAmount)} ج.م</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-semibold tabular-nums text-amber-700">{fmt(s.netAmount)} ج.م</span>
+                  <a href={`/print/supply/${s.id}`} target="_blank" className="text-gray-400 hover:text-[#0f3460]" aria-label="إذن توريد"><Printer className="w-3.5 h-3.5" /></a>
+                </span>
               </div>
             ))}
           </div>
@@ -449,7 +458,10 @@ function ClaimsSection({ account }: { account: Account }) {
             {account.payments.map((p) => (
               <div key={p.id} className="flex items-center justify-between text-xs border border-gray-100 rounded-lg p-2">
                 <span className="flex items-center gap-1.5"><HandCoins className="w-3.5 h-3.5 text-green-600" /> {p.method} · {new Date(p.createdAt).toLocaleDateString('ar-EG')}</span>
-                <span className="font-semibold tabular-nums text-green-700">{fmt(p.amount)} ج.م</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-semibold tabular-nums text-green-700">{fmt(p.amount)} ج.م</span>
+                  <a href={`/print/key-account-payment/${p.id}`} target="_blank" className="text-gray-400 hover:text-[#0f3460]" aria-label="إيصال تحصيل"><Printer className="w-3.5 h-3.5" /></a>
+                </span>
               </div>
             ))}
           </div>

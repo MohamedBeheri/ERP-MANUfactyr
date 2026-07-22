@@ -591,13 +591,16 @@ model KeyAccountSupplyItem {
 
 // ============== KEY ACCOUNT PAYMENTS (تحصيل من المقر الرئيسي) ==============
 model KeyAccountPayment {
-  id           String   @id @default(cuid())
-  keyAccountId String
-  amount       Decimal  @db.Decimal(12, 2)
-  method       String   @default("نقدي")
-  notes        String?
-  createdAt    DateTime @default(now())
-  createdById  String
+  id            String   @id @default(cuid())
+  receiptNo     String?  @unique
+  keyAccountId  String
+  amount        Decimal  @db.Decimal(12, 2)
+  method        String   @default("نقدي")
+  balanceBefore Decimal  @default(0) @db.Decimal(12, 2)
+  balanceAfter  Decimal  @default(0) @db.Decimal(12, 2)
+  notes         String?
+  createdAt     DateTime @default(now())
+  createdById   String
 
   keyAccount KeyAccount @relation(fields: [keyAccountId], references: [id])
   creator    User       @relation(fields: [createdById], references: [id])
