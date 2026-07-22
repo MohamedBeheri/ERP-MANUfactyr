@@ -23,6 +23,7 @@ export function StocktakeForm({ products, warehouses }: { products: ProductRow[]
   const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
   const [counts, setCounts] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState('')
+  const [showRecorded, setShowRecorded] = useState(false) // جرد أعمى افتراضيًا — الرقم المسجّل مخفي
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -99,9 +100,15 @@ export function StocktakeForm({ products, warehouses }: { products: ProductRow[]
         </select>
       )}
 
-      <p className="text-xs text-gray-500">
-        أدخل الكمية الفعلية اللي اتعدّت — الفرق هيتسوى تلقائي بإذن إضافة أو صرف. سيب الخانة فاضية لو الصنف مش داخل في الجرد.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-gray-500 flex-1">
+          عُدّ الكمية الفعلية واكتبها — الرقم المسجّل مخفي عشان الجرد يبقى دقيق. الفرق هيتسوى تلقائي بإذن إضافة أو صرف. سيب الخانة فاضية لو الصنف مش داخل في الجرد.
+        </p>
+        <label className="flex items-center gap-1.5 text-[11px] text-gray-500 shrink-0 cursor-pointer whitespace-nowrap">
+          <input type="checkbox" checked={showRecorded} onChange={(e) => setShowRecorded(e.target.checked)} className="w-3.5 h-3.5" />
+          إظهار المسجّل
+        </label>
+      </div>
 
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
       {success && <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm">{success}</div>}
@@ -115,9 +122,11 @@ export function StocktakeForm({ products, warehouses }: { products: ProductRow[]
             <div key={p.id} className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{p.name}</p>
-                <p className="text-xs text-gray-400 tabular-nums">مسجّل: {recorded} {p.unit}</p>
+                <p className="text-xs text-gray-400 tabular-nums">
+                  {showRecorded ? `مسجّل: ${recorded} ${p.unit}` : `الوحدة: ${p.unit}`}
+                </p>
               </div>
-              {diff !== null && diff !== 0 && (
+              {showRecorded && diff !== null && diff !== 0 && (
                 <span className={`text-xs font-bold tabular-nums ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {diff > 0 ? `+${diff}` : diff}
                 </span>
