@@ -172,6 +172,7 @@ model Warehouse {
   ins    WarehouseIn[]
   outs   WarehouseOut[]
   stages StockStage[]
+  deliveryOrders DeliveryOrder[]
 
   @@map("warehouses")
 }
@@ -785,13 +786,16 @@ model DeliveryOrder {
   id          String      @id @default(cuid())
   orderNo     String      @unique
   delegateId  String
-  status      OrderStatus @default(PENDING)
+  warehouseId String? // المخزن اللي هيتحمّل منه (يحدده مدير المبيعات)
+  status      OrderStatus @default(PENDING) // PENDING = مستني تأكيد استلام المندوب · IN_PROGRESS = اتسلّم وبيوزّع · COMPLETED = اتسوّى
+  receivedAt  DateTime? // وقت تأكيد المندوب استلام الحمولة (مطابقة الاستلام)
   notes       String?
   createdAt   DateTime    @default(now())
   createdById String
 
   // Relations
   delegate       Delegate           @relation(fields: [delegateId], references: [id])
+  warehouse      Warehouse?         @relation(fields: [warehouseId], references: [id])
   items          DeliveryItem[]
   invoices       Invoice[]
   settlement     Settlement?

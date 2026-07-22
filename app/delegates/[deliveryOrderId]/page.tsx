@@ -8,18 +8,19 @@ import { DeliverForm } from '@/components/deliver-form'
 import { SettleForm } from '@/components/settle-form'
 import { KeyAccountSupplyForm } from '@/components/key-account-supply-form'
 import { DeliveryReturnForm } from '@/components/delivery-return-form'
+import { ReceiptConfirm } from '@/components/receipt-confirm'
 
 export const dynamic = 'force-dynamic'
 
 const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'معلّقة',
+  PENDING: 'بانتظار استلام المندوب',
   IN_PROGRESS: 'شغالة',
   COMPLETED: 'اتسوّت',
   CANCELLED: 'ملغية',
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING: 'bg-gray-100 text-gray-600',
+  PENDING: 'bg-amber-100 text-amber-700',
   IN_PROGRESS: 'bg-orange-50 text-orange-600',
   COMPLETED: 'bg-green-50 text-green-600',
   CANCELLED: 'bg-red-50 text-red-600',
@@ -176,6 +177,17 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
           </span>
         </div>
       </div>
+
+      {/* أمر تحميل معلّق — مطابقة استلام */}
+      {deliveryOrder.status === 'PENDING' && (
+        <div className="bg-white rounded-xl shadow-sm ring-2 ring-orange-200 p-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-bold text-orange-700 flex items-center gap-2"><FileCheck2 className="w-5 h-5" /> مستني تأكيد استلام المندوب</p>
+            <p className="text-xs text-gray-500 mt-0.5">البضاعة لسه في المخزن — لما المندوب يأكّد الاستلام تخرج من المخزن وتتحرك العربية.</p>
+          </div>
+          <ReceiptConfirm orderId={deliveryOrder.id} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
         <div className="xl:col-span-2 space-y-6">

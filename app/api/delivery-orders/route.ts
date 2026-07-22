@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
-import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
+import { getDefaultWarehouseId, getStock } from '@/lib/warehouse'
 
 const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// تحميل عربية جديدة: بضاعة بتخرج من المخزن مرة واحدة هنا، والتسليمات للعملاء
-// بعد كده بتتخصم من رصيد العربية (loaded - delivered) مش من المخزن تاني.
+// أمر تحميل جديد (مدير المبيعات): بيتعمل «معلّق» ويحدد المخزن — البضاعة لسه في المخزن.
+// المندوب لازم يأكّد استلام الحمولة (مطابقة) وساعتها البضاعة تخرج من المخزن وتتحرك العربية.
 export async function POST(req: NextRequest) {
   const auth = await requireRole([...ALLOWED_ROLES])
   if ('response' in auth) return auth.response
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       where: { id: { in: items.map((i: any) => i.productId) } },
     })
 
+    // تأكيد إن الكميات متاحة في المخزن المختار وقت عمل الأمر
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId)
       const stock = await getStock(warehouseId, item.productId)
@@ -62,43 +63,23 @@ export async function POST(req: NextRequest) {
       data: {
         orderNo: `DEL-${Date.now()}`,
         delegateId,
-        status: 'IN_PROGRESS',
+        warehouseId,
+        status: 'PENDING', // مستني تأكيد استلام المندوب
         notes,
         createdById: session.user.id,
         items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
+          create: items.map((item: any) => ({ productId: item.productId, quantity: item.quantity })),
         },
       },
       include: { items: { include: { product: true } }, delegate: true },
     })
 
-    for (const item of items) {
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: { quantity: { decrement: item.quantity } },
-      })
-      await adjustStock(prisma, warehouseId, item.productId, -item.quantity)
-      await prisma.warehouseOut.create({
-        data: {
-          productId: item.productId,
-          warehouseId,
-          quantity: item.quantity,
-          target: `مندوب: ${deliveryOrder.delegate.name}`,
-          reason: `تحميل عربية - أمر تسليم ${deliveryOrder.orderNo}`,
-          createdById: session.user.id,
-        },
-      })
-    }
-
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
-        action: 'تحميل',
-        description: `تحميل عربية للمندوب ${deliveryOrder.delegate.name} - أمر ${deliveryOrder.orderNo}`,
-        impact: `-${items.reduce((s: number, i: any) => s + i.quantity, 0)} من المخزن`,
+        action: 'أمر تحميل',
+        description: `أمر تحميل للمندوب ${deliveryOrder.delegate.name} - ${deliveryOrder.orderNo} (مستني تأكيد الاستلام)`,
+        impact: `${items.reduce((s: number, i: any) => s + i.quantity, 0)} وحدة مخصّصة`,
       },
     })
 

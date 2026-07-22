@@ -3,11 +3,12 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   Car, Printer, PackageOpen, Undo2, ShoppingCart, Building2, ClipboardCheck,
-  Clock, MapPin, Truck,
+  Clock, MapPin, Truck, ClipboardList,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { AlBadrLogo } from '@/components/albadr-logo'
+import { ReceiptConfirm } from '@/components/receipt-confirm'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,13 @@ export default async function DriversPage() {
 async function DelegateHome({ delegate, userName }: { delegate: any; userName: string }) {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
+
+  // أمر التحميل المعلّق (مستني تأكيد استلام) — أولوية العرض
+  const pendingOrder = await prisma.deliveryOrder.findFirst({
+    where: { delegateId: delegate.id, status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+    include: { items: { include: { product: true } }, warehouse: true, creator: true },
+  })
 
   const activeOrder = await prisma.deliveryOrder.findFirst({
     where: { delegateId: delegate.id, status: 'IN_PROGRESS' },
@@ -136,6 +144,8 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
             )}
             {activeOrder ? (
               <span className="flex items-center gap-1.5 bg-green-500/20 text-green-300 px-3 py-1.5 rounded-lg tabular-nums"><Truck className="w-4 h-4" /> جولة شغالة: {activeOrder.orderNo}</span>
+            ) : pendingOrder ? (
+              <span className="flex items-center gap-1.5 bg-orange-500/25 text-orange-200 px-3 py-1.5 rounded-lg tabular-nums"><ClipboardCheck className="w-4 h-4" /> أمر تحميل مستني استلامك: {pendingOrder.orderNo}</span>
             ) : (
               <span className="bg-white/10 px-3 py-1.5 rounded-lg text-white/60">مفيش جولة شغالة النهارده</span>
             )}
@@ -143,6 +153,32 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
           </div>
         </div>
       </div>
+
+      {/* أمر تحميل مستني تأكيد الاستلام (مطابقة) */}
+      {pendingOrder && !activeOrder && (
+        <div className="bg-white rounded-2xl shadow-sm ring-2 ring-orange-200 overflow-hidden">
+          <div className="bg-orange-50 p-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-bold text-orange-700 flex items-center gap-2"><ClipboardCheck className="w-5 h-5" /> أمر تحميل مستني تأكيد استلامك</p>
+              <p className="text-xs text-orange-600/80 mt-0.5 tabular-nums">
+                {pendingOrder.orderNo} · من {pendingOrder.warehouse?.name || 'المخزن'} · أعدّه {pendingOrder.creator.name} · {timeOf(pendingOrder.createdAt)}
+              </p>
+            </div>
+            <ReceiptConfirm orderId={pendingOrder.id} />
+          </div>
+          <div className="p-4">
+            <p className="text-xs font-semibold text-gray-500 mb-2">راجع الحمولة قبل ما تأكّد الاستلام:</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {pendingOrder.items.map((it) => (
+                <div key={it.id} className="border border-gray-100 rounded-lg p-2.5 text-sm">
+                  <p className="font-semibold truncate">{it.product.name}</p>
+                  <p className="text-xs text-gray-400 tabular-nums">{it.quantity} {it.product.unit}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* الأربع مربعات */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -156,7 +192,7 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
             <div key={label} className="bg-gray-100 text-gray-400 rounded-2xl p-5 sm:p-6 flex flex-col items-center justify-center gap-3 text-center cursor-not-allowed">
               <Icon className="w-9 h-9 sm:w-10 sm:h-10" strokeWidth={1.8} />
               <span className="font-bold text-sm sm:text-base">{label}</span>
-              <span className="text-[10px]">مستني تحميل العربية</span>
+              <span className="text-[10px]">{pendingOrder ? 'أكّد استلام الحمولة الأول' : 'مستني تحميل العربية'}</span>
             </div>
           )
         ))}
@@ -228,6 +264,11 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
 
 /* ================= شاشة الإدارة: كل العربيات في الطريق ================= */
 async function FleetOverview() {
+  const pendingOrders = await prisma.deliveryOrder.findMany({
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+    include: { delegate: { include: { vehicle: true } }, warehouse: true, items: true },
+  })
   const [activeOrders, recentSettlements] = await Promise.all([
     prisma.deliveryOrder.findMany({
       where: { status: 'IN_PROGRESS' },
@@ -271,7 +312,41 @@ async function FleetOverview() {
         <p className="text-sm text-gray-500 mt-0.5">العربيات اللي في الطريق دلوقتي — الحمولة والمسلّم والمتبقي المتوقع رجوعه</p>
       </div>
 
-      {vans.length === 0 && (
+      {pendingOrders.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm ring-1 ring-orange-100 overflow-hidden">
+          <div className="flex items-center gap-2 p-5 pb-3">
+            <ClipboardList className="w-5 h-5 text-orange-500" />
+            <h3 className="text-base font-bold text-[#1a1a2e]">بانتظار استلام المناديب</h3>
+            <span className="mr-auto text-xs bg-orange-50 text-orange-600 px-2.5 py-1 rounded-full font-bold">{pendingOrders.length} أمر تحميل</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {pendingOrders.map((o) => {
+              const totalUnits = o.items.reduce((s, i) => s + i.quantity, 0)
+              return (
+                <div key={o.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-[#1a1a2e]">
+                      {o.delegate.name}
+                      <span className="text-gray-400 font-normal mr-2 tabular-nums">{o.delegate.vehicle?.plateNo || o.delegate.carNumber || 'بدون رقم'}</span>
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {o.orderNo} · من {o.warehouse?.name || 'المخزن الرئيسي'} · {o.items.length} صنف / {totalUnits} وحدة · {timeOf(o.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs bg-orange-50 text-orange-600 px-3 py-1.5 rounded-lg font-bold">مستني تأكيد المندوب</span>
+                    <Link href={`/delegates/${o.id}`} className="px-3.5 py-1.5 bg-[#1a1a2e] text-white hover:bg-[#2a2a3e] rounded-lg text-xs font-bold">
+                      متابعة
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {vans.length === 0 && pendingOrders.length === 0 && (
         <div className="bg-white rounded-xl shadow-sm p-10 text-center">
           <Car className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 text-sm">مفيش عربيات في الطريق دلوقتي — كل الجولات اتسوّت.</p>
