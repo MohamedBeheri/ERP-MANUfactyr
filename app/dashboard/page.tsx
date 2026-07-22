@@ -10,9 +10,12 @@ import {
   ChevronLeft,
   Globe,
   Warehouse,
+  Building2,
+  Wallet,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { effectivePermissions } from '@/lib/permissions'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { RecentActivity } from '@/components/recent-activity'
 import { SalesChart } from '@/components/sales-chart'
@@ -32,7 +35,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   from.setDate(from.getDate() - (days - 1))
   from.setHours(0, 0, 0, 0)
 
-  const [invoices, productions, purchases, allProducts, activeDelegates, recentActivity, pendingOnline, activeTours] =
+  const [invoices, productions, purchases, allProducts, activeDelegates, recentActivity, pendingOnline, activeTours, keyClaims] =
     await Promise.all([
       prisma.invoice.findMany({
         where: { createdAt: { gte: from }, status: 'COMPLETED' },
@@ -59,7 +62,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       }),
       prisma.onlineOrder.count({ where: { status: 'PENDING' } }).catch(() => 0),
       prisma.deliveryOrder.count({ where: { status: 'IN_PROGRESS' } }),
+      prisma.keyAccount.aggregate({ where: { isActive: true }, _sum: { balance: true } }).catch(() => ({ _sum: { balance: 0 } })),
     ])
+
+  // صلاحيات المستخدم — الداشبورد بيعرض بس الأقسام اللي من حقه
+  const perms = effectivePermissions((session.user as any).role, (session.user as any).permissions)
+  const keyClaimsTotal = Number(keyClaims._sum.balance) || 0
 
   // KPIs
   const periodSales = invoices.reduce((s, i) => s + Number(i.netAmount), 0)
@@ -120,25 +128,33 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     creditAmount,
   }
 
+  // الإحصائيات والرسوم التشغيلية تظهر بس لمن له صلاحية تشغيلية
+  const showOps = perms.some((p) => ['sales', 'finance', 'warehouse', 'factory', 'delegates'].includes(p))
   const periodTitle = days === 1 ? 'مبيعات اليوم (بالساعة)' : `المبيعات آخر ${days} يوم`
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور'
   const firstName = (session.user.name || '').split(' ')[0]
 
   const alerts = [
-    pendingOnline > 0 && {
+    pendingOnline > 0 && perms.includes('store') && {
       href: '/online-orders',
       Icon: Globe,
       text: `${pendingOnline} طلب جديد من الموقع مستني تأكيدك`,
       cls: 'bg-purple-50 text-purple-700 ring-purple-100 hover:ring-purple-300',
     },
-    activeTours > 0 && {
+    activeTours > 0 && perms.includes('delegates') && {
       href: '/drivers',
       Icon: Truck,
       text: `${activeTours} عربية في الطريق دلوقتي`,
       cls: 'bg-sky-50 text-sky-700 ring-sky-100 hover:ring-sky-300',
     },
-    lowStockProducts.length > 0 && {
+    keyClaimsTotal > 0 && perms.includes('keyaccounts') && {
+      href: '/key-accounts',
+      Icon: Wallet,
+      text: `مطالبات كبار الموردين المستحقة ${keyClaimsTotal.toLocaleString('ar-EG')} ج.م`,
+      cls: 'bg-amber-50 text-amber-700 ring-amber-100 hover:ring-amber-300',
+    },
+    lowStockProducts.length > 0 && perms.includes('warehouse') && {
       href: '/warehouse',
       Icon: AlertTriangle,
       text: `${lowStockProducts.length} صنف وصل تحت الحد الأدنى`,
@@ -147,12 +163,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   ].filter(Boolean) as { href: string; Icon: any; text: string; cls: string }[]
 
   const quickActions = [
-    { href: '/sales', label: 'بيع جديد', Icon: ShoppingCart },
-    { href: '/factory', label: 'أمر تصنيع', Icon: Factory },
-    { href: '/delegates', label: 'تحميل عربية', Icon: Truck },
-    { href: '/online-orders', label: 'طلبات الموقع', Icon: PackageOpen },
-    { href: '/warehouse', label: 'جرد المخزن', Icon: Warehouse },
-  ]
+    { href: '/sales', label: 'بيع جديد', Icon: ShoppingCart, perm: 'sales' },
+    { href: '/factory', label: 'أمر تصنيع', Icon: Factory, perm: 'factory' },
+    { href: '/delegates', label: 'تحميل عربية', Icon: Truck, perm: 'delegates' },
+    { href: '/key-accounts', label: 'كبار الموردين', Icon: Building2, perm: 'keyaccounts' },
+    { href: '/online-orders', label: 'طلبات الموقع', Icon: PackageOpen, perm: 'store' },
+    { href: '/warehouse', label: 'جرد المخزن', Icon: Warehouse, perm: 'warehouse' },
+  ].filter((a) => perms.includes(a.perm))
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -212,42 +229,64 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         </div>
       )}
 
-      <DashboardStats data={kpi} />
+      {showOps ? (
+        <>
+          <DashboardStats data={kpi} />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2">
-          <SalesChart labels={labels} values={values} title={periodTitle} />
-        </div>
-        <PaymentSplitChart cash={cashAmount} credit={creditAmount} />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <TopProductsChart labels={topProducts.map((p) => p.name)} values={topProducts.map((p) => p.qty)} />
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-[#1a1a2e]">أصناف تحت الحد الأدنى</h3>
-            <Link href="/warehouse" className="text-xs text-[#0f3460] font-bold hover:underline">
-              المخزن ←
-            </Link>
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-2">
+              <SalesChart labels={labels} values={values} title={periodTitle} />
+            </div>
+            <PaymentSplitChart cash={cashAmount} credit={creditAmount} />
           </div>
-          <div className="space-y-3">
-            {lowStockProducts.length === 0 && (
-              <p className="text-sm text-gray-500">كل الأصناف فوق الحد الأدنى ✓</p>
-            )}
-            {lowStockProducts.slice(0, 6).map((p) => (
-              <div key={p.id} className="flex justify-between items-center text-sm pb-2 border-b border-gray-50 last:border-0">
-                <span className="text-gray-700">{p.name}</span>
-                <span className="font-bold text-red-600 tabular-nums">
-                  {p.quantity} / {p.minStock} {p.unit}
-                </span>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <TopProductsChart labels={topProducts.map((p) => p.name)} values={topProducts.map((p) => p.qty)} />
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-[#1a1a2e]">أصناف تحت الحد الأدنى</h3>
+                <Link href="/warehouse" className="text-xs text-[#0f3460] font-bold hover:underline">
+                  المخزن ←
+                </Link>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="space-y-3">
+                {lowStockProducts.length === 0 && (
+                  <p className="text-sm text-gray-500">كل الأصناف فوق الحد الأدنى ✓</p>
+                )}
+                {lowStockProducts.slice(0, 6).map((p) => (
+                  <div key={p.id} className="flex justify-between items-center text-sm pb-2 border-b border-gray-50 last:border-0">
+                    <span className="text-gray-700">{p.name}</span>
+                    <span className="font-bold text-red-600 tabular-nums">
+                      {p.quantity} / {p.minStock} {p.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <RecentActivity activities={recentActivity} />
-      </div>
+            <RecentActivity activities={recentActivity} />
+          </div>
+        </>
+      ) : perms.includes('keyaccounts') ? (
+        <Link
+          href="/key-accounts"
+          className="group flex items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-100 hover:ring-[#0f3460]/30 transition-all"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#0f3460] text-white flex items-center justify-center shrink-0">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-[#1a1a2e]">إدارة كبار الموردين</p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {keyClaimsTotal > 0 ? `مطالبات مستحقة ${keyClaimsTotal.toLocaleString('ar-EG')} ج.م` : 'الحسابات والفروع وبيانات الأسعار والتحصيل'}
+              </p>
+            </div>
+          </div>
+          <ChevronLeft className="w-5 h-5 text-gray-400 transition-transform group-hover:-translate-x-1" />
+        </Link>
+      ) : null}
     </div>
   )
 }
