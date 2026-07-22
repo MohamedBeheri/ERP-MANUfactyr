@@ -1,19 +1,58 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
-import { Package, Users, Truck, Flame, Wallet, Warehouse as WarehouseIcon } from 'lucide-react'
+import { Package, Users, Truck, Flame, Warehouse as WarehouseIcon, ShoppingCart, Boxes, BarChart3, Trophy } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ExportButtons } from '@/components/export-buttons'
+import { ReportDateFilter } from '@/components/report-date-filter'
 
 export const dynamic = 'force-dynamic'
 
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
+const pct = (a: number, b: number) => (b ? +((a / b) * 100).toFixed(1) : 0)
+const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
-export default async function ReportsPage() {
+// سطر في شلال قائمة الدخل
+function PnlRow({ label, value, bold, muted, accent }: { label: string; value: number; bold?: boolean; muted?: boolean; accent?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between py-1.5 ${accent ? 'border-t border-gray-100 mt-1 pt-2' : ''}`}>
+      <span className={`text-sm ${muted ? 'text-gray-400' : accent || bold ? 'font-bold text-[#1a1a2e]' : 'text-gray-600'}`}>{label}</span>
+      <span className={`tabular-nums ${accent ? 'text-base font-extrabold text-[#0f3460]' : bold ? 'font-bold' : muted ? 'text-gray-400' : 'font-semibold'}`}>
+        EGP {fmt(value)}
+      </span>
+    </div>
+  )
+}
+
+// سطر مؤشر في البطاقات الجانبية
+function KpiLine({ label, value, color = 'text-[#1a1a2e]' }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className={`text-sm font-bold tabular-nums ${color}`}>{value}</span>
+    </div>
+  )
+}
+
+export default async function ReportsPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [products, warehouses, customers, delegates, productions, totalSales, totalPurchases, cashSales, creditSales] =
+  // ===== مدة التقرير (افتراضي: آخر ٣٠ يوم) =====
+  const today = new Date()
+  const defFrom = new Date(today); defFrom.setDate(defFrom.getDate() - 29)
+  const fromStr = searchParams.from || isoDay(defFrom)
+  const toStr = searchParams.to || isoDay(today)
+  const fromDate = new Date(fromStr + 'T00:00:00')
+  const toDate = new Date(toStr + 'T23:59:59.999')
+  const period = { gte: fromDate, lte: toDate }
+
+  const [
+    products, warehouses, customers, delegates, productions,
+    // ===== بيانات الأرباح والخسائر (مقيّدة بالمدة) =====
+    invAgg, invItemsCogs, supplyAgg, supplyItemsCogs, returnsAgg, purchasesPeriodAgg,
+    suppliersBal, keyAccountsBal,
+  ] =
     await Promise.all([
       prisma.product.findMany({
         where: { isActive: true },
@@ -38,16 +77,69 @@ export default async function ReportsPage() {
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
-      prisma.invoice.aggregate({ _sum: { netAmount: true }, where: { status: 'COMPLETED' } }),
-      prisma.purchase.aggregate({ _sum: { totalAmount: true } }),
-      prisma.invoice.aggregate({ _sum: { netAmount: true }, where: { type: 'CASH', status: 'COMPLETED' } }),
-      prisma.invoice.aggregate({ _sum: { netAmount: true }, where: { type: 'CREDIT', status: 'COMPLETED' } }),
+      // إيرادات الفواتير خلال المدة
+      prisma.invoice.aggregate({
+        _sum: { netAmount: true, totalAmount: true },
+        _count: true,
+        where: { status: 'COMPLETED', createdAt: period },
+      }),
+      // بنود الفواتير لحساب تكلفة البضاعة (بسعر التكلفة الحالي للصنف)
+      prisma.invoiceItem.findMany({
+        where: { invoice: { status: 'COMPLETED', createdAt: period } },
+        select: { quantity: true, product: { select: { costPrice: true } } },
+      }),
+      // توريدات كبار الموردين خلال المدة
+      prisma.keyAccountSupply.aggregate({
+        _sum: { netAmount: true, totalAmount: true },
+        _count: true,
+        where: { createdAt: period },
+      }),
+      prisma.keyAccountSupplyItem.findMany({
+        where: { supply: { createdAt: period } },
+        select: { quantity: true, product: { select: { costPrice: true } } },
+      }),
+      // مرتجعات المبيعات خلال المدة
+      prisma.deliveryReturn.aggregate({ _sum: { totalValue: true }, _count: true, where: { createdAt: period } }),
+      // مشتريات المدة
+      prisma.purchase.aggregate({ _sum: { totalAmount: true, paidAmount: true }, _count: true, where: { createdAt: period } }),
+      // أرصدة لحظية (كل الوقت)
+      prisma.supplier.aggregate({ _sum: { balance: true } }),
+      prisma.keyAccount.aggregate({ _sum: { balance: true } }),
     ])
 
-  const sales = Number(totalSales._sum.netAmount) || 0
-  const purchases = Number(totalPurchases._sum.totalAmount) || 0
-  const cash = Number(cashSales._sum.netAmount) || 0
-  const credit = Number(creditSales._sum.netAmount) || 0
+  // ===== حسابات قائمة الدخل (الأرباح والخسائر) =====
+  const invGross = Number(invAgg._sum.totalAmount) || 0
+  const invNet = Number(invAgg._sum.netAmount) || 0
+  const invDiscount = Math.max(0, invGross - invNet)
+  const invCount = invAgg._count || 0
+  const supplyGross = Number(supplyAgg._sum.totalAmount) || 0
+  const supplyNet = Number(supplyAgg._sum.netAmount) || 0
+  const supplyDiscount = Math.max(0, supplyGross - supplyNet)
+  const supplyCount = supplyAgg._count || 0
+  const salesReturns = Number(returnsAgg._sum.totalValue) || 0
+
+  const grossSales = invGross + supplyGross
+  const totalDiscount = invDiscount + supplyDiscount
+  const netSales = +(invNet + supplyNet - salesReturns).toFixed(2)
+  const otherRevenue = 0
+  const totalRevenue = +(netSales + otherRevenue).toFixed(2)
+
+  const cogsInvoices = invItemsCogs.reduce((s, i) => s + i.quantity * Number(i.product.costPrice), 0)
+  const cogsSupplies = supplyItemsCogs.reduce((s, i) => s + i.quantity * Number(i.product.costPrice), 0)
+  const totalCogs = +(cogsInvoices + cogsSupplies).toFixed(2)
+  const grossProfit = +(totalRevenue - totalCogs).toFixed(2)
+
+  const opexTotal = 0 // لا يوجد سجل مصروفات بعد
+  const netProfit = +(grossProfit - opexTotal).toFixed(2)
+
+  const invoiceTotalCount = invCount + supplyCount
+  const avgInvoice = invoiceTotalCount ? +(netSales / invoiceTotalCount).toFixed(2) : 0
+
+  const purchasesPeriod = Number(purchasesPeriodAgg._sum.totalAmount) || 0
+  const purchasesPaid = Number(purchasesPeriodAgg._sum.paidAmount) || 0
+  const payableSuppliers = Number(suppliersBal._sum.balance) || 0
+  const receivableCustomers = customers.reduce((s, c) => s + Number(c.balance), 0) + (Number(keyAccountsBal._sum.balance) || 0)
+
   const totalDebt = customers.reduce((s, c) => s + Number(c.balance), 0)
   const stockValue = products.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0)
   const totalProduced = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + i.quantity, 0), 0)
@@ -94,44 +186,146 @@ export default async function ReportsPage() {
   ])
 
   const allExportRows: (string | number)[][] = [
-    ['— ملخص عام —', ''],
-    ['إجمالي المبيعات', sales.toFixed(2)],
-    ['إجمالي المشتريات', purchases.toFixed(2)],
-    ['نقدي', cash.toFixed(2)],
-    ['آجل', credit.toFixed(2)],
-    ['إجمالي الديون', totalDebt.toFixed(2)],
-    ['قيمة المخزون', stockValue.toFixed(2)],
-    ['إجمالي الإنتاج (وحدات)', totalProduced],
-    ['الخام المستخدم (كجم)', totalRawUsed],
+    [`— قائمة الدخل من ${fromStr} إلى ${toStr} —`, ''],
+    ['إجمالي المبيعات (قبل الخصم)', grossSales.toFixed(2)],
+    ['الخصومات', totalDiscount.toFixed(2)],
+    ['مرتجعات المبيعات', salesReturns.toFixed(2)],
+    ['صافي المبيعات', netSales.toFixed(2)],
+    ['إجمالي الإيرادات', totalRevenue.toFixed(2)],
+    ['تكلفة البضاعة المباعة (COGS)', totalCogs.toFixed(2)],
+    ['إجمالي الربح', grossProfit.toFixed(2)],
+    ['المصروفات التشغيلية', opexTotal.toFixed(2)],
+    ['صافي الربح', netProfit.toFixed(2)],
+    ['— مؤشرات —', ''],
+    ['نسبة تكلفة البضاعة %', pct(totalCogs, netSales)],
+    ['هامش الربح الإجمالي %', pct(grossProfit, totalRevenue)],
+    ['هامش الربح الصافي %', pct(netProfit, totalRevenue)],
+    ['متوسط قيمة الفاتورة', avgInvoice.toFixed(2)],
+    ['عدد الفواتير/التوريدات', invoiceTotalCount],
+    ['— المشتريات والذمم —', ''],
+    ['مشتريات الفترة', purchasesPeriod.toFixed(2)],
+    ['المدفوع منها', purchasesPaid.toFixed(2)],
+    ['مستحق للموردين (كل الوقت)', payableSuppliers.toFixed(2)],
+    ['مستحق لنا من العملاء (كل الوقت)', receivableCustomers.toFixed(2)],
+    ['قيمة المخزون بالتكلفة', stockValue.toFixed(2)],
   ]
 
   return (
     <div className="p-4 sm:p-6 space-y-6 print-area">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#1a1a2e]">التقرير الشامل</h1>
-          <p className="text-sm text-gray-500 mt-0.5">منتجات · مخازن · عملاء · مناديب · سيارات · ديون · تصنيع · مبيعات</p>
+          <h1 className="text-2xl font-bold text-[#1a1a2e]">الأرباح والخسائر الشاملة</h1>
+          <p className="text-sm text-gray-500 mt-0.5">قائمة دخل كاملة للفترة — الإيرادات · تكلفة البضاعة · الربح · الذمم · المخزون</p>
         </div>
-        <ExportButtons fileName="التقرير-الشامل" headers={['البيان', 'القيمة']} rows={allExportRows} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ReportDateFilter from={fromStr} to={toStr} />
+          <ExportButtons fileName={`قائمة-الدخل-${fromStr}_${toStr}`} headers={['البيان', 'القيمة']} rows={allExportRows} />
+        </div>
       </div>
 
-      {/* ملخص عام */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'إجمالي المبيعات', value: `${fmt(sales)} ج.م`, color: 'text-green-600' },
-          { label: 'إجمالي المشتريات', value: `${fmt(purchases)} ج.م`, color: 'text-red-600' },
-          { label: 'صافي الربح', value: `${fmt(sales - purchases)} ج.م`, color: sales - purchases >= 0 ? 'text-green-600' : 'text-red-600' },
-          { label: 'قيمة المخزون', value: `${fmt(stockValue)} ج.م`, color: 'text-[#0f3460]' },
-          { label: 'محصّل نقدي', value: `${fmt(cash)} ج.م`, color: 'text-emerald-600' },
-          { label: 'آجل (مستحق)', value: `${fmt(credit)} ج.م`, color: 'text-yellow-700' },
-          { label: 'ديون العملاء', value: `${fmt(totalDebt)} ج.م`, color: 'text-red-600' },
-          { label: 'إنتاج كلي', value: `${fmt(totalProduced)} وحدة`, color: 'text-purple-600' },
-        ].map((kpi) => (
-          <div key={kpi.label} className="bg-white p-4 rounded-xl shadow-sm">
-            <p className="text-xs text-gray-500">{kpi.label}</p>
-            <p className={`text-lg font-bold tabular-nums ${kpi.color}`}>{kpi.value}</p>
+      {/* ===== قائمة الدخل الشاملة (زي التقرير الشامل بتاع الكافيه) ===== */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        {/* العمود الأساسي: شلال الأرباح والخسائر */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 space-y-5 order-2 xl:order-1">
+          {/* الإيرادات */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">💰</span>
+              <h3 className="text-base font-bold text-[#0f3460]">الإيرادات</h3>
+            </div>
+            <PnlRow label="إجمالي المبيعات (قبل الخصم)" value={grossSales} />
+            {totalDiscount > 0 && <PnlRow label="(−) الخصومات" value={-totalDiscount} muted />}
+            {salesReturns > 0 && <PnlRow label="(−) مرتجعات المبيعات" value={-salesReturns} muted />}
+            <PnlRow label="= صافي المبيعات" value={netSales} bold />
+            {otherRevenue > 0 && <PnlRow label="(+) إيرادات أخرى" value={otherRevenue} muted />}
+            <PnlRow label="إجمالي الإيرادات" value={totalRevenue} accent />
           </div>
-        ))}
+
+          {/* تكلفة البضاعة المباعة */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Boxes className="w-5 h-5 text-[#0f3460]" />
+              <h3 className="text-base font-bold text-[#0f3460]">تكلفة البضاعة المباعة (COGS)</h3>
+            </div>
+            <PnlRow label="تكلفة مكوّنات المبيعات (بسعر التكلفة)" value={totalCogs} />
+            <PnlRow label="إجمالي تكلفة البضاعة" value={totalCogs} accent />
+          </div>
+
+          {/* إجمالي الربح */}
+          <div className="rounded-xl bg-blue-50/70 px-4 py-3.5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-[#0f3460]">إجمالي الربح (Gross Profit)</p>
+              <p className="text-[11px] text-gray-500">هامش إجمالي {pct(grossProfit, totalRevenue)}%</p>
+            </div>
+            <p className="text-xl sm:text-2xl font-extrabold text-[#0f3460] tabular-nums">{fmt(grossProfit)} <span className="text-xs font-bold">ج.م</span></p>
+          </div>
+
+          {/* المصروفات التشغيلية */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🧾</span>
+              <h3 className="text-base font-bold text-[#0f3460]">المصروفات التشغيلية</h3>
+            </div>
+            <p className="text-xs text-gray-400 italic py-1">لا مصروفات مسجّلة في هذه الفترة</p>
+            <PnlRow label="إجمالي المصروفات" value={opexTotal} accent />
+          </div>
+
+          {/* صافي الربح */}
+          <div className="rounded-xl bg-gradient-to-l from-[#0f3460] to-[#16498a] px-4 py-4 flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-[#e9b44c]" />
+              <div>
+                <p className="text-sm font-bold">صافي الربح (Net Profit)</p>
+                <p className="text-[11px] text-white/70">هامش صافي {pct(netProfit, totalRevenue)}%</p>
+              </div>
+            </div>
+            <p className="text-xl sm:text-2xl font-extrabold tabular-nums">{fmt(netProfit)} <span className="text-xs font-bold">ج.م</span></p>
+          </div>
+        </div>
+
+        {/* العمود الجانبي: المؤشرات + الذمم + المخزون */}
+        <div className="space-y-6 order-1 xl:order-2">
+          {/* مؤشرات محاسبية */}
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="w-5 h-5 text-[#0f3460]" />
+              <h3 className="text-base font-bold text-[#1a1a2e]">مؤشرات محاسبية</h3>
+            </div>
+            <div className="space-y-2.5">
+              <KpiLine label="نسبة تكلفة البضاعة (Food Cost)" value={`${pct(totalCogs, netSales)}%`} color="text-amber-600" />
+              <KpiLine label="هامش الربح الإجمالي" value={`${pct(grossProfit, totalRevenue)}%`} color="text-green-600" />
+              <KpiLine label="هامش الربح الصافي" value={`${pct(netProfit, totalRevenue)}%`} color="text-green-600" />
+              <KpiLine label="متوسط قيمة الفاتورة" value={`${fmt(avgInvoice)} ج.م`} color="text-[#0f3460]" />
+              <KpiLine label="عدد الفواتير/التوريدات" value={fmt(invoiceTotalCount)} color="text-[#0f3460]" />
+            </div>
+          </div>
+
+          {/* المشتريات والذمم */}
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <ShoppingCart className="w-5 h-5 text-[#0f3460]" />
+              <h3 className="text-base font-bold text-[#1a1a2e]">المشتريات والذمم</h3>
+            </div>
+            <div className="space-y-2.5">
+              <KpiLine label="مشتريات الفترة" value={`${fmt(purchasesPeriod)} ج.م`} />
+              <KpiLine label="المدفوع منها" value={`${fmt(purchasesPaid)} ج.م`} />
+              <KpiLine label="مستحق للموردين (كل الوقت)" value={`${fmt(payableSuppliers)} ج.م`} color="text-red-600" />
+              <KpiLine label="مستحق لنا من العملاء (كل الوقت)" value={`${fmt(receivableCustomers)} ج.م`} color="text-amber-600" />
+            </div>
+            <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+              أرقام الذمم لحظية (كل الأرصدة المفتوحة) وليست محصورة بالفترة المحددة أعلاه.
+            </p>
+          </div>
+
+          {/* المخزون الحالي */}
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="w-5 h-5 text-[#0f3460]" />
+              <h3 className="text-base font-bold text-[#1a1a2e]">المخزون الحالي <span className="text-xs font-normal text-gray-400">(لحظي)</span></h3>
+            </div>
+            <KpiLine label="قيمة المخزون بالتكلفة" value={`${fmt(stockValue)} ج.م`} color="text-[#0f3460]" />
+          </div>
+        </div>
       </div>
 
       {/* المنتجات والأصناف */}
