@@ -1,6 +1,7 @@
 // أقسام النظام — كل قسم بيتحكم فيه checkbox في صلاحيات المستخدم
 export const PERMISSIONS = [
   { key: 'factory', label: 'المصنع (تصنيع وأوامر شراء)', path: '/factory' },
+  { key: 'catalog', label: 'بنك الأصناف (بن/عطارة/توليفات)', path: '/catalog' },
   { key: 'warehouse', label: 'المخزن والجرد', path: '/warehouse' },
   { key: 'sales', label: 'المبيعات ونقطة البيع', path: '/sales' },
   { key: 'customers', label: 'العملاء والبروفايلات', path: '/customers' },
@@ -18,6 +19,7 @@ export type PermissionKey = (typeof PERMISSIONS)[number]['key']
 // خريطة المسارات → مفتاح الصلاحية (مسارات متعددة ممكن تتبع نفس الصلاحية)
 const PATH_PERMS: { prefix: string; key: string }[] = [
   { prefix: '/factory', key: 'factory' },
+  { prefix: '/catalog', key: 'catalog' },
   { prefix: '/warehouse', key: 'warehouse' },
   { prefix: '/sales', key: 'sales' },
   { prefix: '/customers', key: 'customers' },
@@ -34,7 +36,7 @@ const PATH_PERMS: { prefix: string; key: string }[] = [
 // الصلاحيات الافتراضية لكل دور (لو المستخدم ملوش صلاحيات مخصصة)
 export const ROLE_DEFAULTS: Record<string, string[]> = {
   ADMIN: PERMISSIONS.map((p) => p.key),
-  FACTORY: ['factory', 'warehouse'],
+  FACTORY: ['factory', 'catalog', 'warehouse'],
   WAREHOUSE: ['warehouse'],
   SALES: ['sales', 'customers', 'keyaccounts', 'delegates', 'drivers', 'store'],
   ACCOUNTANT: ['finance'],

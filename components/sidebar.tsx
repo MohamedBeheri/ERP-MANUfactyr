@@ -7,6 +7,7 @@ import { AlBadrLogo } from '@/components/albadr-logo'
 import {
   LayoutDashboard,
   Factory,
+  Coffee,
   Warehouse,
   ShoppingCart,
   Truck,
@@ -26,6 +27,7 @@ import { effectivePermissions } from '@/lib/permissions'
 const menuItems = [
   { href: '/dashboard', label: 'لوحة التحكم', Icon: LayoutDashboard, perm: null },
   { href: '/factory', label: 'المصنع', Icon: Factory, perm: 'factory' },
+  { href: '/catalog', label: 'بنك الأصناف', Icon: Coffee, perm: 'catalog' },
   { href: '/warehouse', label: 'المخزن', Icon: Warehouse, perm: 'warehouse' },
   { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, perm: 'sales' },
   { href: '/customers', label: 'العملاء', Icon: Users, perm: 'customers' },

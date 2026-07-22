@@ -28,6 +28,7 @@ export const config = {
   matcher: [
     '/dashboard/:path*',
     '/factory/:path*',
+    '/catalog/:path*',
     '/warehouse/:path*',
     '/sales/:path*',
     '/customers/:path*',
