@@ -14,10 +14,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   try {
     const body = await req.json()
-    const { customerId, items, type, discount } = body
+    const { customerId, items, discount } = body
+    // طريقة الدفع: نقدي فوري | آجل | نقدي جزئي
+    const paymentMethod = body.paymentMethod || (body.type === 'CREDIT' ? 'آجل' : 'نقدي فوري')
+    const notes = body.notes?.trim() || null
 
-    if (!customerId || !Array.isArray(items) || items.length === 0 || !type) {
-      return NextResponse.json({ error: 'customerId, items and type are required' }, { status: 400 })
+    if (!customerId || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'customerId and items are required' }, { status: 400 })
     }
 
     const deliveryOrder = await prisma.deliveryOrder.findUnique({
@@ -25,6 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       include: {
         items: true,
         invoices: { include: { items: true } },
+        returns: { include: { items: true } },
       },
     })
 
@@ -35,17 +39,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'الجولة دي مش شغالة حاليًا (خلصت أو اتلغت)' }, { status: 400 })
     }
 
-    for (const item of items) {
-      const loaded = deliveryOrder.items.find((i) => i.productId === item.productId)?.quantity || 0
-      const alreadyDelivered = deliveryOrder.invoices
+    // المتبقي على العربية = المحمّل − المسلّم + المرتجع للعربية
+    const remainingOf = (productId: string) => {
+      const loaded = deliveryOrder.items.find((i) => i.productId === productId)?.quantity || 0
+      const delivered = deliveryOrder.invoices
         .flatMap((inv) => inv.items)
-        .filter((invItem) => invItem.productId === item.productId)
-        .reduce((sum, invItem) => sum + invItem.quantity, 0)
-      const remaining = loaded - alreadyDelivered
+        .filter((it) => it.productId === productId)
+        .reduce((s, it) => s + it.quantity, 0)
+      const returnedToVan = deliveryOrder.returns
+        .flatMap((r) => r.items)
+        .filter((it) => it.productId === productId)
+        .reduce((s, it) => s + it.quantity, 0)
+      return loaded - delivered + returnedToVan
+    }
 
-      if (item.quantity > remaining) {
+    for (const item of items) {
+      if (item.quantity > remainingOf(item.productId)) {
         return NextResponse.json(
-          { error: `الكمية المطلوبة أكبر من المتبقي على العربية (متبقي: ${remaining})` },
+          { error: `الكمية المطلوبة أكبر من المتبقي على العربية (متبقي: ${remainingOf(item.productId)})` },
           { status: 400 }
         )
       }
@@ -54,21 +65,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
     const netAmount = totalAmount - (totalAmount * (discount || 0)) / 100
 
+    // المدفوع فعليًا حسب طريقة الدفع
+    let type: 'CASH' | 'CREDIT' = 'CASH'
+    let paidAmount = netAmount
+    if (paymentMethod === 'آجل') {
+      type = 'CREDIT'; paidAmount = 0
+    } else if (paymentMethod === 'نقدي جزئي') {
+      type = 'CREDIT'; paidAmount = Math.max(0, Math.min(netAmount, Number(body.paidAmount) || 0))
+    }
+    const remaining = netAmount - paidAmount // اللي هيتحمّل على رصيد العميل
+
     // ===== مكافآت الكمية (هدايا) =====
-    // نحسب الهدية المستحقّة حسب فئة العميل، ونقصّها على المتاح فعليًا على العربية.
     const buyer = await prisma.customer.findUnique({ where: { id: customerId } })
     const rawBonuses = await computeBonuses(prisma, buyer?.tierId ?? null, items)
     const bonusLines = rawBonuses
       .map((b) => {
-        const loaded = deliveryOrder.items.find((i) => i.productId === b.productId)?.quantity || 0
-        const alreadyDelivered = deliveryOrder.invoices
-          .flatMap((inv) => inv.items)
-          .filter((it) => it.productId === b.productId)
-          .reduce((s, it) => s + it.quantity, 0)
         const paidThisInvoice = items
           .filter((it: any) => it.productId === b.productId)
           .reduce((s: number, it: any) => s + it.quantity, 0)
-        const available = loaded - alreadyDelivered - paidThisInvoice
+        const available = remainingOf(b.productId) - paidThisInvoice
         return { ...b, quantity: Math.max(0, Math.min(b.quantity, available)) }
       })
       .filter((b) => b.quantity > 0)
@@ -80,7 +95,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         totalAmount,
         discount: discount || 0,
         netAmount,
+        paidAmount,
         type,
+        paymentMethod,
+        invoiceNotes: notes,
         delegateId: deliveryOrder.delegateId,
         deliveryOrderId: deliveryOrder.id,
         createdById: session.user.id,
@@ -106,17 +124,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       include: { items: true, customer: true },
     })
 
-    if (type === 'CREDIT') {
-      await prisma.customer.update({
-        where: { id: customerId },
-        data: { balance: { increment: netAmount }, totalPurchases: { increment: netAmount } },
-      })
-    } else {
-      await prisma.customer.update({
-        where: { id: customerId },
-        data: { totalPurchases: { increment: netAmount } },
-      })
-    }
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        totalPurchases: { increment: netAmount },
+        ...(remaining > 0 ? { balance: { increment: remaining } } : {}),
+      },
+    })
 
     const bonusTotal = bonusLines.reduce((s, b) => s + b.quantity, 0)
     await prisma.auditLog.create({

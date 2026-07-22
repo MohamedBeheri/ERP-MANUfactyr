@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, phone, address, type, customerType, creditLimit } = body
+    const { name, phone, address, area, type, customerType, creditLimit, tierId } = body
 
     if (!name) {
       return NextResponse.json({ error: 'اسم العميل مطلوب' }, { status: 400 })
@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
         name,
         phone,
         address,
+        area: area || null,
+        tierId: tierId || null,
         type: type || 'CASH',
         customerType: customerType === 'WHOLESALE' ? 'WHOLESALE' : 'RETAIL',
         creditLimit: creditLimit || 0,

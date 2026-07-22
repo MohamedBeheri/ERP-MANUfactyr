@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { DeliverForm } from '@/components/deliver-form'
 import { SettleForm } from '@/components/settle-form'
 import { KeyAccountSupplyForm } from '@/components/key-account-supply-form'
+import { DeliveryReturnForm } from '@/components/delivery-return-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [deliveryOrder, customers, keyAccounts] = await Promise.all([
+  const [deliveryOrder, allCustomers, keyAccounts, rewardRules] = await Promise.all([
     prisma.deliveryOrder.findUnique({
       where: { id: params.deliveryOrderId },
       include: {
@@ -43,9 +44,13 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
           include: { branch: true, keyAccount: true, items: { include: { product: true } } },
           orderBy: { createdAt: 'desc' },
         },
+        returns: {
+          include: { customer: true, items: { include: { product: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     }),
-    prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, include: { tier: true } }),
     prisma.keyAccount.findMany({
       where: { isActive: true },
       orderBy: { name: 'asc' },
@@ -59,9 +64,16 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
         },
       },
     }),
+    prisma.rewardRule.findMany({ where: { isActive: true } }),
   ])
 
   if (!deliveryOrder) notFound()
+
+  // فلترة عملاء المندوب حسب خط سيره/منطقته (لو محدد)
+  const delegateArea = deliveryOrder.delegate.area || deliveryOrder.delegate.route || null
+  const customers = delegateArea
+    ? allCustomers.filter((c) => !c.area || c.area === delegateArea)
+    : allCustomers
 
   const remaining = deliveryOrder.items.map((item) => {
     const invDelivered = deliveryOrder.invoices
@@ -70,6 +82,10 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
       .reduce((sum, invItem) => sum + invItem.quantity, 0)
     const supDelivered = deliveryOrder.keyAccountSupplies
       .flatMap((sp) => sp.items)
+      .filter((it) => it.productId === item.productId)
+      .reduce((sum, it) => sum + it.quantity, 0)
+    const returnedToVan = deliveryOrder.returns
+      .flatMap((r) => r.items)
       .filter((it) => it.productId === item.productId)
       .reduce((sum, it) => sum + it.quantity, 0)
     const delivered = invDelivered + supDelivered
@@ -82,7 +98,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
       minKeyPrice: Number(item.product.minKeyPrice),
       loaded: item.quantity,
       delivered,
-      remaining: item.quantity - delivered,
+      remaining: item.quantity - delivered + returnedToVan,
     }
   })
 
@@ -97,8 +113,20 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
   }
   const branchSummary = Array.from(supplyByBranch.values())
 
-  const cashTotal = deliveryOrder.invoices.filter((i) => i.type === 'CASH').reduce((s, i) => s + Number(i.netAmount), 0)
-  const creditTotal = deliveryOrder.invoices.filter((i) => i.type === 'CREDIT').reduce((s, i) => s + Number(i.netAmount), 0)
+  const cashTotal = deliveryOrder.invoices.reduce((s, i) => s + Number(i.paidAmount), 0)
+  const creditTotal = deliveryOrder.invoices.reduce((s, i) => s + (Number(i.netAmount) - Number(i.paidAmount)), 0)
+  const returnsTotal = deliveryOrder.returns.reduce((s, r) => s + Number(r.totalValue), 0)
+
+  const rewardRulesLite = rewardRules.map((r) => ({
+    productId: r.productId,
+    buyQuantity: r.buyQuantity,
+    freeProductId: r.freeProductId,
+    freeQuantity: r.freeQuantity,
+    repeat: r.repeat,
+    tierId: r.tierId,
+  }))
+  const customersLite = customers.map((c) => ({ id: c.id, name: c.name, tierId: c.tierId, tierName: c.tier?.name || null }))
+  const loadedItems = deliveryOrder.items.map((it) => ({ productId: it.productId, productName: it.product.name, unit: it.product.unit, sellPrice: Number(it.product.sellPrice) }))
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -126,6 +154,13 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
           >
             <Printer className="w-4 h-4" />
             أمر التحميل
+          </Link>
+          <Link
+            href={`/print/day-report/${deliveryOrder.id}`}
+            className="flex items-center gap-2 px-4 py-2 bg-[#e9b44c] text-[#1a1a2e] rounded-lg text-sm font-bold hover:bg-[#d9a43c]"
+          >
+            <Printer className="w-4 h-4" />
+            محضر اليوم
           </Link>
           {deliveryOrder.settlement && (
             <Link
@@ -180,7 +215,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
               <MapPin className="w-5 h-5 text-[#e94560]" />
               <h3 className="text-base font-bold text-[#1a1a2e]">سجل التسليمات ({deliveryOrder.invoices.length})</h3>
             </div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="bg-green-50 p-3 rounded-lg">
                 <p className="text-xs text-gray-500">محصّل نقدي</p>
                 <p className="font-bold text-green-600 tabular-nums">{cashTotal.toLocaleString('ar-EG')} ج.م</p>
@@ -188,6 +223,10 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
               <div className="bg-yellow-50 p-3 rounded-lg">
                 <p className="text-xs text-gray-500">آجل</p>
                 <p className="font-bold text-yellow-700 tabular-nums">{creditTotal.toLocaleString('ar-EG')} ج.م</p>
+              </div>
+              <div className="bg-orange-50 p-3 rounded-lg">
+                <p className="text-xs text-gray-500">مرتجعات</p>
+                <p className="font-bold text-orange-600 tabular-nums">{returnsTotal.toLocaleString('ar-EG')} ج.م</p>
               </div>
             </div>
             <div className="divide-y divide-gray-50">
@@ -206,11 +245,15 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
                         🎁 هدية: {b.quantity} {b.product.unit} {b.product.name}
                       </p>
                     ))}
+                    {inv.invoiceNotes && <p className="text-[11px] text-gray-500 mt-0.5">📝 {inv.invoiceNotes}</p>}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-left">
                       <p className="font-semibold text-sm tabular-nums">{Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</p>
-                      <p className="text-xs text-gray-400">{inv.type === 'CASH' ? 'نقدي' : 'آجل'}</p>
+                      <p className="text-xs text-gray-400">{inv.paymentMethod}</p>
+                      {Number(inv.netAmount) - Number(inv.paidAmount) > 0 && inv.paymentMethod === 'نقدي جزئي' && (
+                        <p className="text-[10px] text-yellow-700">باقي {(Number(inv.netAmount) - Number(inv.paidAmount)).toLocaleString('ar-EG')}</p>
+                      )}
                     </div>
                     <Link
                       href={`/print/invoice/${inv.id}`}
@@ -267,7 +310,13 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
         <div className="space-y-4">
           {deliveryOrder.status === 'IN_PROGRESS' && (
             <>
-              <DeliverForm deliveryOrderId={deliveryOrder.id} customers={customers} remainingItems={remaining} />
+              <DeliverForm
+                deliveryOrderId={deliveryOrder.id}
+                customers={customersLite}
+                remainingItems={remaining}
+                rewardRules={rewardRulesLite}
+                delegateArea={delegateArea}
+              />
               <KeyAccountSupplyForm
                 deliveryOrderId={deliveryOrder.id}
                 remainingItems={remaining}
@@ -278,6 +327,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
                   quoteItems: (a.quotes[0]?.items || []).map((it) => ({ productId: it.productId, unitPrice: Number(it.unitPrice) })),
                 }))}
               />
+              <DeliveryReturnForm deliveryOrderId={deliveryOrder.id} customers={customersLite} loadedItems={loadedItems} />
               <SettleForm deliveryOrderId={deliveryOrder.id} remainingItems={remaining} />
             </>
           )}

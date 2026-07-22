@@ -12,6 +12,7 @@ export interface CustomerRow {
   name: string
   phone: string | null
   address: string | null
+  area: string | null
   customerType: string
   tierId: string | null
   tierName: string | null
@@ -39,7 +40,7 @@ export function CustomersManager({ customers, tiers = [] }: { customers: Custome
   const [typeFilter, setTypeFilter] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState<CustomerRow | null>(null)
-  const [form, setForm] = useState({ name: '', phone: '', address: '', customerType: 'RETAIL', tierId: '', creditLimit: '0' })
+  const [form, setForm] = useState({ name: '', phone: '', address: '', area: '', customerType: 'RETAIL', tierId: '', creditLimit: '0' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -54,7 +55,7 @@ export function CustomersManager({ customers, tiers = [] }: { customers: Custome
 
   const startEdit = (c: CustomerRow) => {
     setEditing(c)
-    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', customerType: c.customerType, tierId: c.tierId || '', creditLimit: String(c.creditLimit) })
+    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', area: c.area || '', customerType: c.customerType, tierId: c.tierId || '', creditLimit: String(c.creditLimit) })
     setError('')
   }
 
@@ -259,6 +260,10 @@ export function CustomersManager({ customers, tiers = [] }: { customers: Custome
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">العنوان</label>
               <textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} className={`${inputCls} resize-none`} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">المنطقة / خط السير (لفلترة عملاء المندوب)</label>
+              <input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} placeholder="مثال: القاهرة الجديدة" className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الائتماني (للجملة)</label>

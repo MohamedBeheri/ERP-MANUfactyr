@@ -71,6 +71,7 @@ export default async function CustomersPage() {
             phone: c.phone,
             address: c.address,
             customerType: c.customerType,
+            area: c.area,
             tierId: c.tierId,
             tierName: c.tier?.name || null,
             bonusPoints: Number(c.bonusPoints),

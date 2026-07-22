@@ -23,6 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         items: true,
         invoices: { include: { items: true } },
         keyAccountSupplies: { include: { items: true } },
+        returns: { include: { items: true } },
         settlement: true,
         delegate: true,
       },
@@ -51,10 +52,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
+    // المرتجعات اللي رجعت للعربية أثناء الجولة بتزوّد المتبقي القابل للإرجاع للمخزن
+    const returnedToVan = new Map<string, number>()
+    for (const r of deliveryOrder.returns) {
+      for (const item of r.items) {
+        returnedToVan.set(item.productId, (returnedToVan.get(item.productId) || 0) + item.quantity)
+      }
+    }
+
     for (const ret of returns) {
       const loaded = deliveryOrder.items.find((i) => i.productId === ret.productId)?.quantity || 0
       const delivered = deliveredByProduct.get(ret.productId) || 0
-      const maxReturnable = loaded - delivered
+      const maxReturnable = loaded - delivered + (returnedToVan.get(ret.productId) || 0)
       if (ret.quantity > maxReturnable) {
         return NextResponse.json(
           { error: `الكمية المرتجعة أكبر من المتبقي على العربية (أقصى حد: ${maxReturnable})` },
@@ -71,12 +80,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const totalDelivered = Array.from(deliveredByProduct.values()).reduce((s, q) => s + q, 0)
     const soldQty = Math.max(0, totalDelivered - bonusQty)
     const returnedQty = returns.reduce((s, r) => s + r.quantity, 0)
-    const cashAmount = deliveryOrder.invoices
-      .filter((inv) => inv.type === 'CASH')
-      .reduce((s, inv) => s + Number(inv.netAmount), 0)
-    const invoiceCredit = deliveryOrder.invoices
-      .filter((inv) => inv.type === 'CREDIT')
-      .reduce((s, inv) => s + Number(inv.netAmount), 0)
+    // النقدي = المدفوع فعليًا (يشمل الجزء المدفوع في البيع الجزئي)، الآجل = المتبقي على العملاء
+    const cashAmount = deliveryOrder.invoices.reduce((s, inv) => s + Number(inv.paidAmount), 0)
+    const invoiceCredit = deliveryOrder.invoices.reduce(
+      (s, inv) => s + (Number(inv.netAmount) - Number(inv.paidAmount)),
+      0
+    )
     // توريدات كبار الموردين مطالبات (آجل) على المقر الرئيسي
     const keyAccountCredit = deliveryOrder.keyAccountSupplies.reduce((s, sup) => s + Number(sup.netAmount), 0)
     const creditAmount = invoiceCredit + keyAccountCredit
