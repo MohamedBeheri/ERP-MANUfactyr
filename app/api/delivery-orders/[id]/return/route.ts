@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 
-const ALLOWED = ['ADMIN', 'SALES'] as const
+const ALLOWED = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 // أمر مرتجع من عميل أثناء الجولة — البضاعة ترجع للعربية (يزيد المتبقي)،
 // والقيمة تُخصم من رصيد العميل الآجل أو تُرد نقدًا.
@@ -18,8 +18,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .map((i: any) => ({ productId: i.productId, quantity: Number(i.quantity), unitPrice: Number(i.unitPrice) || 0 }))
     if (items.length === 0) return NextResponse.json({ error: 'أضف صنف مرتجع واحد على الأقل' }, { status: 400 })
 
-    const order = await prisma.deliveryOrder.findUnique({ where: { id: params.id } })
+    const order = await prisma.deliveryOrder.findUnique({ where: { id: params.id }, include: { delegate: true } })
     if (!order) return NextResponse.json({ error: 'الجولة غير موجودة' }, { status: 404 })
+    if (session.user.role === 'DELEGATE' && order.delegate.userId !== session.user.id) {
+      return NextResponse.json({ error: 'الجولة دي مش بتاعتك' }, { status: 403 })
+    }
     if (order.status !== 'IN_PROGRESS') return NextResponse.json({ error: 'الجولة مش شغالة حاليًا' }, { status: 400 })
 
     const totalValue = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)

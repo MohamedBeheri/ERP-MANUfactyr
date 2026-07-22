@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
+const ALLOWED_ROLES = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 export async function GET() {
   const auth = await requireRole([...ALLOWED_ROLES])
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, phone, address, area, type, customerType, creditLimit, tierId } = body
+    const { name, phone, address, area, activityType, type, customerType, creditLimit, tierId } = body
 
     if (!name) {
       return NextResponse.json({ error: 'اسم العميل مطلوب' }, { status: 400 })
@@ -34,9 +34,10 @@ export async function POST(req: NextRequest) {
     const customer = await prisma.customer.create({
       data: {
         name,
-        phone,
-        address,
+        phone: phone || null,
+        address: address || null,
         area: area || null,
+        activityType: activityType || null,
         tierId: tierId || null,
         type: type || 'CASH',
         customerType: customerType === 'WHOLESALE' ? 'WHOLESALE' : 'RETAIL',

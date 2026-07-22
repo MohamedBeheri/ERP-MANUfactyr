@@ -523,6 +523,7 @@ model Customer {
   phone          String?
   address        String?
   area           String? // منطقة/خط سير العميل (لفلترة عملاء المندوب)
+  activityType   String? // نوع النشاط (كافيه / سوبر ماركت / بقالة / مطعم...)
   type           PaymentType  @default(CASH)
   customerType   CustomerType @default(RETAIL) // جملة أو قطاعي
   tierId         String? // فئة العميل (كبار عملاء / تجزئة / متوسط...)

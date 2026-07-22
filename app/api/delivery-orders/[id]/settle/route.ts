@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock } from '@/lib/warehouse'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
+const ALLOWED_ROLES = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 // تسوية آخر اليوم: المباع والمحصّل بيتحسبوا تلقائي من الفواتير المرتبطة بالجولة،
 // والمستخدم بس بيدخل الكمية المرتجعة الفعلية (جرد) لكل صنف عشان ترجع للمخزن.
@@ -31,6 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (!deliveryOrder) {
       return NextResponse.json({ error: 'Delivery order not found' }, { status: 404 })
+    }
+    if (session.user.role === 'DELEGATE' && deliveryOrder.delegate.userId !== session.user.id) {
+      return NextResponse.json({ error: 'الجولة دي مش بتاعتك' }, { status: 403 })
     }
     if (deliveryOrder.status !== 'IN_PROGRESS') {
       return NextResponse.json({ error: 'الجولة دي مش شغالة حاليًا (خلصت أو اتلغت)' }, { status: 400 })

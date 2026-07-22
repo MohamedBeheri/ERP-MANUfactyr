@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 
-const ALLOWED = ['ADMIN', 'SALES'] as const
+const ALLOWED = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 // توريد لفرع من فروع كبار الموردين أثناء جولة المندوب.
 // البضاعة خرجت من المخزن وقت التحميل، فهنا بننشئ توريد ونضيف مطالبة على المقر الرئيسي فقط.
@@ -25,12 +25,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const order = await prisma.deliveryOrder.findUnique({
       where: { id: params.id },
       include: {
+        delegate: true,
         items: true,
         invoices: { include: { items: true } },
         keyAccountSupplies: { include: { items: true } },
       },
     })
     if (!order) return NextResponse.json({ error: 'الجولة غير موجودة' }, { status: 404 })
+    if (session.user.role === 'DELEGATE' && order.delegate.userId !== session.user.id) {
+      return NextResponse.json({ error: 'الجولة دي مش بتاعتك' }, { status: 403 })
+    }
     if (order.status !== 'IN_PROGRESS') {
       return NextResponse.json({ error: 'الجولة دي مش شغالة حاليًا' }, { status: 400 })
     }

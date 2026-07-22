@@ -96,6 +96,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
       productName: item.product.name,
       unit: item.product.unit,
       sellPrice: Number(item.product.sellPrice),
+      wholesalePrice: Number(item.product.wholesalePrice),
       minKeyPrice: Number(item.product.minKeyPrice),
       loaded: item.quantity,
       delivered,
@@ -126,7 +127,14 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
     repeat: r.repeat,
     tierId: r.tierId,
   }))
-  const customersLite = customers.map((c) => ({ id: c.id, name: c.name, tierId: c.tierId, tierName: c.tier?.name || null }))
+  const customersLite = customers.map((c) => ({
+    id: c.id,
+    name: c.name,
+    tierId: c.tierId,
+    tierName: c.tier?.name || null,
+    customerType: c.customerType,
+    tier: c.tier ? { priceSource: c.tier.priceSource, discountPercent: Number(c.tier.discountPercent), bonusPercent: Number(c.tier.bonusPercent) } : null,
+  }))
   const loadedItems = deliveryOrder.items.map((it) => ({ productId: it.productId, productName: it.product.name, unit: it.product.unit, sellPrice: Number(it.product.sellPrice) }))
 
   return (

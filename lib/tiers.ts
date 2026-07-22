@@ -30,3 +30,16 @@ export function tierPrice(
   const base = tier.priceSource === 'WHOLESALE' && wholesalePrice > 0 ? wholesalePrice : sellPrice
   return Math.max(0, base * (1 - Number(tier.discountPercent) / 100))
 }
+
+// سعر منتج لعميل: حسب الفئة لو موجودة، وإلا حسب نوع العميل (جملة/قطاعي)
+export function customerUnitPrice(
+  sellPrice: number,
+  wholesalePrice: number,
+  customer: { customerType?: string | null; tier?: { priceSource: string; discountPercent: number } | null } | null
+): number {
+  const tier = customer?.tier || null
+  const source = tier?.priceSource ?? (customer?.customerType === 'WHOLESALE' ? 'WHOLESALE' : 'RETAIL')
+  const base = source === 'WHOLESALE' && wholesalePrice > 0 ? wholesalePrice : sellPrice
+  const discount = tier ? Number(tier.discountPercent) : 0
+  return Math.max(0, +(base * (1 - discount / 100)).toFixed(2))
+}
