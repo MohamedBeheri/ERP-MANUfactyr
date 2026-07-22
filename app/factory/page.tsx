@@ -87,11 +87,16 @@ export default async function FactoryPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#1a1a2e]">المصنع — خطوط الإنتاج</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          خط ١: بن أخضر ← تحميص (مع حساب الهدر) · خط ٢: بن محمّص ← خلط (BOM) ← طحن ← تعبئة
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1a1a2e]">المصنع — خطوط الإنتاج</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            خط ١: بن أخضر ← تحميص (مع حساب الهدر) · خط ٢: بن محمّص ← خلط (BOM) ← طحن ← تعبئة
+          </p>
+        </div>
+        <Link href="/factory/produce" className="flex items-center gap-2 px-4 py-2.5 bg-[#e9b44c] text-[#1a1a2e] rounded-xl text-sm font-bold hover:bg-[#d9a43c] shrink-0">
+          أمر التصنيع الجديد (من الوصفات)
+        </Link>
       </div>
 
       {/* إحصائيات */}

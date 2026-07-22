@@ -164,7 +164,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   const quickActions = [
     { href: '/sales', label: 'بيع جديد', Icon: ShoppingCart, perm: 'sales' },
-    { href: '/factory', label: 'أمر تصنيع', Icon: Factory, perm: 'factory' },
+    { href: '/factory/produce', label: 'أمر تصنيع', Icon: Factory, perm: 'factory' },
     { href: '/delegates', label: 'تحميل عربية', Icon: Truck, perm: 'delegates' },
     { href: '/key-accounts', label: 'كبار الموردين', Icon: Building2, perm: 'keyaccounts' },
     { href: '/online-orders', label: 'طلبات الموقع', Icon: PackageOpen, perm: 'store' },
