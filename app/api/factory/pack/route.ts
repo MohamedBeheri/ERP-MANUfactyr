@@ -30,6 +30,17 @@ export async function POST(req: NextRequest) {
     const coffeeKg = Math.round((netGram * pieces) / 1000)
     if (coffeeKg <= 0) return NextResponse.json({ error: 'راجع وزن القطعة ووزن الفارغ للمنتج' }, { status: 400 })
 
+    // تحقّق التعبئة: الصافي الفعلي مقابل النظري (كشف العجز/الغلط البشري)
+    const wasteKg = Math.max(0, Math.round(Number(b.wasteKg) || 0))
+    const actualCoffeeKg = Number(b.actualCoffeeKg) || 0
+    const tareKg = (pieces * Number(fin.packaging?.tareWeight || 0)) / 1000
+    const netUsed = actualCoffeeKg > 0 ? actualCoffeeKg - tareKg - wasteKg : null
+    const variance = netUsed !== null ? netUsed - coffeeKg : null
+    const varianceNote =
+      netUsed !== null && variance !== null
+        ? ` | تحقّق: صافي فعلي ${netUsed.toFixed(2)} مقابل نظري ${coffeeKg} (${variance >= 0 ? 'زيادة' : 'عجز'} ${Math.abs(variance).toFixed(2)} كجم)`
+        : ''
+
     const fallbackWh = b.warehouseId || (await getDefaultWarehouseId())
     const blendWh = fin.blend.stageId ? await warehouseForStage(fin.blend.stageId) : fallbackWh
     const finWh = fin.stageId ? await warehouseForStage(fin.stageId) : fallbackWh
@@ -55,11 +66,11 @@ export async function POST(req: NextRequest) {
           expiryDate: b.expiryDate ? new Date(b.expiryDate) : null,
           inputWeight: coffeeKg,
           outputWeight: boxes,
-          wasteWeight: 0,
-          wastePercent: 0,
+          wasteWeight: wasteKg,
+          wastePercent: coffeeKg > 0 ? (wasteKg / coffeeKg) * 100 : 0,
           rawProductId: fin.blend!.id,
           rawUsed: coffeeKg,
-          notes: b.notes || null,
+          notes: `${b.notes || ''}${varianceNote}`.trim() || null,
           createdById: session.user.id,
           inputs: {
             create: [

@@ -129,22 +129,35 @@ function PackFinished({ finished, onDone }: { finished: FinishedT[]; onDone: () 
   const [finishedId, setFinishedId] = useState('')
   const [boxes, setBoxes] = useState('')
   const [channel, setChannel] = useState(CHANNELS[0])
+  const [actualCoffee, setActualCoffee] = useState('') // وزن البن المصروف الفعلي على الخط (كجم)
+  const [waste, setWaste] = useState('') // الهدر (كجم)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const fin = finished.find((f) => f.id === finishedId)
   const nBoxes = Number(boxes) || 0
   const pieces = fin ? fin.piecesPerBox * nBoxes : 0
   const netGram = fin ? Math.max(0, fin.gramsPerPiece - fin.tare) : 0
-  const coffeeKg = (netGram * pieces) / 1000
+  const coffeeKg = (netGram * pieces) / 1000 // النظري المطلوب من البن الصافي
+
+  // ===== تحقّق التعبئة (كشف العجز/غلط بشري) =====
+  const tareKg = fin ? (pieces * fin.tare) / 1000 : 0 // وزن الأكياس الفارغة
+  const actual = Number(actualCoffee) || 0
+  const wasteKg = Number(waste) || 0
+  const netUsed = actual > 0 ? actual - tareKg - wasteKg : null // الصافي الفعلي من البن
+  const diff = netUsed !== null ? netUsed - coffeeKg : null // الفرق (سالب = عجز)
+  const diffPct = diff !== null && coffeeKg > 0 ? (diff / coffeeKg) * 100 : null
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
     if (!finishedId || nBoxes <= 0) { setError('اختار المنتج وعدد العلب'); return }
     setLoading(true)
-    const res = await fetch('/api/factory/pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ finishedId, boxes: nBoxes, channel }) })
+    const res = await fetch('/api/factory/pack', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ finishedId, boxes: nBoxes, channel, wasteKg, actualCoffeeKg: actual || undefined }),
+    })
     const data = await res.json(); setLoading(false)
     if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
-    setFinishedId(''); setBoxes(''); onDone()
+    setFinishedId(''); setBoxes(''); setActualCoffee(''); setWaste(''); onDone()
   }
 
   return (
@@ -172,6 +185,33 @@ function PackFinished({ finished, onDone }: { finished: FinishedT[]; onDone: () 
       )}
       {fin && !fin.hasBlend && (
         <div className="flex items-center gap-2 bg-amber-50 text-amber-700 p-2.5 rounded-lg text-xs"><TriangleAlert className="w-4 h-4" /> المنتج مش مربوط بتوليفة — اربطه في بنك الأصناف.</div>
+      )}
+
+      {/* تحقّق التعبئة — كشف العجز/الغلط البشري */}
+      {fin && nBoxes > 0 && (
+        <div className="border-t border-gray-100 pt-3 space-y-2">
+          <p className="text-[11px] font-semibold text-gray-500">تحقّق التعبئة (اختياري) — اكتب وزن البن المصروف على الخط عشان نكشف أي عجز</p>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="number" min="0" step="0.01" value={actualCoffee} onChange={(e) => setActualCoffee(e.target.value)} placeholder="وزن البن المصروف (كجم)" className={inputCls} />
+            <input type="number" min="0" step="0.01" value={waste} onChange={(e) => setWaste(e.target.value)} placeholder="هدر (كجم)" className={inputCls} />
+          </div>
+          {netUsed !== null && (
+            <div className="bg-gray-50 rounded-lg p-2.5 text-xs space-y-1">
+              <div className="flex justify-between"><span className="text-gray-500">الفارغة ({pieces} كيس × {fmt(fin.tare)}جم)</span><span className="tabular-nums">{fmt(tareKg)} كجم</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">الصافي الفعلي (مصروف − فارغة − هدر)</span><span className="font-semibold tabular-nums">{fmt(netUsed)} كجم</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">النظري المطلوب</span><span className="font-semibold tabular-nums">{fmt(coffeeKg)} كجم</span></div>
+              <div className={`flex justify-between border-t border-gray-200 pt-1 font-bold ${diffPct !== null && diffPct < -2 ? 'text-red-600' : diffPct !== null && diffPct > 2 ? 'text-amber-600' : 'text-green-600'}`}>
+                <span>{diff! < 0 ? 'عجز' : diff! > 0 ? 'زيادة' : 'مطابق'}</span>
+                <span className="tabular-nums">{diff! > 0 ? '+' : ''}{fmt(diff!)} كجم ({diffPct !== null ? fmt(diffPct) : 0}%)</span>
+              </div>
+            </div>
+          )}
+          {diffPct !== null && diffPct < -2 && (
+            <div className="flex items-center gap-2 bg-red-50 text-red-600 p-2.5 rounded-lg text-xs font-semibold">
+              <TriangleAlert className="w-4 h-4 shrink-0" /> في عجز {fmt(Math.abs(diff!))} كجم — غالبًا غلط بشري (بن ناقص أو تسريب). راجع قبل الاعتماد.
+            </div>
+          )}
+        </div>
       )}
 
       <button type="submit" disabled={loading} className="w-full bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] disabled:opacity-50">
