@@ -22,6 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       include: {
         items: true,
         invoices: { include: { items: true } },
+        keyAccountSupplies: { include: { items: true } },
         settlement: true,
         delegate: true,
       },
@@ -40,6 +41,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const deliveredByProduct = new Map<string, number>()
     for (const inv of deliveryOrder.invoices) {
       for (const item of inv.items) {
+        deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
+      }
+    }
+    // التوريدات لفروع كبار الموردين بتنزل من العربية زي التسليمات
+    for (const sup of deliveryOrder.keyAccountSupplies) {
+      for (const item of sup.items) {
         deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
       }
     }
@@ -67,9 +74,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const cashAmount = deliveryOrder.invoices
       .filter((inv) => inv.type === 'CASH')
       .reduce((s, inv) => s + Number(inv.netAmount), 0)
-    const creditAmount = deliveryOrder.invoices
+    const invoiceCredit = deliveryOrder.invoices
       .filter((inv) => inv.type === 'CREDIT')
       .reduce((s, inv) => s + Number(inv.netAmount), 0)
+    // توريدات كبار الموردين مطالبات (آجل) على المقر الرئيسي
+    const keyAccountCredit = deliveryOrder.keyAccountSupplies.reduce((s, sup) => s + Number(sup.netAmount), 0)
+    const creditAmount = invoiceCredit + keyAccountCredit
     const totalSalesValue = cashAmount + creditAmount
     const commission = (totalSalesValue * Number(deliveryOrder.delegate.commissionRate)) / 100
 

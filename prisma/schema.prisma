@@ -87,6 +87,8 @@ model User {
   deliveryOrders DeliveryOrder[]
   settlements    Settlement[]
   priceQuotes    PriceQuote[]
+  keyAccountSupplies KeyAccountSupply[]
+  keyAccountPayments KeyAccountPayment[]
 
   @@map("users")
 }
@@ -221,6 +223,7 @@ model Product {
   rewardRulesQualifying RewardRule[] @relation("RewardQualifyingProduct")
   rewardRulesFree       RewardRule[] @relation("RewardFreeProduct")
   priceQuoteItems       PriceQuoteItem[]
+  keyAccountSupplyItems KeyAccountSupplyItem[]
 
   @@map("products")
 }
@@ -490,6 +493,8 @@ model KeyAccount {
 
   branches KeyAccountBranch[]
   quotes   PriceQuote[]
+  supplies KeyAccountSupply[]
+  payments KeyAccountPayment[]
 
   @@map("key_accounts")
 }
@@ -504,7 +509,8 @@ model KeyAccountBranch {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  keyAccount KeyAccount @relation(fields: [keyAccountId], references: [id], onDelete: Cascade)
+  keyAccount KeyAccount         @relation(fields: [keyAccountId], references: [id], onDelete: Cascade)
+  supplies   KeyAccountSupply[]
 
   @@map("key_account_branches")
 }
@@ -541,6 +547,62 @@ model PriceQuoteItem {
   product Product    @relation(fields: [productId], references: [id])
 
   @@map("price_quote_items")
+}
+
+// ============== KEY ACCOUNT SUPPLIES (توريد لفروع كبار الموردين أثناء جولة المندوب) ==============
+model KeyAccountSupply {
+  id              String   @id @default(cuid())
+  supplyNo        String   @unique
+  keyAccountId    String
+  branchId        String
+  deliveryOrderId String? // الجولة اللي اتعمل منها التوريد
+  delegateId      String?
+  totalAmount     Decimal  @db.Decimal(12, 2)
+  discountType    String   @default("NONE") // NONE | CASH
+  discountPercent Decimal  @default(0) @db.Decimal(5, 2)
+  netAmount       Decimal  @db.Decimal(12, 2) // يُضاف كمطالبة على المقر الرئيسي
+  notes           String?
+  createdAt       DateTime @default(now())
+  createdById     String
+
+  keyAccount    KeyAccount             @relation(fields: [keyAccountId], references: [id])
+  branch        KeyAccountBranch       @relation(fields: [branchId], references: [id])
+  deliveryOrder DeliveryOrder?         @relation(fields: [deliveryOrderId], references: [id])
+  delegate      Delegate?              @relation(fields: [delegateId], references: [id])
+  creator       User                   @relation(fields: [createdById], references: [id])
+  items         KeyAccountSupplyItem[]
+
+  @@map("key_account_supplies")
+}
+
+model KeyAccountSupplyItem {
+  id         String  @id @default(cuid())
+  supplyId   String
+  productId  String
+  quantity   Int
+  unitPrice  Decimal @db.Decimal(10, 2)
+  totalPrice Decimal @db.Decimal(10, 2)
+
+  supply  KeyAccountSupply @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  product Product          @relation(fields: [productId], references: [id])
+
+  @@map("key_account_supply_items")
+}
+
+// ============== KEY ACCOUNT PAYMENTS (تحصيل من المقر الرئيسي) ==============
+model KeyAccountPayment {
+  id           String   @id @default(cuid())
+  keyAccountId String
+  amount       Decimal  @db.Decimal(12, 2)
+  method       String   @default("نقدي")
+  notes        String?
+  createdAt    DateTime @default(now())
+  createdById  String
+
+  keyAccount KeyAccount @relation(fields: [keyAccountId], references: [id])
+  creator    User       @relation(fields: [createdById], references: [id])
+
+  @@map("key_account_payments")
 }
 
 // ============== SALES POINTS (نقاط البيع) ==============
@@ -624,6 +686,7 @@ model Delegate {
   deliveryOrders DeliveryOrder[]
   settlements    Settlement[]
   invoices       Invoice[]
+  keyAccountSupplies KeyAccountSupply[]
 
   @@map("delegates")
 }
@@ -639,11 +702,12 @@ model DeliveryOrder {
   createdById String
 
   // Relations
-  delegate   Delegate       @relation(fields: [delegateId], references: [id])
-  items      DeliveryItem[]
-  invoices   Invoice[]
-  settlement Settlement?
-  creator    User           @relation(fields: [createdById], references: [id])
+  delegate       Delegate           @relation(fields: [delegateId], references: [id])
+  items          DeliveryItem[]
+  invoices       Invoice[]
+  settlement     Settlement?
+  keyAccountSupplies KeyAccountSupply[]
+  creator        User               @relation(fields: [createdById], references: [id])
 
   @@map("delivery_orders")
 }

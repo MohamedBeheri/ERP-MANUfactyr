@@ -20,6 +20,12 @@ export default async function KeyAccountsPage() {
           orderBy: { createdAt: 'desc' },
           include: { items: { include: { product: true } } },
         },
+        supplies: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          include: { branch: true, items: true },
+        },
+        payments: { orderBy: { createdAt: 'desc' }, take: 10 },
       },
     }),
     prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
@@ -58,10 +64,23 @@ export default async function KeyAccountsPage() {
             status: q.status,
             discountType: q.discountType,
             discountPercent: Number(q.discountPercent),
-            adminExpenses: Number(q.adminExpenses),
             createdAt: q.createdAt.toISOString(),
             itemsCount: q.items.length,
             subtotal: q.items.reduce((s, it) => s + Number(it.unitPrice) * (it.quantity || 0), 0),
+          })),
+          supplies: a.supplies.map((sp) => ({
+            id: sp.id,
+            supplyNo: sp.supplyNo,
+            branchName: sp.branch.name,
+            qty: sp.items.reduce((s, it) => s + it.quantity, 0),
+            netAmount: Number(sp.netAmount),
+            createdAt: sp.createdAt.toISOString(),
+          })),
+          payments: a.payments.map((p) => ({
+            id: p.id,
+            amount: Number(p.amount),
+            method: p.method,
+            createdAt: p.createdAt.toISOString(),
           })),
         }))}
         products={products.map((p) => ({

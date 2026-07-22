@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DeliverForm } from '@/components/deliver-form'
 import { SettleForm } from '@/components/settle-form'
+import { KeyAccountSupplyForm } from '@/components/key-account-supply-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [deliveryOrder, customers] = await Promise.all([
+  const [deliveryOrder, customers, keyAccounts] = await Promise.all([
     prisma.deliveryOrder.findUnique({
       where: { id: params.deliveryOrderId },
       include: {
@@ -38,29 +39,63 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
           include: { customer: true, items: { include: { product: true } } },
           orderBy: { createdAt: 'desc' },
         },
+        keyAccountSupplies: {
+          include: { branch: true, keyAccount: true, items: { include: { product: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     }),
     prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.keyAccount.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      include: {
+        branches: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+        quotes: {
+          where: { status: 'APPROVED' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { items: true },
+        },
+      },
+    }),
   ])
 
   if (!deliveryOrder) notFound()
 
   const remaining = deliveryOrder.items.map((item) => {
-    const delivered = deliveryOrder.invoices
+    const invDelivered = deliveryOrder.invoices
       .flatMap((inv) => inv.items)
       .filter((invItem) => invItem.productId === item.productId)
       .reduce((sum, invItem) => sum + invItem.quantity, 0)
+    const supDelivered = deliveryOrder.keyAccountSupplies
+      .flatMap((sp) => sp.items)
+      .filter((it) => it.productId === item.productId)
+      .reduce((sum, it) => sum + it.quantity, 0)
+    const delivered = invDelivered + supDelivered
 
     return {
       productId: item.productId,
       productName: item.product.name,
       unit: item.product.unit,
       sellPrice: Number(item.product.sellPrice),
+      minKeyPrice: Number(item.product.minKeyPrice),
       loaded: item.quantity,
       delivered,
       remaining: item.quantity - delivered,
     }
   })
+
+  // ملخص التوريدات لكل فرع من فروع كبار الموردين
+  const supplyByBranch = new Map<string, { branch: string; account: string; qty: number; net: number }>()
+  for (const sp of deliveryOrder.keyAccountSupplies) {
+    const key = sp.branchId
+    const prev = supplyByBranch.get(key) || { branch: sp.branch.name, account: sp.keyAccount.name, qty: 0, net: 0 }
+    prev.qty += sp.items.reduce((s, it) => s + it.quantity, 0)
+    prev.net += Number(sp.netAmount)
+    supplyByBranch.set(key, prev)
+  }
+  const branchSummary = Array.from(supplyByBranch.values())
 
   const cashTotal = deliveryOrder.invoices.filter((i) => i.type === 'CASH').reduce((s, i) => s + Number(i.netAmount), 0)
   const creditTotal = deliveryOrder.invoices.filter((i) => i.type === 'CREDIT').reduce((s, i) => s + Number(i.netAmount), 0)
@@ -190,12 +225,59 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
               })}
             </div>
           </div>
+
+          {/* ملخص توريدات فروع كبار الموردين */}
+          {deliveryOrder.keyAccountSupplies.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Package className="w-5 h-5 text-amber-600" />
+                <h3 className="text-base font-bold text-[#1a1a2e]">توريدات فروع كبار الموردين</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
+                      <th className="p-3 font-medium">الفرع</th>
+                      <th className="p-3 font-medium">العميل (المقر)</th>
+                      <th className="p-3 font-medium">إجمالي القطع</th>
+                      <th className="p-3 font-medium">قيمة المطالبة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {branchSummary.map((b, i) => (
+                      <tr key={i} className="border-b border-gray-50 last:border-0">
+                        <td className="p-3 font-semibold">{b.branch}</td>
+                        <td className="p-3 text-gray-500">{b.account}</td>
+                        <td className="p-3 tabular-nums">{b.qty}</td>
+                        <td className="p-3 tabular-nums font-bold text-amber-700">{b.net.toLocaleString('ar-EG')} ج.م</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-amber-50/50 font-bold">
+                      <td className="p-3" colSpan={2}>الإجمالي (مطالبة على المقر)</td>
+                      <td className="p-3 tabular-nums">{branchSummary.reduce((s, b) => s + b.qty, 0)}</td>
+                      <td className="p-3 tabular-nums text-amber-700">{branchSummary.reduce((s, b) => s + b.net, 0).toLocaleString('ar-EG')} ج.م</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
           {deliveryOrder.status === 'IN_PROGRESS' && (
             <>
               <DeliverForm deliveryOrderId={deliveryOrder.id} customers={customers} remainingItems={remaining} />
+              <KeyAccountSupplyForm
+                deliveryOrderId={deliveryOrder.id}
+                remainingItems={remaining}
+                keyAccounts={keyAccounts.map((a) => ({
+                  id: a.id,
+                  name: a.name,
+                  branches: a.branches.map((br) => ({ id: br.id, name: br.name })),
+                  quoteItems: (a.quotes[0]?.items || []).map((it) => ({ productId: it.productId, unitPrice: Number(it.unitPrice) })),
+                }))}
+              />
               <SettleForm deliveryOrderId={deliveryOrder.id} remainingItems={remaining} />
             </>
           )}

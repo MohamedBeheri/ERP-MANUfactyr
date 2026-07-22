@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Building2, Plus, X, ChevronDown, MapPin, Phone, Pencil, Trash2, Store,
-  FileText, Printer, Tag, AlertTriangle,
+  FileText, Printer, Tag, AlertTriangle, Wallet, HandCoins, PackageCheck,
 } from 'lucide-react'
 
 interface ProductLite {
@@ -27,10 +27,23 @@ interface Quote {
   status: string
   discountType: string
   discountPercent: number
-  adminExpenses: number
   createdAt: string
   itemsCount: number
   subtotal: number
+}
+interface Supply {
+  id: string
+  supplyNo: string
+  branchName: string
+  qty: number
+  netAmount: number
+  createdAt: string
+}
+interface Payment {
+  id: string
+  amount: number
+  method: string
+  createdAt: string
 }
 interface Account {
   id: string
@@ -44,6 +57,8 @@ interface Account {
   notes: string | null
   branches: Branch[]
   quotes: Quote[]
+  supplies: Supply[]
+  payments: Payment[]
 }
 
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
@@ -164,6 +179,7 @@ export function KeyAccountsManager({ accounts, products }: { accounts: Account[]
 
                   <BranchesSection account={a} />
                   <QuotesSection account={a} products={products} />
+                  <ClaimsSection account={a} />
                 </div>
               )}
             </div>
@@ -248,7 +264,6 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
   const [rows, setRows] = useState([{ productId: '', quantity: '', unitPrice: '' }])
   const [discountType, setDiscountType] = useState<'NONE' | 'CASH'>('NONE')
   const [discountPercent, setDiscountPercent] = useState('')
-  const [adminExpenses, setAdminExpenses] = useState('')
   const [notes, setNotes] = useState('')
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
@@ -270,9 +285,8 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
   }
 
   const subtotal = rows.reduce((s, r) => s + (Number(r.unitPrice) || 0) * (Number(r.quantity) || 0), 0)
-  const admin = Number(adminExpenses) || 0
-  const cashDisc = discountType === 'CASH' ? ((subtotal + admin) * (Number(discountPercent) || 0)) / 100 : 0
-  const net = subtotal + admin - cashDisc
+  const cashDisc = discountType === 'CASH' ? (subtotal * (Number(discountPercent) || 0)) / 100 : 0
+  const net = subtotal - cashDisc
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setErr('')
@@ -284,9 +298,9 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
     try {
       const q = await api('/api/price-quotes', 'POST', {
         keyAccountId: account.id, items, discountType,
-        discountPercent: Number(discountPercent) || 0, adminExpenses: admin, notes,
+        discountPercent: Number(discountPercent) || 0, notes,
       })
-      setRows([{ productId: '', quantity: '', unitPrice: '' }]); setDiscountType('NONE'); setDiscountPercent(''); setAdminExpenses(''); setNotes(''); setShow(false)
+      setRows([{ productId: '', quantity: '', unitPrice: '' }]); setDiscountType('NONE'); setDiscountPercent(''); setNotes(''); setShow(false)
       router.refresh()
       window.open(`/print/price-quote/${q.id}`, '_blank')
     } catch (e: any) { setErr(e.message) } finally { setLoading(false) }
@@ -339,17 +353,12 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
               <label className="block text-[11px] font-semibold text-gray-500 mb-1">نسبة الخصم %</label>
               <input type="number" min="0" max="100" step="0.5" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} disabled={discountType === 'NONE'} className={`${inputCls} disabled:bg-gray-100`} placeholder="25" />
             </div>
-            <div className="col-span-2">
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1">مصاريف إدارية تُحمّل على البيان (ج.م)</label>
-              <input type="number" min="0" step="0.01" value={adminExpenses} onChange={(e) => setAdminExpenses(e.target.value)} className={inputCls} placeholder="0" />
-            </div>
           </div>
           <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className={inputCls} />
 
           {subtotal > 0 && (
             <div className="bg-white rounded-lg p-2.5 text-xs space-y-1">
               <div className="flex justify-between"><span className="text-gray-500">إجمالي الأصناف</span><span className="font-semibold tabular-nums">{fmt(subtotal)} ج.م</span></div>
-              {admin > 0 && <div className="flex justify-between"><span className="text-gray-500">مصاريف إدارية</span><span className="font-semibold tabular-nums">+{fmt(admin)} ج.م</span></div>}
               {cashDisc > 0 && <div className="flex justify-between text-red-600"><span>خصم نقدي {discountPercent}%</span><span className="font-semibold tabular-nums">−{fmt(cashDisc)} ج.م</span></div>}
               <div className="flex justify-between border-t border-gray-100 pt-1 text-sm"><span className="font-bold">الصافي</span><span className="font-bold text-green-700 tabular-nums">{fmt(net)} ج.م</span></div>
             </div>
@@ -380,6 +389,70 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
               <a href={`/print/price-quote/${q.id}`} target="_blank" className="p-2 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded-lg" aria-label="طباعة"><Printer className="w-4 h-4" /></a>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ============ المطالبات والتحصيل ============ */
+function ClaimsSection({ account }: { account: Account }) {
+  const router = useRouter()
+  const collect = async () => {
+    const val = prompt(`مطالبات "${account.name}": ${fmt(account.balance)} ج.م\nاكتب المبلغ اللي هتحصّله:`)
+    if (!val) return
+    const res = await fetch(`/api/key-accounts/${account.id}/collect`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: Number(val) }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { alert(data.error || 'فشل التحصيل'); return }
+    router.refresh()
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-bold text-sm text-[#1a1a2e] flex items-center gap-1.5"><Wallet className="w-4 h-4 text-red-500" /> المطالبات والتحصيل</h4>
+        <button onClick={collect} disabled={account.balance <= 0} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <HandCoins className="w-3.5 h-3.5" /> تحصيل
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="bg-red-50 rounded-lg p-2.5">
+          <p className="text-[11px] text-gray-500">مطالبات مستحقة</p>
+          <p className="font-bold text-red-600 tabular-nums">{fmt(account.balance)} ج.م</p>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-2.5">
+          <p className="text-[11px] text-gray-500">إجمالي التوريدات</p>
+          <p className="font-bold text-[#1a1a2e] tabular-nums">{fmt(account.totalPurchases)} ج.م</p>
+        </div>
+      </div>
+
+      {account.supplies.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[11px] font-semibold text-gray-500 mb-1">آخر التوريدات للفروع</p>
+          <div className="space-y-1">
+            {account.supplies.map((s) => (
+              <div key={s.id} className="flex items-center justify-between text-xs border border-gray-100 rounded-lg p-2">
+                <span className="flex items-center gap-1.5"><PackageCheck className="w-3.5 h-3.5 text-amber-600" /> {s.branchName} · {s.qty} قطعة</span>
+                <span className="font-semibold tabular-nums text-amber-700">{fmt(s.netAmount)} ج.م</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {account.payments.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-500 mb-1">آخر التحصيلات</p>
+          <div className="space-y-1">
+            {account.payments.map((p) => (
+              <div key={p.id} className="flex items-center justify-between text-xs border border-gray-100 rounded-lg p-2">
+                <span className="flex items-center gap-1.5"><HandCoins className="w-3.5 h-3.5 text-green-600" /> {p.method} · {new Date(p.createdAt).toLocaleDateString('ar-EG')}</span>
+                <span className="font-semibold tabular-nums text-green-700">{fmt(p.amount)} ج.م</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
