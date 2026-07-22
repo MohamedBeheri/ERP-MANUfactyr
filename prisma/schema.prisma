@@ -331,6 +331,7 @@ model Production {
   expiryDate   DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
   recipeId     String? // الوصفة المستخدمة (BOM)
   operationId  String? // عملية التصنيع المستخدمة
+  channel      String   @default("المصنع") // جهة الإنتاج/الاستهلاك: المصنع / حلوان (الكافيه) / عبدالله (تحميص أجرة)
   // حقول قديمة للتوافق مع البيانات السابقة
   rawProductId String?
   rawUsed      Int         @default(0)

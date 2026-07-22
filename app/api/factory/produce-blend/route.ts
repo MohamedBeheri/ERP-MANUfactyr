@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
           lineType: 'ROASTING',
           stage: `إنتاج توليفة — ${blend.name}`,
           batchNo: b.batchNo || null,
+          channel: b.channel || 'المصنع',
           inputWeight: totalInput,
           outputWeight: outputKg,
           wasteWeight: waste,

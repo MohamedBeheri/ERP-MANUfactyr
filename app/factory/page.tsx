@@ -94,9 +94,14 @@ export default async function FactoryPage() {
             خط ١: بن أخضر ← تحميص (مع حساب الهدر) · خط ٢: بن محمّص ← خلط (BOM) ← طحن ← تعبئة
           </p>
         </div>
-        <Link href="/factory/produce" className="flex items-center gap-2 px-4 py-2.5 bg-[#e9b44c] text-[#1a1a2e] rounded-xl text-sm font-bold hover:bg-[#d9a43c] shrink-0">
-          أمر التصنيع الجديد (من الوصفات)
-        </Link>
+        <div className="flex gap-2 shrink-0">
+          <Link href="/factory/produce" className="flex items-center gap-2 px-4 py-2.5 bg-[#e9b44c] text-[#1a1a2e] rounded-xl text-sm font-bold hover:bg-[#d9a43c]">
+            أمر التصنيع (من الوصفات)
+          </Link>
+          <Link href="/factory/reconciliation" className="flex items-center gap-2 px-4 py-2.5 bg-white ring-1 ring-gray-200 text-[#0f3460] rounded-xl text-sm font-bold hover:bg-gray-50">
+            محضر التشغيل
+          </Link>
+        </div>
       </div>
 
       {/* إحصائيات */}

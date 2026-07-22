@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
           lineType: 'PROCESSING',
           stage: `تعبئة — ${fin.name}`,
           batchNo: b.batchNo || null,
+          channel: b.channel || 'المصنع',
           expiryDate: b.expiryDate ? new Date(b.expiryDate) : null,
           inputWeight: coffeeKg,
           outputWeight: boxes,
@@ -60,7 +61,12 @@ export async function POST(req: NextRequest) {
           rawUsed: coffeeKg,
           notes: b.notes || null,
           createdById: session.user.id,
-          inputs: { create: [{ productId: fin.blend!.id, quantity: coffeeKg, percentage: 100 }] },
+          inputs: {
+            create: [
+              { productId: fin.blend!.id, quantity: coffeeKg, percentage: 100 },
+              ...(fin.packaging ? [{ productId: fin.packaging.id, quantity: pieces, percentage: 0 }] : []),
+            ],
+          },
           items: { create: [{ productId: fin.id, quantity: boxes }] },
         },
       })

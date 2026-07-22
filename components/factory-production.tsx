@@ -10,6 +10,7 @@ interface FinishedT { id: string; name: string; blendName: string | null; hasBle
 interface ProdT { id: string; orderNo: string; stage: string; kind: string; output: string; inputWeight: number; wasteWeight: number; wastePercent: number; createdAt: string }
 
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
+const CHANNELS = ['المصنع', 'حلوان (الكافيه)', 'عبدالله (تحميص أجرة)']
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 
 export function FactoryProduction({ blends, finished, productions }: { blends: BlendT[]; finished: FinishedT[]; productions: ProdT[] }) {
@@ -59,6 +60,7 @@ export function FactoryProduction({ blends, finished, productions }: { blends: B
 function ProduceBlend({ blends, onDone }: { blends: BlendT[]; onDone: () => void }) {
   const [blendId, setBlendId] = useState('')
   const [outputKg, setOutputKg] = useState('')
+  const [channel, setChannel] = useState(CHANNELS[0])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const blend = blends.find((b) => b.id === blendId)
@@ -77,7 +79,7 @@ function ProduceBlend({ blends, onDone }: { blends: BlendT[]; onDone: () => void
     e.preventDefault(); setError('')
     if (!blendId || out <= 0) { setError('اختار التوليفة والكمية'); return }
     setLoading(true)
-    const res = await fetch('/api/factory/produce-blend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blendId, outputKg: out }) })
+    const res = await fetch('/api/factory/produce-blend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blendId, outputKg: out, channel }) })
     const data = await res.json(); setLoading(false)
     if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
     setBlendId(''); setOutputKg(''); onDone()
@@ -126,6 +128,7 @@ function ProduceBlend({ blends, onDone }: { blends: BlendT[]; onDone: () => void
 function PackFinished({ finished, onDone }: { finished: FinishedT[]; onDone: () => void }) {
   const [finishedId, setFinishedId] = useState('')
   const [boxes, setBoxes] = useState('')
+  const [channel, setChannel] = useState(CHANNELS[0])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const fin = finished.find((f) => f.id === finishedId)
@@ -138,7 +141,7 @@ function PackFinished({ finished, onDone }: { finished: FinishedT[]; onDone: () 
     e.preventDefault(); setError('')
     if (!finishedId || nBoxes <= 0) { setError('اختار المنتج وعدد العلب'); return }
     setLoading(true)
-    const res = await fetch('/api/factory/pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ finishedId, boxes: nBoxes }) })
+    const res = await fetch('/api/factory/pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ finishedId, boxes: nBoxes, channel }) })
     const data = await res.json(); setLoading(false)
     if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
     setFinishedId(''); setBoxes(''); onDone()
@@ -155,6 +158,9 @@ function PackFinished({ finished, onDone }: { finished: FinishedT[]; onDone: () 
         </select>
         <input type="number" min="1" value={boxes} onChange={(e) => setBoxes(e.target.value)} placeholder="عدد العلب" className={inputCls} />
       </div>
+      <select value={channel} onChange={(e) => setChannel(e.target.value)} className={inputCls}>
+        {CHANNELS.map((c) => <option key={c} value={c}>القناة: {c}</option>)}
+      </select>
 
       {fin && nBoxes > 0 && (
         <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1">
