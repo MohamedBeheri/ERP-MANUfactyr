@@ -91,6 +91,7 @@ model User {
   keyAccountPayments KeyAccountPayment[]
   deliveryReturns    DeliveryReturn[]
   supplierPayments   SupplierPayment[]
+  delegateProfile    Delegate? @relation("DelegateUser")
 
   @@map("users")
 }
@@ -736,12 +737,29 @@ model InvoiceItem {
   @@map("invoice_items")
 }
 
-// ============== DELEGATES (المندوبين) ==============
+// ============== VEHICLES (عربيات التوزيع) ==============
+model Vehicle {
+  id        String   @id @default(cuid())
+  plateNo   String   @unique // أرقام وحروف اللوحة (مثلا: س م ص ٢٢١٢)
+  model     String? // موديل/نوع العربية
+  capacity  Int      @default(0) // السعة التقريبية (وحدة)
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  delegates Delegate[]
+
+  @@map("vehicles")
+}
+
+// ============== DELEGATES (المندوبين — موظفي التوزيع) ==============
 model Delegate {
   id             String   @id @default(cuid())
   name           String
   phone          String?
-  carNumber      String? // رقم العربية
+  userId         String?  @unique // حساب دخول المندوب على السستم (لصفحته الشخصية)
+  vehicleId      String? // العربية المسندة إليه
+  carNumber      String? // (قديم — بيتعوّض بالعربية المرتبطة)
   area           String? // المنطقة
   route          String? // خط السير
   commissionRate Decimal  @default(5) @db.Decimal(5, 2) // نسبة العمولة
@@ -752,6 +770,8 @@ model Delegate {
   createdAt      DateTime @default(now())
 
   // Relations
+  user           User?    @relation("DelegateUser", fields: [userId], references: [id])
+  vehicle        Vehicle? @relation(fields: [vehicleId], references: [id])
   deliveryOrders DeliveryOrder[]
   settlements    Settlement[]
   invoices       Invoice[]

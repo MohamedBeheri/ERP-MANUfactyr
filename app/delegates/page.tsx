@@ -28,11 +28,13 @@ export default async function DelegatesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [delegates, products, deliveryOrders, warehouses] = await Promise.all([
+  const [delegates, products, deliveryOrders, warehouses, vehicles, delegateUsers] = await Promise.all([
     prisma.delegate.findMany({
       where: { isActive: true },
       orderBy: { createdAt: 'desc' },
       include: {
+        vehicle: true,
+        user: { select: { id: true, name: true, username: true } },
         deliveryOrders: { select: { id: true, status: true, createdAt: true } },
         settlements: { select: { cashAmount: true, creditAmount: true, soldQty: true, returnedQty: true } },
       },
@@ -44,6 +46,16 @@ export default async function DelegatesPage() {
       take: 30,
     }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
+    prisma.vehicle.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      include: { delegates: { where: { isActive: true }, select: { name: true } } },
+    }),
+    prisma.user.findMany({
+      where: { status: 'ACTIVE', role: { in: ['DELEGATE', 'SALES'] } },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, username: true },
+    }),
   ])
 
   // قياس أداء المناديب
@@ -63,7 +75,7 @@ export default async function DelegatesPage() {
 
   const perfRows = performance.map((p) => [
     p.d.name,
-    p.d.carNumber || '—',
+    p.d.vehicle?.plateNo || p.d.carNumber || '—',
     p.d.route || '—',
     p.tours,
     p.soldQty,
@@ -172,7 +184,7 @@ export default async function DelegatesPage() {
                       </span>
                     )}
                   </td>
-                  <td className="p-3 text-gray-500 tabular-nums">{d.carNumber || '—'}</td>
+                  <td className="p-3 text-gray-500 tabular-nums">{d.vehicle?.plateNo || d.carNumber || '—'}</td>
                   <td className="p-3 text-gray-500">{d.route || '—'}</td>
                   <td className="p-3 tabular-nums">{tours}</td>
                   <td className="p-3 tabular-nums font-semibold">{soldQty}</td>
@@ -196,11 +208,11 @@ export default async function DelegatesPage() {
         </div>
       </div>
 
-      {/* إدارة المناديب */}
+      {/* إدارة الأسطول: المناديب والعربيات */}
       <div className="no-print">
         <div className="flex items-center gap-2 mb-3">
           <Users className="w-5 h-5 text-[#0f3460]" />
-          <h2 className="text-base font-bold text-[#1a1a2e]">إدارة المناديب ({delegates.length})</h2>
+          <h2 className="text-base font-bold text-[#1a1a2e]">إدارة الأسطول (المناديب والعربيات)</h2>
         </div>
         <DelegateManager
           delegates={delegates.map((d) => ({
@@ -213,7 +225,20 @@ export default async function DelegatesPage() {
             commissionRate: Number(d.commissionRate),
             totalSales: Number(d.totalSales),
             commissionDue: Number(d.commissionDue),
+            vehicleId: d.vehicleId,
+            vehiclePlate: d.vehicle?.plateNo || null,
+            userId: d.userId,
+            userName: d.user?.name || null,
           }))}
+          vehicles={vehicles.map((v) => ({
+            id: v.id,
+            plateNo: v.plateNo,
+            model: v.model,
+            capacity: v.capacity,
+            notes: v.notes,
+            delegateNames: v.delegates.map((x) => x.name),
+          }))}
+          users={delegateUsers}
         />
       </div>
     </div>

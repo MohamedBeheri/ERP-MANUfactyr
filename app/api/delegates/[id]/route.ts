@@ -9,7 +9,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if ('response' in auth) return auth.response
 
   try {
-    const { name, phone, carNumber, area, route, commissionRate } = await req.json()
+    const b = await req.json()
+    const { name, phone, carNumber, area, route, commissionRate } = b
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم المندوب مطلوب' }, { status: 400 })
     }
@@ -22,10 +23,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         area,
         route,
         commissionRate: commissionRate !== undefined ? Number(commissionRate) : undefined,
+        vehicleId: b.vehicleId !== undefined ? b.vehicleId || null : undefined,
+        userId: b.userId !== undefined ? b.userId || null : undefined,
       },
     })
     return NextResponse.json(delegate)
-  } catch {
+  } catch (e: any) {
+    if (e?.code === 'P2002') return NextResponse.json({ error: 'حساب الدخول ده مربوط بمندوب تاني' }, { status: 400 })
     return NextResponse.json({ error: 'Failed to update delegate' }, { status: 500 })
   }
 }

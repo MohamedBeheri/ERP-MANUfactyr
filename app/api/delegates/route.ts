@@ -32,11 +32,17 @@ export async function POST(req: NextRequest) {
     }
 
     const delegate = await prisma.delegate.create({
-      data: { name, phone, carNumber, area, route, commissionRate: commissionRate ?? 5 },
+      data: {
+        name, phone, carNumber, area, route,
+        commissionRate: commissionRate ?? 5,
+        vehicleId: body.vehicleId || null,
+        userId: body.userId || null,
+      },
     })
 
     return NextResponse.json(delegate, { status: 201 })
-  } catch (error) {
+  } catch (e: any) {
+    if (e?.code === 'P2002') return NextResponse.json({ error: 'حساب الدخول ده مربوط بمندوب تاني' }, { status: 400 })
     return NextResponse.json({ error: 'Failed to create delegate' }, { status: 500 })
   }
 }

@@ -51,7 +51,10 @@ export function effectivePermissions(role?: string, permissions?: string[]): str
 }
 
 export function canAccessPath(path: string, role?: string, permissions?: string[]): boolean {
+  const perms = effectivePermissions(role, permissions)
+  // المندوب (صلاحية drivers فقط) يقدر يفتح شاشة جولته /delegates/{id} بس مش إدارة الأسطول /delegates
+  if (path.startsWith('/delegates/') && perms.includes('drivers')) return true
   const match = PATH_PERMS.find((p) => path.startsWith(p.prefix))
   if (!match) return true // مسارات عامة زي /dashboard
-  return effectivePermissions(role, permissions).includes(match.key)
+  return perms.includes(match.key)
 }
