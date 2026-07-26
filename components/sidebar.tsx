@@ -10,6 +10,7 @@ import {
   Coffee,
   Warehouse,
   ShoppingCart,
+  ShoppingBag,
   Truck,
   Car,
   Wallet,
@@ -24,27 +25,56 @@ import {
 } from 'lucide-react'
 import { effectivePermissions } from '@/lib/permissions'
 
-const menuItems = [
-  { href: '/dashboard', label: 'لوحة التحكم', Icon: LayoutDashboard, perm: null },
-  { href: '/factory', label: 'المصنع', Icon: Factory, perm: 'factory' },
-  { href: '/catalog', label: 'بنك الأصناف', Icon: Coffee, perm: 'catalog' },
-  { href: '/warehouse', label: 'المخزن', Icon: Warehouse, perm: 'warehouse' },
-  { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, perm: 'sales' },
-  { href: '/customers', label: 'العملاء', Icon: Users, perm: 'customers' },
-  { href: '/key-accounts', label: 'كبار الموردين', Icon: Building2, perm: 'keyaccounts' },
-  { href: '/delegates', label: 'إدارة المناديب', Icon: Truck, perm: 'delegates' },
-  { href: '/drivers', label: 'المناديب', Icon: Car, perm: 'drivers' },
-  { href: '/store-settings', label: 'موقع العميل', Icon: Store, perm: 'store' },
-  { href: '/online-orders', label: 'طلبات الموقع', Icon: PackageOpen, perm: 'store' },
-  { href: '/finance', label: 'التقارير', Icon: Wallet, perm: 'finance' },
-  { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, perm: 'governance' },
-  { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },
+// القائمة مجمّعة في فئات تبويبية (زي نظام السعفة)
+const menuGroups: { title: string | null; items: { href: string; label: string; Icon: any; perm: string | null }[] }[] = [
+  {
+    title: null,
+    items: [{ href: '/dashboard', label: 'لوحة التحكم', Icon: LayoutDashboard, perm: null }],
+  },
+  {
+    title: 'التصنيع والمخازن',
+    items: [
+      { href: '/factory', label: 'المصنع', Icon: Factory, perm: 'factory' },
+      { href: '/catalog', label: 'بنك الأصناف', Icon: Coffee, perm: 'catalog' },
+      { href: '/purchases', label: 'المشتريات', Icon: ShoppingBag, perm: 'purchases' },
+      { href: '/warehouse', label: 'المخزن', Icon: Warehouse, perm: 'warehouse' },
+    ],
+  },
+  {
+    title: 'البيع والتوزيع',
+    items: [
+      { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, perm: 'sales' },
+      { href: '/customers', label: 'العملاء', Icon: Users, perm: 'customers' },
+      { href: '/key-accounts', label: 'كبار الموردين', Icon: Building2, perm: 'keyaccounts' },
+      { href: '/delegates', label: 'إدارة المناديب', Icon: Truck, perm: 'delegates' },
+      { href: '/drivers', label: 'المناديب', Icon: Car, perm: 'drivers' },
+    ],
+  },
+  {
+    title: 'الموقع الإلكتروني',
+    items: [
+      { href: '/store-settings', label: 'موقع العميل', Icon: Store, perm: 'store' },
+      { href: '/online-orders', label: 'طلبات الموقع', Icon: PackageOpen, perm: 'store' },
+    ],
+  },
+  {
+    title: 'الإدارة',
+    items: [
+      { href: '/finance', label: 'التقارير', Icon: Wallet, perm: 'finance' },
+      { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, perm: 'governance' },
+      { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },
+    ],
+  },
 ]
 
 export function Sidebar({ user, open = false, onClose }: { user: any; open?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const allowed = effectivePermissions(user?.role, user?.permissions)
-  const filteredMenu = menuItems.filter((item) => !item.perm || allowed.includes(item.perm))
+  // صلاحية القسم: المفتاح الكامل أو أي فعل جزئي (key:action)
+  const hasPerm = (perm: string | null) => !perm || allowed.includes(perm) || allowed.some((p) => p.startsWith(perm + ':'))
+  const filteredGroups = menuGroups
+    .map((g) => ({ ...g, items: g.items.filter((item) => hasPerm(item.perm)) }))
+    .filter((g) => g.items.length > 0)
 
   return (
     <aside
@@ -76,25 +106,34 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
         </div>
       </div>
       <nav className="p-3 space-y-1">
-        {filteredMenu.map(({ href, label, Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/')
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onClose}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                active
-                  ? 'bg-[#e94560]/10 text-[#e94560]'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <Icon className="w-5 h-5 shrink-0" strokeWidth={active ? 2.2 : 1.8} />
-              <span className="font-medium text-sm">{label}</span>
-              {active && <span className="mr-auto w-1.5 h-1.5 rounded-full bg-[#e94560]" />}
-            </Link>
-          )
-        })}
+        {filteredGroups.map((group, gi) => (
+          <div key={group.title || gi} className={gi > 0 ? 'pt-3' : ''}>
+            {group.title && (
+              <p className="px-4 pb-1.5 text-[10px] font-bold text-gray-500 tracking-wide">{group.title}</p>
+            )}
+            <div className="space-y-1">
+              {group.items.map(({ href, label, Icon }) => {
+                const active = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={onClose}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
+                      active
+                        ? 'bg-[#e94560]/10 text-[#e94560]'
+                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" strokeWidth={active ? 2.2 : 1.8} />
+                    <span className="font-medium text-sm">{label}</span>
+                    {active && <span className="mr-auto w-1.5 h-1.5 rounded-full bg-[#e94560]" />}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
         <div className="pt-6 mt-4 border-t border-white/10">
           <button
             onClick={() => signOut({ callbackUrl: '/' })}

@@ -5,10 +5,19 @@ import { useRouter } from 'next/navigation'
 
 interface WarehouseOption { id: string; name: string; isDefault: boolean }
 interface Props {
-  products: { id: string; name: string; unit: string }[]
+  products: { id: string; name: string; unit: string; itemKind?: string }[]
   suppliers: { id: string; name: string }[]
   warehouses?: WarehouseOption[]
 }
+
+// تجميع أصناف بنك الأصناف في القائمة حسب النوع
+const KIND_GROUPS: { key: string; label: string }[] = [
+  { key: 'GREEN', label: 'بن أخضر' },
+  { key: 'ROASTED', label: 'بن محمص' },
+  { key: 'SPICE', label: 'عطارة' },
+  { key: 'FLAVOR', label: 'نكهات' },
+  { key: 'PACKAGING', label: 'مواد تغليف' },
+]
 
 const PAY_METHODS = ['نقدي فوري', 'آجل', 'نقدي جزئي'] as const
 const inputCls = 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
@@ -115,7 +124,18 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
           <div key={i} className="flex gap-2">
             <select value={item.productId} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, productId: e.target.value } : it))} className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm">
               <option value="">الصنف</option>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {KIND_GROUPS.map((g) => {
+                const list = products.filter((p) => p.itemKind === g.key)
+                if (list.length === 0) return null
+                return (
+                  <optgroup key={g.key} label={g.label}>
+                    {list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </optgroup>
+                )
+              })}
+              {products.filter((p) => !p.itemKind || !KIND_GROUPS.some((g) => g.key === p.itemKind)).map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
             </select>
             <input type="number" min="1" placeholder="الكمية" value={item.quantity} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, quantity: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             <input type="number" min="0" step="0.01" placeholder="السعر" value={item.unitPrice} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, unitPrice: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />

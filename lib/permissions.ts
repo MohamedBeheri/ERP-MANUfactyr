@@ -2,6 +2,7 @@
 export const PERMISSIONS = [
   { key: 'factory', label: 'المصنع (تصنيع وأوامر شراء)', path: '/factory' },
   { key: 'catalog', label: 'بنك الأصناف (بن/عطارة/توليفات)', path: '/catalog' },
+  { key: 'purchases', label: 'المشتريات وأوامر التوريد', path: '/purchases' },
   { key: 'warehouse', label: 'المخزن والجرد', path: '/warehouse' },
   { key: 'sales', label: 'المبيعات ونقطة البيع', path: '/sales' },
   { key: 'customers', label: 'العملاء والبروفايلات', path: '/customers' },
@@ -29,6 +30,7 @@ export type ActionKey = (typeof ACTIONS)[number]['key']
 const PATH_PERMS: { prefix: string; key: string }[] = [
   { prefix: '/factory', key: 'factory' },
   { prefix: '/catalog', key: 'catalog' },
+  { prefix: '/purchases', key: 'purchases' },
   { prefix: '/warehouse', key: 'warehouse' },
   { prefix: '/sales', key: 'sales' },
   { prefix: '/customers', key: 'customers' },
@@ -46,8 +48,8 @@ const PATH_PERMS: { prefix: string; key: string }[] = [
 // المندوب/المحاسب صلاحياتهم محدودة (view + add بس)، المصنع/المبيعات كل الأفعال في أقسامهم، الأدمن كل حاجة.
 export const ROLE_DEFAULTS: Record<string, string[]> = {
   ADMIN: PERMISSIONS.map((p) => p.key), // كل الأقسام بكل الأفعال
-  FACTORY: ['factory', 'catalog', 'warehouse'],
-  WAREHOUSE: ['warehouse'],
+  FACTORY: ['factory', 'catalog', 'purchases', 'warehouse'],
+  WAREHOUSE: ['warehouse', 'purchases'],
   SALES: ['sales', 'customers', 'keyaccounts', 'delegates', 'drivers', 'store'],
   ACCOUNTANT: ['finance', 'customers:view', 'sales:view'],
   DELEGATE: ['drivers'],

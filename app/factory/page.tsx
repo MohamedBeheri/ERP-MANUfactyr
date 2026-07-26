@@ -5,7 +5,6 @@ import { Printer, Flame, ShoppingBag, Blend, TrendingDown, Package2, Image as Im
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
-import { PurchaseForm } from '@/components/purchase-form'
 import { RecipeManager } from '@/components/recipe-manager'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +17,7 @@ export default async function FactoryPage() {
 
   await ensureStockStages()
 
-  const [productions, purchases, products, suppliers, operations, warehouses, recipes] = await Promise.all([
+  const [productions, products, operations, warehouses, recipes] = await Promise.all([
     prisma.production.findMany({
       include: {
         items: { include: { product: true } },
@@ -30,13 +29,7 @@ export default async function FactoryPage() {
       orderBy: { createdAt: 'desc' },
       take: 25,
     }),
-    prisma.purchase.findMany({
-      include: { supplier: true, items: { include: { product: true } }, creator: true },
-      orderBy: { createdAt: 'desc' },
-      take: 15,
-    }),
     prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-    prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.productionOperation.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -224,73 +217,6 @@ export default async function FactoryPage() {
           {/* الوصفات */}
           <RecipeManager recipes={recipeLite} products={products.map((p) => ({ id: p.id, name: p.name, type: p.type }))} />
 
-          {/* أوامر الشراء */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 p-5 pb-3">
-              <ShoppingBag className="w-5 h-5 text-[#0f3460]" />
-              <h3 className="text-base font-bold text-[#1a1a2e]">أوامر الشراء (توريد البن الأخضر)</h3>
-              <span className="text-xs text-gray-400">({purchases.length})</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
-                    <th className="p-3 font-medium">رقم الفاتورة</th>
-                    <th className="p-3 font-medium">المورد</th>
-                    <th className="p-3 font-medium">الأصناف</th>
-                    <th className="p-3 font-medium">الإجمالي</th>
-                    <th className="p-3 font-medium">الدفع للمورد</th>
-                    <th className="p-3 font-medium no-print"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {purchases.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-gray-500">مفيش فواتير شراء لسه.</td></tr>
-                  )}
-                  {purchases.map((pur) => (
-                    <tr key={pur.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                      <td className="p-3 font-semibold tabular-nums">{pur.invoiceNo}</td>
-                      <td className="p-3">{pur.supplier.name}</td>
-                      <td className="p-3">
-                        <div className="flex flex-wrap gap-1">
-                          {pur.items.map((item) => (
-                            <span key={item.id} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
-                              {item.product.name} {item.quantity} {item.product.unit}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="p-3 font-semibold tabular-nums">{Number(pur.totalAmount).toLocaleString('ar-EG')} ج.م</td>
-                      <td className="p-3">
-                        {(() => {
-                          const owed = Number(pur.totalAmount) - Number(pur.paidAmount)
-                          const cls = owed <= 0 ? 'bg-green-50 text-green-600' : Number(pur.paidAmount) > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-600'
-                          return (
-                            <div className="flex flex-col gap-0.5">
-                              <span className={`w-fit px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>{pur.paymentMethod}</span>
-                              {owed > 0 && <span className="text-[10px] text-red-600 tabular-nums">مستحق {owed.toLocaleString('ar-EG')} ج.م</span>}
-                            </div>
-                          )
-                        })()}
-                      </td>
-                      <td className="p-3 no-print">
-                        <div className="flex items-center gap-2">
-                          {pur.invoiceImage && (
-                            <a href={pur.invoiceImage} target="_blank" className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium hover:underline">
-                              <ImageIcon className="w-3.5 h-3.5" /> الفاتورة
-                            </a>
-                          )}
-                          <Link href={`/print/purchase/${pur.id}`} className="inline-flex items-center gap-1 text-xs text-[#0f3460] font-medium hover:underline">
-                            <Printer className="w-3.5 h-3.5" /> أمر شراء
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
         <div className="space-y-4">
@@ -306,11 +232,18 @@ export default async function FactoryPage() {
               </div>
             </div>
           </Link>
-          <PurchaseForm
-            products={rawProducts.map((p) => ({ id: p.id, name: p.name, unit: p.unit }))}
-            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-            warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-          />
+          {/* المشتريات بقت شاشة مستقلة — أوامر الشراء لأي مكوّن من بنك الأصناف */}
+          <Link href="/purchases" className="block bg-white ring-1 ring-gray-200 p-5 rounded-xl shadow-sm hover:ring-[#0f3460]/40 hover:-translate-y-0.5 transition-all">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                <ShoppingBag className="w-6 h-6 text-[#0f3460]" />
+              </div>
+              <div>
+                <p className="font-bold text-base text-[#1a1a2e]">شاشة المشتريات</p>
+                <p className="text-xs text-gray-500 mt-0.5">أوامر شراء البن والعطارة والتغليف · مستحقات الموردين</p>
+              </div>
+            </div>
+          </Link>
 
           <div className="bg-white p-5 rounded-xl shadow-sm">
             <h3 className="text-sm font-bold text-[#1a1a2e] mb-3">رصيد الخامات</h3>
