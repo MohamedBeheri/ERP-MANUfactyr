@@ -19,6 +19,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { customerId, items } = body
     // طريقة الدفع: نقدي فوري | آجل | نقدي جزئي
     const paymentMethod = body.paymentMethod || (body.type === 'CREDIT' ? 'آجل' : 'نقدي فوري')
+    // طريقة استلام المبلغ (للفوري والجزئي فقط): نقدي | تحويل محفظة | تحويل انستا
+    const COLLECTION = ['نقدي', 'تحويل محفظة', 'تحويل انستا']
+    const collectionMethod = paymentMethod !== 'آجل' && COLLECTION.includes(body.collectionMethod) ? body.collectionMethod : null
     const notes = body.notes?.trim() || null
 
     if (!customerId || !Array.isArray(items) || items.length === 0) {
@@ -126,6 +129,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         paidAmount,
         type,
         paymentMethod,
+        collectionMethod,
         invoiceNotes: notes,
         delegateId: deliveryOrder.delegateId,
         deliveryOrderId: deliveryOrder.id,

@@ -34,6 +34,7 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
         { label: 'تليفون', value: inv.customer.phone || '—' },
         ...(inv.customer.address ? [{ label: 'العنوان', value: inv.customer.address }] : []),
         { label: 'طريقة الدفع', value: inv.paymentMethod },
+        ...(inv.collectionMethod ? [{ label: 'طريقة الاستلام', value: inv.collectionMethod }] : []),
         ...(inv.delegate ? [{ label: 'المندوب', value: inv.delegate.name }] : []),
         { label: 'المسجّل', value: inv.creator.name },
       ]}

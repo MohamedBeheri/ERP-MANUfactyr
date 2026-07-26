@@ -701,7 +701,8 @@ model Invoice {
   netAmount       Decimal       @db.Decimal(12, 2)
   paidAmount      Decimal       @default(0) @db.Decimal(12, 2) // المبلغ المدفوع فعليًا (للدفع الجزئي)
   type            PaymentType
-  paymentMethod   String        @default("نقدي") // نقدي / فيزا / آجل / نقدي جزئي
+  paymentMethod   String        @default("نقدي") // نقدي فوري / آجل / نقدي جزئي
+  collectionMethod String? // طريقة استلام المبلغ: نقدي / تحويل محفظة / تحويل انستا (للفوري والجزئي)
   invoiceNotes    String? // ملاحظات المندوب على الفاتورة
   pointId         String?
   delegateId      String? // لو الفاتورة اتعملت أثناء جولة توزيع مندوب
