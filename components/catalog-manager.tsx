@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Coffee, Leaf, Sparkles, Blend, Package, Boxes, Plus, X, Pencil, Trash2, FlaskConical } from 'lucide-react'
 
-interface Component { componentId: string; componentName?: string; componentKind?: string; percent: number; perKilo: number }
+interface Component { componentId: string; componentName?: string; componentKind?: string; percent: number; perKilo: number; roastDegree?: string | null }
 interface Item {
   id: string
   name: string
@@ -118,7 +118,7 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
   }
 
   const kindLabel = KINDS.find((k) => k.key === kind)!.label
-  const pctTotal = components.filter((c) => blendable.find((b) => b.id === c.componentId)?.itemKind === 'GREEN').reduce((s, c) => s + (Number(c.percent) || 0), 0)
+  const pctTotal = components.filter((c) => c.componentId).reduce((s, c) => s + (Number(c.percent) || 0), 0)
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
@@ -145,30 +145,39 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
 
         {kind === 'BLEND' && (
           <div className="space-y-2">
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500"><FlaskConical className="w-3.5 h-3.5" /> الوصفة (بن أخضر بنسبة % / عطارة بجرعة لكل كيلو)</label>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500"><FlaskConical className="w-3.5 h-3.5" /> الوصفة (كل مكوّن بنسبة مئوية — المجموع = 100%)</label>
+            <p className="text-[10px] text-gray-400">مثال: توليفة قهوة بندق = 20% بن أخضر إندونيسي (فاتح) + 80% نكهة البندق. الأوزان بتتحسب وقت التصنيع من الكمية المخططة.</p>
             {components.map((c, i) => {
               const comp = blendable.find((b) => b.id === c.componentId)
               const isGreen = comp?.itemKind === 'GREEN'
               return (
-                <div key={i} className="flex gap-2">
+                <div key={i} className="flex gap-2 items-center">
                   <select value={c.componentId} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, componentId: e.target.value } : x))} className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded-lg text-sm">
                     <option value="">اختار المكوّن</option>
                     <optgroup label="بن أخضر">{blendable.filter((b) => b.itemKind === 'GREEN').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
                     <optgroup label="عطارة">{blendable.filter((b) => b.itemKind === 'SPICE').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
                     <optgroup label="نكهات">{blendable.filter((b) => b.itemKind === 'FLAVOR').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
                   </select>
-                  {isGreen ? (
-                    <input type="number" min="0" step="0.01" placeholder="%" value={c.percent || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, percent: Number(e.target.value) } : x))} className="w-16 shrink-0 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums" />
-                  ) : (
-                    <input type="number" min="0" step="0.1" placeholder="جم/كيلو" value={c.perKilo || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, perKilo: Number(e.target.value) } : x))} className="w-20 shrink-0 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums" />
+                  {isGreen && (
+                    <select value={c.roastDegree || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, roastDegree: e.target.value } : x))} className="w-20 shrink-0 px-1 py-2 border border-gray-300 rounded-lg text-xs">
+                      <option value="">درجة</option>
+                      <option value="فاتح">فاتح</option>
+                      <option value="وسط">وسط</option>
+                      <option value="غامق">غامق</option>
+                      <option value="غامق جداً">غامق جداً</option>
+                    </select>
                   )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <input type="number" min="0" max="100" step="0.5" placeholder="0" value={c.percent || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, percent: Number(e.target.value) } : x))} className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums text-center" />
+                    <span className="text-xs text-gray-400">%</span>
+                  </div>
                   <button type="button" onClick={() => setComponents(components.filter((_, j) => j !== i))} className="shrink-0 text-red-500"><X className="w-4 h-4" /></button>
                 </div>
               )
             })}
             <button type="button" onClick={() => setComponents([...components, { componentId: '', percent: 0, perKilo: 0 }])} className="text-xs text-[#0f3460] font-medium flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> إضافة مكوّن</button>
             {components.length > 0 && (
-              <p className={`text-[11px] ${Math.abs(pctTotal - 100) < 0.5 ? 'text-green-600' : 'text-amber-600'}`}>مجموع نِسب البن الأخضر: {fmt(pctTotal)}%{Math.abs(pctTotal - 100) >= 0.5 ? ' (المفروض 100%)' : ' ✓'}</p>
+              <p className={`text-xs font-bold ${Math.abs(pctTotal - 100) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>مجموع نسب الوصفة: {fmt(pctTotal)}% {Math.abs(pctTotal - 100) < 0.01 ? '✓' : `(المطلوب 100% — ناقص/زيادة ${fmt(Math.abs(100 - pctTotal))}%)`}</p>
             )}
           </div>
         )}
@@ -250,7 +259,7 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
                 </div>
                 {kind === 'BLEND' && it.components.length > 0 && (
                   <p className="text-[11px] text-gray-500 mt-1">
-                    {it.components.map((c) => `${c.componentName} ${c.percent > 0 ? c.percent + '%' : c.perKilo + 'جم/كيلو'}`).join(' · ')}
+                    {it.components.map((c) => `${c.percent}% ${c.componentName}${c.roastDegree ? ` (${c.roastDegree})` : ''}`).join(' · ')}
                   </p>
                 )}
               </div>

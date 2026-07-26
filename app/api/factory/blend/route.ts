@@ -36,40 +36,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'التوليفة غير موجودة' }, { status: 400 })
     }
 
-    const coffeeComps = blend.blendComponents.filter((c) => Number(c.percent) > 0)
-    const spiceComps = blend.blendComponents.filter((c) => Number(c.perKilo) > 0)
+    const activeComps = blend.blendComponents.filter((c) => Number(c.percent) > 0)
 
-    const invalid = validateBlendPercents(coffeeComps.map((c) => ({ percent: Number(c.percent) })))
+    // تحقق: مجموع نسب كل المكوّنات (بن + عطارة + نكهات) لازم = 100%
+    const invalid = validateBlendPercents(activeComps.map((c) => ({ percent: Number(c.percent) })))
     if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
 
-    const coffeeInputs: { productId: string; name: string; kg: number; whId: string; pct: number }[] = []
-    for (const c of coffeeComps) {
-      const degree = c.roastDegree || 'وسط'
-      const roasted = await ensureRoastedVariant(prisma, c.component, degree)
+    // كل مكوّن: kg = plannedKg × نسبته٪ / 100. GREEN بيتحول لمحمص، الباقي (SPICE/FLAVOR/ROASTED) بيستخدم مباشرة
+    const allInputs: { productId: string; name: string; kg: number; whId: string; pct: number; kind: string }[] = []
+    for (const c of activeComps) {
       const kg = Math.max(1, Math.round((plannedKg * Number(c.percent)) / 100))
-      const whId = await warehouseForStage(roasted.stageId)
-      const stock = await getStock(whId, roasted.id)
+      let productId = c.component.id
+      let name = c.component.name
+      let stageId = c.component.stageId
+
+      // GREEN: نستخدم المحمص بدرجته (زي ما اتحمّص في مرحلة التحميص)
+      if (c.component.itemKind === 'GREEN') {
+        const degree = c.roastDegree || 'وسط'
+        const roasted = await ensureRoastedVariant(prisma, c.component, degree)
+        productId = roasted.id; name = roasted.name; stageId = roasted.stageId
+      }
+
+      const whId = await warehouseForStage(stageId)
+      const stock = await getStock(whId, productId)
       if (stock < kg) {
         return NextResponse.json(
-          { error: `مخزون "${roasted.name}" غير كافي (المتاح: ${stock} / المطلوب: ${kg} كجم) — لازم تحمّص ${c.component.name} (${degree}) الأول.` },
+          { error: `مخزون "${name}" غير كافي (المتاح: ${stock} / المطلوب: ${kg} كجم)${c.component.itemKind === 'GREEN' ? ` — لازم تحمّص الأول` : ''}.` },
           { status: 400 }
         )
       }
-      coffeeInputs.push({ productId: roasted.id, name: roasted.name, kg, whId, pct: Number(c.percent) })
+      allInputs.push({ productId, name, kg, whId, pct: Number(c.percent), kind: c.component.itemKind })
     }
 
-    const spiceInputs: { productId: string; name: string; kg: number; whId: string }[] = []
-    for (const c of spiceComps) {
-      const kg = Math.max(1, Math.round(Number(c.perKilo) * plannedKg))
-      const whId = await warehouseForStage(c.component.stageId)
-      const stock = await getStock(whId, c.component.id)
-      if (stock < kg) {
-        return NextResponse.json({ error: `مخزون ${c.component.name} غير كافي (المتاح: ${stock} / المطلوب: ${kg})` }, { status: 400 })
-      }
-      spiceInputs.push({ productId: c.component.id, name: c.component.name, kg, whId })
-    }
-
-    const totalIn = coffeeInputs.reduce((s, i) => s + i.kg, 0) + spiceInputs.reduce((s, i) => s + i.kg, 0)
+    const totalIn = allInputs.reduce((s, i) => s + i.kg, 0)
 
     const production = await prisma.$transaction(async (tx) => {
       const batchNo = await nextBatchNo(tx, 'TLF')
@@ -90,10 +89,7 @@ export async function POST(req: NextRequest) {
           notes: b.notes?.trim() || null,
           createdById: session.user.id,
           inputs: {
-            create: [
-              ...coffeeInputs.map((i) => ({ productId: i.productId, quantity: i.kg, percentage: i.pct })),
-              ...spiceInputs.map((i) => ({ productId: i.productId, quantity: i.kg, percentage: 0 })),
-            ],
+            create: allInputs.map((i) => ({ productId: i.productId, quantity: i.kg, percentage: i.pct })),
           },
           items: { create: [{ productId: blend.id, quantity: 0 }] }, // placeholder
         },
@@ -101,7 +97,7 @@ export async function POST(req: NextRequest) {
       })
 
       // خصم المدخلات فورًا (الماكينة اشتغلت)
-      for (const inp of [...coffeeInputs, ...spiceInputs]) {
+      for (const inp of allInputs) {
         await tx.product.update({ where: { id: inp.productId }, data: { quantity: { decrement: inp.kg } } })
         await adjustStock(tx, inp.whId, inp.productId, -inp.kg)
       }

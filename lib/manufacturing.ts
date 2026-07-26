@@ -107,11 +107,11 @@ export async function flagWasteIfExceeded(
   return true
 }
 
-// تحقق وصفة التوليفة: مجموع نسب مكوّنات البن لازم = 100% بالظبط
-export function validateBlendPercents(components: { percent?: number; perKilo?: number }[]): string | null {
-  const coffeeComps = components.filter((c) => (Number(c.percent) || 0) > 0)
-  if (coffeeComps.length === 0) return 'الوصفة لازم فيها مكوّن بن واحد على الأقل بنسبة مئوية'
-  const sum = +coffeeComps.reduce((s, c) => s + (Number(c.percent) || 0), 0).toFixed(3)
-  if (sum !== 100) return `مجموع نسب البن في الوصفة لازم يساوي 100% بالظبط (الحالي: ${sum}%)`
+// تحقق وصفة التوليفة: مجموع نسب كل المكوّنات (بن + عطارة + نكهات) لازم = 100% بالظبط
+export function validateBlendPercents(components: { percent?: number }[]): string | null {
+  const active = components.filter((c) => (Number(c.percent) || 0) > 0)
+  if (active.length === 0) return 'الوصفة لازم فيها مكوّن واحد على الأقل بنسبة'
+  const sum = +active.reduce((s, c) => s + (Number(c.percent) || 0), 0).toFixed(3)
+  if (sum !== 100) return `مجموع نسب المكوّنات لازم يساوي 100% بالظبط (الحالي: ${sum}%)`
   return null
 }

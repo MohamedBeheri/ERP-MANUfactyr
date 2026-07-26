@@ -282,15 +282,14 @@ function GrindAndBlendForm({ blends, onDone }: { blends: BlendT[]; onDone: () =>
 
   const blend = blends.find((b) => b.id === blendId)
   const outN = Number(planned) || 0
-  const coffeeComps = (blend?.components || []).filter((c) => c.percent > 0)
-  const spiceComps = (blend?.components || []).filter((c) => c.perKilo > 0)
-  const pctSum = +coffeeComps.reduce((s, c) => s + c.percent, 0).toFixed(3)
+  const activeComps = (blend?.components || []).filter((c) => c.percent > 0)
+  const pctSum = +activeComps.reduce((s, c) => s + c.percent, 0).toFixed(3)
   const pctOk = pctSum === 100
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
     if (!blendId || outN <= 0 || !fineness) { setError('اختار التوليفة والكمية المخطط طحنها ودرجة النعومة'); return }
-    if (!pctOk) { setError(`مجموع نسب البن في الوصفة = ${pctSum}% — لازم يساوي 100% بالظبط (عدّلها من بنك الأصناف)`); return }
+    if (!pctOk) { setError(`مجموع نسب الوصفة = ${pctSum}% — لازم يساوي 100% بالظبط (عدّلها من بنك الأصناف)`); return }
     setLoading(true)
     const res = await fetch('/api/factory/blend', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -330,20 +329,19 @@ function GrindAndBlendForm({ blends, onDone }: { blends: BlendT[]; onDone: () =>
 
       {blend && (
         <div className={`rounded-lg p-3 text-xs space-y-1 ${pctOk ? 'bg-gray-50' : 'bg-red-50 border border-red-200'}`}>
-          {coffeeComps.map((c, i) => (
+          {activeComps.map((c, i) => (
             <div key={i} className="flex justify-between">
-              <span>{c.percent}% {c.name} <b className="text-orange-600">({c.roastDegree || 'وسط'})</b></span>
-              {outN > 0 && <span className="tabular-nums font-semibold">{fmt((outN * c.percent) / 100)} كجم محمص</span>}
-            </div>
-          ))}
-          {spiceComps.map((c, i) => (
-            <div key={'s' + i} className="flex justify-between text-gray-500">
-              <span>{c.name} ({c.perKilo} {c.unit}/كيلو)</span>
-              {outN > 0 && <span className="tabular-nums">{fmt(c.perKilo * outN)}</span>}
+              <span>
+                {c.percent}% {c.name}
+                {c.kind === 'GREEN' && <b className="text-orange-600"> (تحميص {c.roastDegree || 'وسط'})</b>}
+                {c.kind === 'SPICE' && <span className="text-purple-600"> · عطارة</span>}
+                {c.kind === 'FLAVOR' && <span className="text-pink-600"> · نكهة</span>}
+              </span>
+              {outN > 0 && <span className="tabular-nums font-semibold">{fmt((outN * c.percent) / 100)} كجم</span>}
             </div>
           ))}
           <div className={`flex justify-between border-t pt-1 font-bold ${pctOk ? 'text-green-700 border-gray-200' : 'text-red-600 border-red-200'}`}>
-            <span>مجموع نسب البن</span><span className="tabular-nums">{pctSum}% {pctOk ? '✓' : '✗ لازم 100%'}</span>
+            <span>مجموع نسب الوصفة</span><span className="tabular-nums">{pctSum}% {pctOk ? '✓' : '✗ لازم 100%'}</span>
           </div>
         </div>
       )}
