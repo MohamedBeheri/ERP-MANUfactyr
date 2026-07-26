@@ -45,6 +45,8 @@ export function DeliveryReturnForm({
   const invoice = invoices.find((v) => v.id === invoiceId) || null
   // البنود المتاحة للإرجاع (المباع − اللي رجع قبل كده)
   const lines = invoice ? invoice.items.map((it) => ({ ...it, available: it.sold - it.returned })).filter((it) => it.available > 0) : []
+  // الهدايا اللي راحت مع الفاتورة (للتنبيه إن المندوب يسحبها)
+  const giftLines = invoice ? invoice.items.filter((it) => it.isBonus) : []
 
   const total = lines.reduce((s, it) => s + (Number(qty[it.productId]) || 0) * it.unitPrice, 0)
   const returnedCount = lines.reduce((s, it) => s + (Number(qty[it.productId]) || 0), 0)
@@ -102,9 +104,13 @@ export function DeliveryReturnForm({
 
           {invoice && (
             <>
-              {invoice.hasBonus && (
-                <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-xs text-amber-800 flex items-start gap-1.5">
-                  <Gift className="w-4 h-4 shrink-0 mt-0.5" /> الفاتورة دي عليها عرض/هدية — لو العميل بيرجّع الأصناف اللي أخدت الهدية، رجّع الهدية كمان من نفس القايمة. بونص النقاط هيتعدّل تلقائيًا.
+              {giftLines.length > 0 && (
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-xs text-amber-800 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5"><Gift className="w-4 h-4" /> الهدية اللي راحت مع الفاتورة دي:</p>
+                  {giftLines.map((g) => (
+                    <p key={g.productId} className="tabular-nums">🎁 {g.sold} {g.unit} {g.name}</p>
+                  ))}
+                  <p className="text-[11px] text-amber-700">لو العميل بيرجّع الأصناف اللي أخدت الهدية — اسحب الهدية منه كمان وحطّها في القايمة تحت. بونص النقاط بيتعدّل تلقائيًا.</p>
                 </div>
               )}
 

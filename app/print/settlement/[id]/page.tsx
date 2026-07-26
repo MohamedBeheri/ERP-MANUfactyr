@@ -11,7 +11,7 @@ export default async function SettlementPrintPage({ params }: { params: { id: st
       deliveryOrder: {
         include: {
           items: { include: { product: true } },
-          invoices: { include: { customer: true } },
+          invoices: { include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: 'asc' } },
         },
       },
     },
@@ -48,6 +48,43 @@ export default async function SettlementPrintPage({ params }: { params: { id: st
               `${Number(inv.netAmount).toLocaleString('ar-EG')} ج.م`,
             ])}
           />
+        </div>
+      )}
+
+      {/* بيان أصناف كل فاتورة */}
+      {order && order.invoices.length > 0 && (
+        <div className="mb-6">
+          <h4 className="font-bold text-sm mb-2">بيان أصناف الفواتير</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {order.invoices.map((inv, i) => (
+              <div key={inv.id} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ background: '#f9fafb', padding: '6px 12px', fontSize: 12, fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{i + 1}. {inv.customer.name} — {inv.invoiceNo}</span>
+                  <span>{inv.type === 'CASH' ? 'نقدي' : 'آجل'} · {Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</span>
+                </div>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ color: '#6b7280', textAlign: 'right' }}>
+                      <th style={{ padding: '4px 12px', fontWeight: 500 }}>الصنف</th>
+                      <th style={{ padding: '4px 12px', fontWeight: 500 }}>الكمية</th>
+                      <th style={{ padding: '4px 12px', fontWeight: 500 }}>سعر الوحدة</th>
+                      <th style={{ padding: '4px 12px', fontWeight: 500 }}>الإجمالي</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inv.items.map((it) => (
+                      <tr key={it.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '4px 12px' }}>{it.isBonus ? `🎁 ${it.product.name} (هدية)` : it.product.name}</td>
+                        <td style={{ padding: '4px 12px' }}>{it.quantity} {it.product.unit}</td>
+                        <td style={{ padding: '4px 12px' }}>{it.isBonus ? 'هدية' : `${Number(it.unitPrice).toLocaleString('ar-EG')} ج.م`}</td>
+                        <td style={{ padding: '4px 12px' }}>{it.isBonus ? '—' : `${Number(it.totalPrice).toLocaleString('ar-EG')} ج.م`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       <PrintTable
