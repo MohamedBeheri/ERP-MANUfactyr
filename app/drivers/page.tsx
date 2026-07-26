@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   Car, Printer, PackageOpen, Undo2, ShoppingCart, Building2, ClipboardCheck,
-  Clock, MapPin, Truck, ClipboardList, TrendingUp, Wallet, Coins, Users, Gift, Crown,
+  Clock, MapPin, Truck, ClipboardList,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -74,37 +74,6 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
         })
       })()
     : []
-
-  // ===== إحصائيات شغل المندوب (تراكمي) =====
-  const [invAgg, topByCustomer, settleAgg, bonusAgg, tourCount, distinctCust] = await Promise.all([
-    prisma.invoice.aggregate({ where: { delegateId: delegate.id }, _sum: { netAmount: true, paidAmount: true }, _count: true }),
-    prisma.invoice.groupBy({ by: ['customerId'], where: { delegateId: delegate.id }, _sum: { netAmount: true }, _count: true, orderBy: { _sum: { netAmount: 'desc' } }, take: 5 }),
-    prisma.settlement.aggregate({ where: { delegateId: delegate.id }, _sum: { commission: true, returnedQty: true, bonusQty: true } }),
-    prisma.invoiceItem.aggregate({ where: { invoice: { delegateId: delegate.id }, isBonus: true }, _sum: { quantity: true } }),
-    prisma.deliveryOrder.count({ where: { delegateId: delegate.id } }),
-    prisma.invoice.findMany({ where: { delegateId: delegate.id }, distinct: ['customerId'], select: { customerId: true } }),
-  ])
-  const topCustNames = topByCustomer.length
-    ? await prisma.customer.findMany({ where: { id: { in: topByCustomer.map((t) => t.customerId) } }, select: { id: true, name: true, area: true } })
-    : []
-  const nameOf = new Map(topCustNames.map((c) => [c.id, c]))
-  const topCustomers = topByCustomer.map((t) => ({
-    name: nameOf.get(t.customerId)?.name || 'عميل',
-    area: nameOf.get(t.customerId)?.area || '',
-    total: Number(t._sum.netAmount) || 0,
-    count: t._count,
-  }))
-  const stats = {
-    totalSales: Number(invAgg._sum.netAmount) || 0,
-    cashCollected: Number(invAgg._sum.paidAmount) || 0,
-    creditOut: Math.max(0, (Number(invAgg._sum.netAmount) || 0) - (Number(invAgg._sum.paidAmount) || 0)),
-    invoiceCount: invAgg._count || 0,
-    customersCount: distinctCust.length,
-    bonusGiven: Number(bonusAgg._sum.quantity) || 0,
-    commission: Number(settleAgg._sum.commission) || 0,
-    returnsQty: Number(settleAgg._sum.returnedQty) || 0,
-    tours: tourCount,
-  }
 
   // حركات اليوم موحّدة بالوقت
   type Move = { time: Date; kind: string; title: string; sub: string; amount: string; color: string }
@@ -228,53 +197,6 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
           )
         ))}
       </div>
-
-      {/* ===== إحصائيات شغلي ===== */}
-      <div>
-        <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2 mb-3"><TrendingUp className="w-5 h-5 text-[#0f3460]" /> إحصائيات شغلي</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-          {[
-            { label: 'إجمالي مبيعاتي', value: egp(stats.totalSales), Icon: ShoppingCart, cls: 'bg-blue-50 text-blue-700' },
-            { label: 'محصّل نقدي', value: egp(stats.cashCollected), Icon: Wallet, cls: 'bg-green-50 text-green-700' },
-            { label: 'آجل مستحق', value: egp(stats.creditOut), Icon: Clock, cls: 'bg-amber-50 text-amber-700' },
-            { label: 'عمولتي', value: egp(stats.commission), Icon: Coins, cls: 'bg-purple-50 text-purple-700' },
-            { label: 'عملائي', value: `${stats.customersCount}`, Icon: Users, cls: 'bg-sky-50 text-sky-700' },
-            { label: 'عدد الفواتير', value: `${stats.invoiceCount}`, Icon: ClipboardList, cls: 'bg-indigo-50 text-indigo-700' },
-            { label: 'جولاتي', value: `${stats.tours}`, Icon: Truck, cls: 'bg-teal-50 text-teal-700' },
-            { label: 'هدايا وزّعتها', value: `${stats.bonusGiven}`, Icon: Gift, cls: 'bg-rose-50 text-rose-700' },
-            { label: 'مرتجعات', value: `${stats.returnsQty}`, Icon: Undo2, cls: 'bg-orange-50 text-orange-700' },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${s.cls}`}><s.Icon className="w-5 h-5" /></div>
-              <div className="min-w-0">
-                <p className="text-[11px] text-gray-500 truncate">{s.label}</p>
-                <p className="text-base font-bold tabular-nums text-[#1a1a2e] truncate">{s.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ===== أكتر العملاء شراءً ===== */}
-      {topCustomers.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2 p-5 pb-3"><Crown className="w-5 h-5 text-[#e9b44c]" /> أكتر العملاء شراءً</h3>
-          <div className="divide-y divide-gray-50">
-            {topCustomers.map((c, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i === 0 ? 'bg-[#e9b44c] text-white' : 'bg-gray-100 text-gray-500'}`}>{i + 1}</span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm truncate">{c.name}</p>
-                    <p className="text-[11px] text-gray-400 truncate">{c.area || '—'} · {c.count} فاتورة</p>
-                  </div>
-                </div>
-                <span className="text-sm font-bold tabular-nums text-[#0f3460] shrink-0">{egp(c.total)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         {/* حمولة العربية */}
