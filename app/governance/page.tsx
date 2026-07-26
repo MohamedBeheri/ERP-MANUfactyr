@@ -19,7 +19,7 @@ export default async function GovernancePage() {
     }),
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true },
+      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true, phone: true, email: true, jobTitle: true, nationalId: true, address: true, hireDate: true, avatarUrl: true, notes: true },
     }),
   ])
 
@@ -45,13 +45,13 @@ export default async function GovernancePage() {
       <div className="no-print">
         <UserManager
           users={users.map((u) => ({
-            id: u.id,
-            name: u.name,
-            username: u.username,
-            role: u.role,
-            permissions: u.permissions,
-            status: u.status,
+            id: u.id, name: u.name, username: u.username, role: u.role,
+            permissions: u.permissions, status: u.status,
             lastLogin: u.lastLogin ? u.lastLogin.toISOString() : null,
+            phone: u.phone, email: u.email, jobTitle: u.jobTitle,
+            nationalId: u.nationalId, address: u.address,
+            hireDate: u.hireDate ? u.hireDate.toISOString() : null,
+            avatarUrl: u.avatarUrl, notes: u.notes,
           }))}
           currentUserId={session.user.id}
         />

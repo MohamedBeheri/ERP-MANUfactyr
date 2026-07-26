@@ -9,7 +9,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const { session } = auth
 
   try {
-    const { name, username, password, role, permissions, status } = await req.json()
+    const b = await req.json()
+    const { name, username, password, role, permissions, status } = b
 
     if (!name?.trim() || !username?.trim()) {
       return NextResponse.json({ error: 'الاسم واسم المستخدم مطلوبين' }, { status: 400 })
@@ -27,6 +28,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         role: role || undefined,
         permissions: Array.isArray(permissions) ? permissions : undefined,
         status: status || undefined,
+        phone: b.phone !== undefined ? b.phone?.trim() || null : undefined,
+        email: b.email !== undefined ? b.email?.trim() || null : undefined,
+        jobTitle: b.jobTitle !== undefined ? b.jobTitle?.trim() || null : undefined,
+        nationalId: b.nationalId !== undefined ? b.nationalId?.trim() || null : undefined,
+        address: b.address !== undefined ? b.address?.trim() || null : undefined,
+        hireDate: b.hireDate !== undefined ? (b.hireDate ? new Date(b.hireDate) : null) : undefined,
+        avatarUrl: b.avatarUrl !== undefined ? b.avatarUrl || null : undefined,
+        notes: b.notes !== undefined ? b.notes?.trim() || null : undefined,
       },
       select: { id: true, name: true, username: true, role: true, permissions: true, status: true },
     })
