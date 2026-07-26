@@ -68,6 +68,9 @@ async function main() {
   const rawStage = stageBy('خام')
   const groundStage = stageBy('مطحون') || stageBy('محمّص')
   const finishedStage = stageBy('نهائي', true)
+  const spiceStage = stageBy('عطارة') || rawStage
+  const flavorStage = stageBy('نكهات') || spiceStage
+  const packStage = stageBy('تغليف') || rawStage
 
   const idByName = new Map<string, string>()
   async function upsert(name: string, kind: string, extra: any, stageId: string | null) {
@@ -81,9 +84,9 @@ async function main() {
   }
 
   for (const g of GREEN) await upsert(g.name, 'GREEN', { roastLossPercent: g.roastLoss, unit: 'كجم' }, rawStage)
-  for (const s of SPICE) await upsert(s, 'SPICE', { unit: 'كجم' }, rawStage)
-  for (const f of FLAVOR) await upsert(f, 'FLAVOR', { unit: 'كجم' }, rawStage)
-  for (const p of PACKAGING) await upsert(p.name, 'PACKAGING', { tareWeight: p.tare, unit: 'قطعة' }, rawStage)
+  for (const s of SPICE) await upsert(s, 'SPICE', { unit: 'كجم' }, spiceStage)
+  for (const f of FLAVOR) await upsert(f, 'FLAVOR', { unit: 'كجم' }, flavorStage)
+  for (const p of PACKAGING) await upsert(p.name, 'PACKAGING', { tareWeight: p.tare, unit: 'قطعة' }, packStage)
 
   // التوليفات + مكوّناتها
   for (const b of BLENDS) {

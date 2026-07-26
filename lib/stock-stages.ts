@@ -6,6 +6,9 @@ const DEFAULT_STAGES = [
   { name: 'بن محمّص', warehouse: 'مخزن التحميص', sortOrder: 2, sellable: false, purchasable: false },
   { name: 'بن مطحون', warehouse: 'مخزن المنتجات', sortOrder: 3, sellable: true, purchasable: false },
   { name: 'منتج نهائي معبّأ', warehouse: 'مخزن المنتجات', sortOrder: 4, sellable: true, purchasable: false },
+  { name: 'عطارة وتوابل', warehouse: 'مخزن العطارة', sortOrder: 5, sellable: false, purchasable: true },
+  { name: 'نكهات وإضافات', warehouse: 'مخزن العطارة', sortOrder: 6, sellable: false, purchasable: true },
+  { name: 'مواد التغليف', warehouse: 'مخزن التغليف', sortOrder: 7, sellable: false, purchasable: true },
 ]
 
 let ensured = false
@@ -21,7 +24,7 @@ export async function ensureStockStages() {
 
   await prisma.$transaction(async (tx) => {
     // إنشاء المخازن الثلاثة (لو مش موجودة)
-    const warehouseNames = ['مخزن الخام', 'مخزن التحميص', 'مخزن المنتجات']
+    const warehouseNames = ['مخزن الخام', 'مخزن التحميص', 'مخزن المنتجات', 'مخزن العطارة', 'مخزن التغليف']
     const whMap = new Map<string, string>()
     for (let i = 0; i < warehouseNames.length; i++) {
       const name = warehouseNames[i]
