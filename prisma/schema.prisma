@@ -369,6 +369,7 @@ model Production {
   opCost       Decimal     @default(0) @db.Decimal(10, 2) // تكلفة التشغيل
   notes        String?
   status       OrderStatus @default(COMPLETED)
+  completedAt  DateTime? // وقت إقفال التشغيلة (لما العامل يرجع ويوزن الناتج)
   createdAt    DateTime    @default(now())
   createdById  String
 

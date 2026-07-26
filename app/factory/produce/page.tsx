@@ -113,6 +113,8 @@ export default async function ProducePage() {
           wasteExceeded: p.wasteExceeded,
           channel: p.channel,
           createdAt: p.createdAt.toISOString(),
+          status: p.status,
+          outputProductName: p.items[0]?.product?.name || null,
         }))}
         kpi={kpi}
       />
