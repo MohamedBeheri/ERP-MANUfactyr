@@ -12,6 +12,16 @@ import {
   Warehouse,
   Building2,
   Wallet,
+  Users,
+  Gift,
+  Coins,
+  Clock,
+  Crown,
+  Undo2,
+  Car,
+  MapPin,
+  ClipboardList,
+  TrendingUp,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -31,6 +41,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   // مدة العرض: من يوم واحد لحد 30 يوم
   const days = Math.min(30, Math.max(1, Number(searchParams.days) || 7))
+
+  // المندوب: لوحة تحكم خاصة بإحصائيات شغله بدل لوحة الإدارة
+  if ((session.user as any).role === 'DELEGATE') {
+    return <DelegateDashboard userId={(session.user as any).id} userName={session.user?.name || 'المندوب'} days={days} />
+  }
+
   const from = new Date()
   from.setDate(from.getDate() - (days - 1))
   from.setHours(0, 0, 0, 0)
@@ -287,6 +303,138 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           <ChevronLeft className="w-5 h-5 text-gray-400 transition-transform group-hover:-translate-x-1" />
         </Link>
       ) : null}
+    </div>
+  )
+}
+
+/* ================= لوحة تحكم المندوب: إحصائيات شغله ================= */
+async function DelegateDashboard({ userId, userName, days }: { userId: string; userName: string; days: number }) {
+  const egp = (n: number) => `${n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م`
+  const from = new Date()
+  from.setDate(from.getDate() - (days - 1))
+  from.setHours(0, 0, 0, 0)
+
+  const delegate = await prisma.delegate.findFirst({ where: { userId }, include: { vehicle: true } })
+
+  if (!delegate) {
+    return (
+      <div className="p-6">
+        <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
+          <Truck className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">الحساب ده مش مربوط بمندوب — كلّم الإدارة تربطك بمندوب عشان تشوف إحصائياتك.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const periodInv = { delegateId: delegate.id, createdAt: { gte: from } }
+  const [invAgg, topByCustomer, bonusAgg, tours, distinctCust, settleAgg, activeTour] = await Promise.all([
+    prisma.invoice.aggregate({ where: periodInv, _sum: { netAmount: true, paidAmount: true }, _count: true }),
+    prisma.invoice.groupBy({ by: ['customerId'], where: periodInv, _sum: { netAmount: true }, _count: true, orderBy: { _sum: { netAmount: 'desc' } }, take: 5 }),
+    prisma.invoiceItem.aggregate({ where: { isBonus: true, invoice: periodInv }, _sum: { quantity: true } }),
+    prisma.deliveryOrder.count({ where: { delegateId: delegate.id, createdAt: { gte: from } } }),
+    prisma.invoice.findMany({ where: periodInv, distinct: ['customerId'], select: { customerId: true } }),
+    prisma.settlement.aggregate({ where: { delegateId: delegate.id, createdAt: { gte: from } }, _sum: { commission: true, returnedQty: true } }),
+    prisma.deliveryOrder.findFirst({ where: { delegateId: delegate.id, status: 'IN_PROGRESS' }, select: { id: true, orderNo: true } }),
+  ])
+
+  const topCustNames = topByCustomer.length
+    ? await prisma.customer.findMany({ where: { id: { in: topByCustomer.map((t) => t.customerId) } }, select: { id: true, name: true, area: true } })
+    : []
+  const custById = new Map(topCustNames.map((c) => [c.id, c]))
+  const topCustomers = topByCustomer.map((t) => ({
+    name: custById.get(t.customerId)?.name || 'عميل',
+    area: custById.get(t.customerId)?.area || '',
+    total: Number(t._sum.netAmount) || 0,
+    count: t._count,
+  }))
+
+  const totalSales = Number(invAgg._sum.netAmount) || 0
+  const cash = Number(invAgg._sum.paidAmount) || 0
+  const credit = Math.max(0, totalSales - cash)
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور'
+
+  const kpis = [
+    { label: 'مبيعاتي', value: egp(totalSales), Icon: ShoppingCart, cls: 'bg-blue-50 text-blue-700' },
+    { label: 'محصّل نقدي', value: egp(cash), Icon: Wallet, cls: 'bg-green-50 text-green-700' },
+    { label: 'آجل مستحق', value: egp(credit), Icon: Clock, cls: 'bg-amber-50 text-amber-700' },
+    { label: 'عمولتي', value: egp(Number(settleAgg._sum.commission) || 0), Icon: Coins, cls: 'bg-purple-50 text-purple-700' },
+    { label: 'عملائي', value: `${distinctCust.length}`, Icon: Users, cls: 'bg-sky-50 text-sky-700' },
+    { label: 'عدد الفواتير', value: `${invAgg._count || 0}`, Icon: ClipboardList, cls: 'bg-indigo-50 text-indigo-700' },
+    { label: 'جولاتي', value: `${tours}`, Icon: Truck, cls: 'bg-teal-50 text-teal-700' },
+    { label: 'هدايا وزّعتها', value: `${Number(bonusAgg._sum.quantity) || 0}`, Icon: Gift, cls: 'bg-rose-50 text-rose-700' },
+    { label: 'مرتجعات', value: `${Number(settleAgg._sum.returnedQty) || 0}`, Icon: Undo2, cls: 'bg-orange-50 text-orange-700' },
+  ]
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* بانر + فلتر المدة */}
+      <div className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 60%, #16213e 100%)' }}>
+        <div className="absolute -left-10 -bottom-16 opacity-[0.07] pointer-events-none"><AlBadrLogo className="w-72 h-72" /></div>
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black">{greeting}، {userName.split(' ')[0]} 👋</h1>
+            <p className="text-white/60 text-sm mt-1">{new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })} · إحصائيات آخر {days} يوم</p>
+            <div className="flex flex-wrap gap-2 mt-4 text-xs font-bold">
+              {delegate.vehicle && <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg tabular-nums"><Car className="w-4 h-4 text-[#e9b44c]" /> {delegate.vehicle.plateNo}</span>}
+              {(delegate.route || delegate.area) && <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg"><MapPin className="w-4 h-4 text-[#e9b44c]" /> {delegate.route || delegate.area}</span>}
+              {activeTour && <span className="flex items-center gap-1.5 bg-green-500/20 text-green-300 px-3 py-1.5 rounded-lg tabular-nums"><Truck className="w-4 h-4" /> جولة شغالة: {activeTour.orderNo}</span>}
+            </div>
+          </div>
+          <PeriodSelector current={days} basePath="/dashboard" />
+        </div>
+      </div>
+
+      {/* مؤشرات */}
+      <div>
+        <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2 mb-3"><TrendingUp className="w-5 h-5 text-[#0f3460]" /> إحصائيات شغلي</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+          {kpis.map((s) => (
+            <div key={s.label} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${s.cls}`}><s.Icon className="w-5 h-5" /></div>
+              <div className="min-w-0">
+                <p className="text-[11px] text-gray-500 truncate">{s.label}</p>
+                <p className="text-base font-bold tabular-nums text-[#1a1a2e] truncate">{s.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        {/* أكتر العملاء */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2 p-5 pb-3"><Crown className="w-5 h-5 text-[#e9b44c]" /> أكتر العملاء شراءً</h3>
+          {topCustomers.length === 0 ? (
+            <p className="px-5 pb-5 text-sm text-gray-500">مفيش مبيعات في الفترة دي.</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {topCustomers.map((c, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i === 0 ? 'bg-[#e9b44c] text-white' : 'bg-gray-100 text-gray-500'}`}>{i + 1}</span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{c.name}</p>
+                      <p className="text-[11px] text-gray-400 truncate">{c.area || '—'} · {c.count} فاتورة</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold tabular-nums text-[#0f3460] shrink-0">{egp(c.total)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* رابط شاشة العمليات */}
+        <Link href="/drivers" className="group bg-gradient-to-br from-[#0f3460] to-[#16213e] text-white rounded-xl shadow-sm p-6 flex items-center justify-between hover:-translate-y-0.5 transition-all">
+          <div>
+            <p className="text-lg font-bold flex items-center gap-2"><Truck className="w-5 h-5 text-[#e9b44c]" /> شاشة المناديب</p>
+            <p className="text-white/60 text-sm mt-1">تحميل · تسليم عملاء · مرتجعات · تسوية اليوم</p>
+          </div>
+          <ChevronLeft className="w-6 h-6 text-white/60 group-hover:-translate-x-1 transition-transform" />
+        </Link>
+      </div>
     </div>
   )
 }
