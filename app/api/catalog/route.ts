@@ -12,6 +12,7 @@ async function stageForKind(kind: string): Promise<string | null> {
   const find = (kw: string) => stages.find((s) => s.name.includes(kw))?.id
   if (kind === 'FINISHED') return find('نهائي') || stages.find((s) => s.sellable)?.id || stages[0]?.id || null
   if (kind === 'BLEND') return find('مطحون') || find('محمّص') || stages[0]?.id || null
+  if (kind === 'ROASTED') return find('محمّص') || stages[0]?.id || null
   if (kind === 'SPICE') return find('عطارة') || find('خام') || stages[0]?.id || null
   if (kind === 'FLAVOR') return find('نكهات') || find('عطارة') || find('خام') || stages[0]?.id || null
   if (kind === 'PACKAGING') return find('تغليف') || find('خام') || stages[0]?.id || null
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
   try {
     const b = await req.json()
     if (!b.name?.trim()) return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
-    const kind = ['GREEN', 'SPICE', 'FLAVOR', 'BLEND', 'PACKAGING', 'FINISHED'].includes(b.itemKind) ? b.itemKind : 'FINISHED'
+    const kind = ['GREEN', 'ROASTED', 'SPICE', 'FLAVOR', 'BLEND', 'PACKAGING', 'FINISHED'].includes(b.itemKind) ? b.itemKind : 'FINISHED'
     const stageId = await stageForKind(kind)
 
     // وصفة التوليفة: مجموع نسب البن لازم = 100% — السيرفر يمنع الحفظ

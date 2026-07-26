@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Coffee, Leaf, Sparkles, Blend, Package, Boxes, Plus, X, Pencil, Trash2, FlaskConical } from 'lucide-react'
+import { Coffee, Leaf, Sparkles, Blend, Package, Boxes, Plus, X, Pencil, Trash2, FlaskConical, Flame } from 'lucide-react'
 
 interface Component { componentId: string; componentName?: string; componentKind?: string; percent: number; perKilo: number; roastDegree?: string | null }
 interface Item {
@@ -26,6 +26,7 @@ interface Item {
 
 const KINDS = [
   { key: 'GREEN', label: 'البن الأخضر', Icon: Coffee },
+  { key: 'ROASTED', label: 'البن المحمص', Icon: Flame },
   { key: 'SPICE', label: 'العطارة', Icon: Leaf },
   { key: 'FLAVOR', label: 'النكهات', Icon: Sparkles },
   { key: 'BLEND', label: 'التوليفات', Icon: Blend },
