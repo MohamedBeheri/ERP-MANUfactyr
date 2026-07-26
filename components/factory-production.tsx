@@ -332,10 +332,11 @@ function GrindAndBlendForm({ blends, onDone }: { blends: BlendT[]; onDone: () =>
           {activeComps.map((c, i) => (
             <div key={i} className="flex justify-between">
               <span>
-                {c.percent}% {c.name}
-                {c.kind === 'GREEN' && <b className="text-orange-600"> (تحميص {c.roastDegree || 'وسط'})</b>}
-                {c.kind === 'SPICE' && <span className="text-purple-600"> · عطارة</span>}
-                {c.kind === 'FLAVOR' && <span className="text-pink-600"> · نكهة</span>}
+                {c.percent}%{' '}
+                {c.kind === 'GREEN' && <span>بن محمص {c.roastDegree || 'وسط'} <span className="text-gray-500">({c.name})</span></span>}
+                {c.kind === 'ROASTED' && <span className="text-orange-700">{c.name} <span className="text-[10px] text-gray-400">(جاهز)</span></span>}
+                {c.kind === 'FLAVOR' && <span>{c.name} <span className="text-pink-600 text-[10px]">· نكهة</span></span>}
+                {c.kind === 'SPICE' && <span>{c.name} <span className="text-purple-600 text-[10px]">· عطارة</span></span>}
               </span>
               {outN > 0 && <span className="tabular-nums font-semibold">{fmt((outN * c.percent) / 100)} كجم</span>}
             </div>

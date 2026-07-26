@@ -82,7 +82,7 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
 
   const blends = items.filter((i) => i.itemKind === 'BLEND')
   const packagings = items.filter((i) => i.itemKind === 'PACKAGING')
-  const blendable = items.filter((i) => ['GREEN', 'SPICE', 'FLAVOR'].includes(i.itemKind))
+  const blendable = items.filter((i) => ['GREEN', 'ROASTED', 'SPICE', 'FLAVOR'].includes(i.itemKind))
 
   const reset = () => { setForm(empty); setComponents([]); setEditId(null); setError('') }
 
@@ -154,9 +154,10 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
                 <div key={i} className="flex gap-2 items-center">
                   <select value={c.componentId} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, componentId: e.target.value } : x))} className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded-lg text-sm">
                     <option value="">اختار المكوّن</option>
-                    <optgroup label="بن أخضر">{blendable.filter((b) => b.itemKind === 'GREEN').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
-                    <optgroup label="عطارة">{blendable.filter((b) => b.itemKind === 'SPICE').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
+                    <optgroup label="بن محمص جاهز (من تشغيلات التحميص)">{blendable.filter((b) => b.itemKind === 'ROASTED').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
+                    <optgroup label="بن محمص (اختار الأصل ودرجة التحميص)">{blendable.filter((b) => b.itemKind === 'GREEN').map((b) => <option key={b.id} value={b.id}>{b.name} — يتحمّص عند التصنيع</option>)}</optgroup>
                     <optgroup label="نكهات">{blendable.filter((b) => b.itemKind === 'FLAVOR').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
+                    <optgroup label="عطارة">{blendable.filter((b) => b.itemKind === 'SPICE').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
                   </select>
                   {isGreen && (
                     <select value={c.roastDegree || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, roastDegree: e.target.value } : x))} className="w-20 shrink-0 px-1 py-2 border border-gray-300 rounded-lg text-xs">
@@ -259,7 +260,10 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
                 </div>
                 {kind === 'BLEND' && it.components.length > 0 && (
                   <p className="text-[11px] text-gray-500 mt-1">
-                    {it.components.map((c) => `${c.percent}% ${c.componentName}${c.roastDegree ? ` (${c.roastDegree})` : ''}`).join(' · ')}
+                    {it.components.map((c) => {
+                      const suffix = c.componentKind === 'GREEN' ? ` — محمص ${c.roastDegree || 'وسط'}` : ''
+                      return `${c.percent}% ${c.componentName}${suffix}`
+                    }).join(' · ')}
                   </p>
                 )}
               </div>
