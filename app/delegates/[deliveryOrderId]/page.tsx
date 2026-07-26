@@ -135,7 +135,29 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
     customerType: c.customerType,
     tier: c.tier ? { priceSource: c.tier.priceSource, discountPercent: Number(c.tier.discountPercent), bonusPercent: Number(c.tier.bonusPercent) } : null,
   }))
-  const loadedItems = deliveryOrder.items.map((it) => ({ productId: it.productId, productName: it.product.name, unit: it.product.unit, sellPrice: Number(it.product.sellPrice) }))
+  // فواتير الجولة (للمرتجع من فاتورة سابقة) + الكمية المرتجعة قبل كده لكل بند
+  const returnedByInvItem = new Map<string, number>()
+  for (const r of deliveryOrder.returns) {
+    if (!r.invoiceId) continue
+    for (const it of r.items) returnedByInvItem.set(`${r.invoiceId}|${it.productId}`, (returnedByInvItem.get(`${r.invoiceId}|${it.productId}`) || 0) + it.quantity)
+  }
+  const roundInvoices = deliveryOrder.invoices.map((inv) => ({
+    id: inv.id,
+    invoiceNo: inv.invoiceNo,
+    customerId: inv.customerId,
+    customerName: inv.customer.name,
+    net: Number(inv.netAmount),
+    hasBonus: inv.items.some((it) => it.isBonus),
+    items: inv.items.map((it) => ({
+      productId: it.productId,
+      name: it.product.name,
+      unit: it.product.unit,
+      isBonus: it.isBonus,
+      unitPrice: Number(it.unitPrice),
+      sold: it.quantity,
+      returned: returnedByInvItem.get(`${inv.id}|${it.productId}`) || 0,
+    })),
+  }))
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -375,7 +397,7 @@ export default async function DeliveryOrderPage({ params }: { params: { delivery
                   quoteItems: (a.quotes[0]?.items || []).map((it) => ({ productId: it.productId, unitPrice: Number(it.unitPrice) })),
                 }))}
               />
-              <DeliveryReturnForm deliveryOrderId={deliveryOrder.id} customers={customersLite} loadedItems={loadedItems} />
+              <DeliveryReturnForm deliveryOrderId={deliveryOrder.id} invoices={roundInvoices} />
               <SettleForm deliveryOrderId={deliveryOrder.id} remainingItems={remaining} />
             </>
           )}
