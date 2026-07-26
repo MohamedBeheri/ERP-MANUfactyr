@@ -26,7 +26,7 @@ const PACKAGING = [
   { name: 'شرينك علب', tare: 0 },
   { name: 'الكرتونة', tare: 0 },
 ]
-// التوليفات ووصفاتها (نسب البن الأخضر % + جرعة العطارة لكل كيلو)
+// التوليفات ووصفاتها — كل المكوّنات بنسب مئوية والمجموع = 100% بالظبط
 const BLENDS: { name: string; greens: [string, number][]; spices?: [string, number][] }[] = [
   {
     name: 'توليفة سادة',
@@ -34,16 +34,16 @@ const BLENDS: { name: string; greens: [string, number][]; spices?: [string, numb
   },
   {
     name: 'توليفة محوج',
-    greens: [['بن أخضر — اندونيسي', 64.23], ['بن أخضر — هندي روبيستا', 9.88], ['بن أخضر — برازيلي', 14.82], ['بن أخضر — XL', 9.88], ['بن أخضر — حبشي', 1.19]],
-    spices: [['حبهان', 12], ['ورق لورا', 8]],
+    greens: [['بن أخضر — اندونيسي', 63], ['بن أخضر — هندي روبيستا', 10], ['بن أخضر — برازيلي', 14], ['بن أخضر — XL', 10], ['بن أخضر — حبشي', 1]],
+    spices: [['حبهان', 1.5], ['ورق لورا', 0.5]],
   },
   {
     name: 'توليفة عربي',
-    greens: [['بن أخضر — اندونيسي', 69.31], ['بن أخضر — هندي روبيستا', 14.85], ['بن أخضر — برازيلي', 14.85]],
+    greens: [['بن أخضر — اندونيسي', 70], ['بن أخضر — هندي روبيستا', 15], ['بن أخضر — برازيلي', 15]],
   },
   {
     name: 'توليفة النكهات (بيز)',
-    greens: [['بن أخضر — اندونيسي', 55.32], ['بن أخضر — هندي روبيستا', 8.51], ['بن أخضر — برازيلي', 12.77], ['بن أخضر — XL', 8.51]],
+    greens: [['بن أخضر — اندونيسي', 65], ['بن أخضر — هندي روبيستا', 10], ['بن أخضر — برازيلي', 15], ['بن أخضر — XL', 10]],
   },
 ]
 // عينة منتجات نهائية بمواصفات التعبئة (توليفة + وزن القطعة + قطع/علبة + تغليف)
@@ -92,13 +92,15 @@ async function main() {
   for (const b of BLENDS) {
     const blendId = await upsert(b.name, 'BLEND', { unit: 'كجم' }, groundStage)
     await prisma.blendComponent.deleteMany({ where: { blendId } })
+    // البن الأخضر بنسبة % + درجة تحميص افتراضية (وسط)
     for (const [gname, pct] of b.greens) {
       const cid = idByName.get(gname)
-      if (cid) await prisma.blendComponent.create({ data: { blendId, componentId: cid, percent: pct, perKilo: 0 } })
+      if (cid) await prisma.blendComponent.create({ data: { blendId, componentId: cid, percent: pct, roastDegree: 'وسط', perKilo: 0 } })
     }
-    for (const [sname, perKilo] of b.spices || []) {
+    // العطارة كمان بنسبة % (وليس جرعة/كيلو)
+    for (const [sname, pct] of b.spices || []) {
       const cid = idByName.get(sname)
-      if (cid) await prisma.blendComponent.create({ data: { blendId, componentId: cid, percent: 0, perKilo } })
+      if (cid) await prisma.blendComponent.create({ data: { blendId, componentId: cid, percent: pct, perKilo: 0 } })
     }
   }
 
