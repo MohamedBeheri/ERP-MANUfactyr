@@ -257,7 +257,8 @@ model BlendComponent {
   id          String  @id @default(cuid())
   blendId     String // التوليفة (منتج itemKind=BLEND)
   componentId String // المكوّن (بن أخضر / عطارة / أساس نكهة)
-  percent     Decimal @default(0) @db.Decimal(6, 3) // نسبة المكوّن في التوليفة (للبن الأخضر)
+  percent     Decimal @default(0) @db.Decimal(6, 3) // نسبة المكوّن في التوليفة (للبن الأخضر) — مجموع مكوّنات البن لازم = 100%
+  roastDegree String? // درجة تحميص المكوّن (فاتح/وسط/غامق/غامق جداً) — زي "٧٠٪ إندونيسي فاتح"
   perKilo     Decimal @default(0) @db.Decimal(8, 3) // جرعة لكل كيلو توليفة (للعطارة/التوابل)
 
   blend     Product @relation("BlendParent", fields: [blendId], references: [id], onDelete: Cascade)

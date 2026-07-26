@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { ensureStockStages } from '@/lib/stock-stages'
+import { validateBlendPercents } from '@/lib/manufacturing'
 
 const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
@@ -11,7 +12,10 @@ async function stageForKind(kind: string): Promise<string | null> {
   const find = (kw: string) => stages.find((s) => s.name.includes(kw))?.id
   if (kind === 'FINISHED') return find('نهائي') || stages.find((s) => s.sellable)?.id || stages[0]?.id || null
   if (kind === 'BLEND') return find('مطحون') || find('محمّص') || stages[0]?.id || null
-  return find('خام') || stages.find((s) => s.purchasable)?.id || stages[0]?.id || null // GREEN/SPICE/FLAVOR/PACKAGING
+  if (kind === 'SPICE') return find('عطارة') || find('خام') || stages[0]?.id || null
+  if (kind === 'FLAVOR') return find('نكهات') || find('عطارة') || find('خام') || stages[0]?.id || null
+  if (kind === 'PACKAGING') return find('تغليف') || find('خام') || stages[0]?.id || null
+  return find('خام') || stages.find((s) => s.purchasable)?.id || stages[0]?.id || null // GREEN
 }
 
 export async function GET() {
@@ -51,6 +55,7 @@ export async function GET() {
           componentName: c.component.name,
           componentKind: c.component.itemKind,
           percent: Number(c.percent),
+          roastDegree: c.roastDegree,
           perKilo: Number(c.perKilo),
         })),
       }))
@@ -69,6 +74,13 @@ export async function POST(req: NextRequest) {
     if (!b.name?.trim()) return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
     const kind = ['GREEN', 'SPICE', 'FLAVOR', 'BLEND', 'PACKAGING', 'FINISHED'].includes(b.itemKind) ? b.itemKind : 'FINISHED'
     const stageId = await stageForKind(kind)
+
+    // وصفة التوليفة: مجموع نسب البن لازم = 100% — السيرفر يمنع الحفظ
+    if (kind === 'BLEND' && Array.isArray(b.components)) {
+      const clean = b.components.filter((c: any) => c.componentId)
+      const invalid = validateBlendPercents(clean)
+      if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
+    }
 
     const product = await prisma.product.create({
       data: {
@@ -91,7 +103,12 @@ export async function POST(req: NextRequest) {
               blendComponents: {
                 create: b.components
                   .filter((c: any) => c.componentId)
-                  .map((c: any) => ({ componentId: c.componentId, percent: Number(c.percent) || 0, perKilo: Number(c.perKilo) || 0 })),
+                  .map((c: any) => ({
+                    componentId: c.componentId,
+                    percent: Number(c.percent) || 0,
+                    roastDegree: c.roastDegree || null,
+                    perKilo: Number(c.perKilo) || 0,
+                  })),
               },
             }
           : {}),

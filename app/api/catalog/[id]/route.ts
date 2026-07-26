@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
+import { validateBlendPercents } from '@/lib/manufacturing'
 
 const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
@@ -10,6 +11,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     const b = await req.json()
+
+    // وصفة التوليفة: مجموع نسب البن لازم = 100% — السيرفر يمنع الحفظ
+    if (Array.isArray(b.components)) {
+      const target = await prisma.product.findUnique({ where: { id: params.id }, select: { itemKind: true } })
+      if (target?.itemKind === 'BLEND') {
+        const invalid = validateBlendPercents(b.components.filter((c: any) => c.componentId))
+        if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
+      }
+    }
+
     await prisma.product.update({
       where: { id: params.id },
       data: {
@@ -37,6 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             blendId: params.id,
             componentId: c.componentId,
             percent: Number(c.percent) || 0,
+            roastDegree: c.roastDegree || null,
             perKilo: Number(c.perKilo) || 0,
           })),
         })

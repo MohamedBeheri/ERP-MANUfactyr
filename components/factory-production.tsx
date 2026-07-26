@@ -2,129 +2,363 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Blend, Package, Trash2, TriangleAlert } from 'lucide-react'
+import { Flame, Blend, Package, TriangleAlert, Wheat, Factory, TrendingDown } from 'lucide-react'
 
-interface BlendComp { name: string; kind: string; percent: number; perKilo: number; roastLoss: number; unit: string }
-interface BlendT { id: string; name: string; components: BlendComp[] }
+interface GreenT { id: string; name: string; quantity: number; roastLoss: number }
+interface RoastedT { id: string; name: string; quantity: number; isBlendBeans: boolean }
+interface BlendComp { name: string; kind: string; percent: number; roastDegree: string | null; perKilo: number; unit: string }
+interface BlendT { id: string; name: string; quantity: number; components: BlendComp[] }
 interface FinishedT { id: string; name: string; blendName: string | null; hasBlend: boolean; gramsPerPiece: number; piecesPerBox: number; tare: number; packagingName: string | null }
-interface ProdT { id: string; orderNo: string; stage: string; kind: string; output: string; inputWeight: number; wasteWeight: number; wastePercent: number; createdAt: string }
+interface ProdT {
+  id: string; orderNo: string; batchNo: string | null; stage: string; stageDetail: string
+  roastLevel: string | null; grindType: string | null; output: string
+  inputWeight: number; outputWeight: number; wasteWeight: number; wastePercent: number; channel: string; createdAt: string
+}
+interface KpiT {
+  greenIn: number; roastedOut: number; roastWaste: number; roastCount: number
+  grindIn: number; grindOut: number; grindWaste: number
+  packCoffee: number; packUnits: number; packWaste: number
+}
 
-const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 const CHANNELS = ['المصنع', 'حلوان (الكافيه)', 'عبدالله (تحميص أجرة)']
+const ROAST_DEGREES = ['فاتح', 'وسط', 'غامق', 'غامق جداً']
+const GRIND_LEVELS = ['ناعم جداً', 'ناعم', 'متوسط', 'خشن']
+const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
+const timeOf = (iso: string) => new Date(iso).toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
-export function FactoryProduction({ blends, finished, productions }: { blends: BlendT[]; finished: FinishedT[]; productions: ProdT[] }) {
+const STAGE_COLORS: Record<string, string> = {
+  تحميص: 'bg-orange-50 text-orange-700',
+  توليف: 'bg-amber-50 text-amber-700',
+  طحن: 'bg-purple-50 text-purple-700',
+  تعبئة: 'bg-blue-50 text-blue-700',
+}
+
+export function FactoryProduction({ greens, roastedProducts, blends, finished, productions, kpi }: {
+  greens: GreenT[]; roastedProducts: RoastedT[]; blends: BlendT[]; finished: FinishedT[]; productions: ProdT[]; kpi: KpiT
+}) {
   const router = useRouter()
+  const onDone = () => router.refresh()
+
+  // كفاءة الخط الكلية: من الأخضر للمعبأ الصافي
+  const packedNet = Math.max(0, kpi.packCoffee - kpi.packWaste)
+  const totalWaste = kpi.roastWaste + kpi.grindWaste + kpi.packWaste
+  const overallYield = kpi.greenIn > 0 ? (packedNet / kpi.greenIn) * 100 : 0
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        <ProduceBlend blends={blends} onDone={() => router.refresh()} />
-        <PackFinished finished={finished} onDone={() => router.refresh()} />
+      {/* ===== KPI خط التصنيع ===== */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[
+          { label: 'بن أخضر دخل التحميص', value: `${fmt(kpi.greenIn)} كجم`, sub: `${kpi.roastCount} تشغيلة`, cls: 'text-green-700' },
+          { label: 'هدر التحميص', value: `${fmt(kpi.roastWaste)} كجم`, sub: kpi.greenIn ? `${fmt((kpi.roastWaste / kpi.greenIn) * 100)}%` : '—', cls: 'text-orange-600' },
+          { label: 'هدر الطحن', value: `${fmt(kpi.grindWaste)} كجم`, sub: kpi.grindIn ? `${fmt((kpi.grindWaste / kpi.grindIn) * 100)}%` : '—', cls: 'text-purple-600' },
+          { label: 'معبأ صافي', value: `${fmt(packedNet)} كجم`, sub: `${fmt(kpi.packUnits)} عبوة`, cls: 'text-blue-700' },
+          { label: 'كفاءة الخط (أخضر ← معبأ)', value: `${fmt(overallYield)}%`, sub: `إجمالي هدر ${fmt(totalWaste)} كجم`, cls: overallYield >= 80 ? 'text-green-700' : 'text-red-600' },
+        ].map((k) => (
+          <div key={k.label} className="bg-white rounded-xl shadow-sm p-3.5">
+            <p className="text-[11px] text-gray-500 truncate">{k.label}</p>
+            <p className={`text-base font-bold tabular-nums ${k.cls}`}>{k.value}</p>
+            <p className="text-[10px] text-gray-400 tabular-nums">{k.sub}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-5">
-        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">آخر أوامر التصنيع ({productions.length})</h3>
-        {productions.length === 0 && <p className="text-sm text-gray-500">مفيش أوامر تصنيع لسه.</p>}
-        <div className="space-y-2">
-          {productions.map((p) => (
-            <div key={p.id} className="flex items-center justify-between border border-gray-100 rounded-lg p-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-sm flex items-center gap-2">
-                  {p.kind === 'PACK' ? <Package className="w-4 h-4 text-[#0f3460]" /> : <Blend className="w-4 h-4 text-amber-600" />}
-                  {p.stage}
-                </p>
-                <p className="text-[11px] text-gray-400 tabular-nums">
-                  {p.orderNo} · {p.output}{p.wasteWeight > 0 ? ` · هدر ${p.wasteWeight} (${fmt(p.wastePercent)}%)` : ''}
-                </p>
-              </div>
-              <button
-                onClick={async () => {
-                  if (!confirm(`حذف أمر التصنيع ${p.orderNo}؟ هيرجّع المخزون لحالته.`)) return
-                  const res = await fetch(`/api/factory/${p.id}`, { method: 'DELETE' })
-                  if (res.ok) router.refresh(); else alert((await res.json().catch(() => ({}))).error || 'فشل الحذف')
-                }}
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
-                aria-label="حذف"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+      {/* ===== المراحل الأربع ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <RoastForm greens={greens} onDone={onDone} />
+        <BlendForm blends={blends} onDone={onDone} />
+        <GrindForm roastedProducts={roastedProducts} onDone={onDone} />
+        <PackFinished finished={finished} onDone={onDone} />
+      </div>
+
+      {/* ===== سجل التشغيلات ===== */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 p-5 pb-3">
+          <Factory className="w-5 h-5 text-[#0f3460]" />
+          <h3 className="text-base font-bold text-[#1a1a2e]">سجل التشغيلات ({productions.length})</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50 text-xs">
+                <th className="p-3 font-medium">التشغيلة</th>
+                <th className="p-3 font-medium">المرحلة</th>
+                <th className="p-3 font-medium">الناتج</th>
+                <th className="p-3 font-medium">داخل</th>
+                <th className="p-3 font-medium">خارج</th>
+                <th className="p-3 font-medium">هدر</th>
+                <th className="p-3 font-medium">القناة</th>
+                <th className="p-3 font-medium">الوقت</th>
+              </tr>
+            </thead>
+            <tbody>
+              {productions.length === 0 && (
+                <tr><td colSpan={8} className="p-6 text-center text-gray-400 text-sm">مفيش تشغيلات لسه — ابدأ بالتحميص.</td></tr>
+              )}
+              {productions.map((p) => (
+                <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                  <td className="p-3 font-bold tabular-nums text-[#0f3460]">{p.batchNo || p.orderNo.slice(0, 12)}</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${STAGE_COLORS[p.stage] || 'bg-gray-100 text-gray-600'}`}>{p.stage}</span>
+                    {p.roastLevel && <span className="text-[10px] text-gray-400 mr-1">{p.roastLevel}</span>}
+                    {p.grindType && <span className="text-[10px] text-gray-400 mr-1">{p.grindType}</span>}
+                  </td>
+                  <td className="p-3 text-xs text-gray-600 max-w-[220px] truncate">{p.output || p.stageDetail}</td>
+                  <td className="p-3 tabular-nums text-gray-500">{fmt(p.inputWeight)}</td>
+                  <td className="p-3 tabular-nums font-semibold">{fmt(p.outputWeight)}</td>
+                  <td className="p-3 tabular-nums">
+                    {p.wasteWeight > 0 ? (
+                      <span className="text-red-600 font-semibold flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5" /> {fmt(p.wasteWeight)} ({fmt(p.wastePercent)}%)</span>
+                    ) : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="p-3 text-xs text-gray-500">{p.channel}</td>
+                  <td className="p-3 text-xs text-gray-400 tabular-nums">{timeOf(p.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   )
 }
 
-function ProduceBlend({ blends, onDone }: { blends: BlendT[]; onDone: () => void }) {
-  const [blendId, setBlendId] = useState('')
-  const [outputKg, setOutputKg] = useState('')
+/* ===== المرحلة ١: التحميص ===== */
+function RoastForm({ greens, onDone }: { greens: GreenT[]; onDone: () => void }) {
+  const [greenId, setGreenId] = useState('')
+  const [degree, setDegree] = useState('')
+  const [inKg, setInKg] = useState('')
+  const [outKg, setOutKg] = useState('')
   const [channel, setChannel] = useState(CHANNELS[0])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const blend = blends.find((b) => b.id === blendId)
-  const out = Number(outputKg) || 0
 
-  const rows = (blend?.components || []).map((c) => {
-    const kg = c.kind === 'GREEN'
-      ? (out * c.percent) / 100 / (c.roastLoss < 100 ? 1 - c.roastLoss / 100 : 1)
-      : (out * c.perKilo) / 1000
-    return { ...c, kg }
-  })
-  const totalInput = rows.reduce((s, r) => s + r.kg, 0)
-  const waste = Math.max(0, totalInput - out)
+  const green = greens.find((g) => g.id === greenId)
+  const inN = Number(inKg) || 0
+  const outN = Number(outKg) || 0
+  const expected = green && inN > 0 ? inN * (1 - green.roastLoss / 100) : 0
+  const waste = inN > 0 && outN > 0 ? inN - outN : 0
+  const wastePct = inN > 0 && outN > 0 ? (waste / inN) * 100 : 0
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
-    if (!blendId || out <= 0) { setError('اختار التوليفة والكمية'); return }
+    if (!greenId || !degree || inN <= 0 || outN <= 0) { setError('اختار البن والدرجة واكتب وزن الداخل والخارج'); return }
     setLoading(true)
-    const res = await fetch('/api/factory/produce-blend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blendId, outputKg: out, channel }) })
+    const res = await fetch('/api/factory/roast', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ greenProductId: greenId, roastDegree: degree, inputKg: inN, outputKg: outN, channel }),
+    })
     const data = await res.json(); setLoading(false)
     if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
-    setBlendId(''); setOutputKg(''); onDone()
+    setGreenId(''); setDegree(''); setInKg(''); setOutKg(''); onDone()
   }
 
   return (
     <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
-      <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2"><Blend className="w-5 h-5 text-amber-600" /> إنتاج توليفة</h3>
+      <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2">
+        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 text-xs font-black flex items-center justify-center">١</span>
+        <Flame className="w-5 h-5 text-orange-500" /> التحميص <span className="text-xs font-normal text-gray-400">(بن أخضر ← محمص بدرجة + تشغيلة)</span>
+      </h3>
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+
+      <select value={greenId} onChange={(e) => setGreenId(e.target.value)} className={inputCls}>
+        <option value="">اختار البن الأخضر</option>
+        {greens.map((g) => <option key={g.id} value={g.id}>{g.name} (متاح {g.quantity} كجم · خسران متوقع {g.roastLoss}%)</option>)}
+      </select>
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-600 mb-1">درجة التحميص</label>
+        <div className="grid grid-cols-4 gap-1.5">
+          {ROAST_DEGREES.map((d) => (
+            <button key={d} type="button" onClick={() => setDegree(d)} className={`px-2 py-2 rounded-lg text-xs font-bold transition ${degree === d ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600'}`}>{d}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <input type="number" min="1" step="1" value={inKg} onChange={(e) => setInKg(e.target.value)} placeholder="وزن الأخضر الداخل (كجم)" className={inputCls} />
+        <input type="number" min="1" step="1" value={outKg} onChange={(e) => setOutKg(e.target.value)} placeholder="الوزن بعد التحميص (كجم)" className={inputCls} />
+      </div>
+      <select value={channel} onChange={(e) => setChannel(e.target.value)} className={inputCls}>
+        {CHANNELS.map((c) => <option key={c} value={c}>القناة: {c}</option>)}
+      </select>
+
+      {inN > 0 && (
+        <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1">
+          {expected > 0 && <div className="flex justify-between"><span className="text-gray-500">متوقع الخروج (خسران {green!.roastLoss}%)</span><span className="tabular-nums">{fmt(expected)} كجم</span></div>}
+          {outN > 0 && (
+            <div className={`flex justify-between font-bold ${wastePct > (green?.roastLoss || 0) + 3 ? 'text-red-600' : 'text-orange-600'}`}>
+              <span>الهدر الفعلي</span><span className="tabular-nums">{fmt(waste)} كجم ({fmt(wastePct)}%)</span>
+            </div>
+          )}
+          {outN > 0 && wastePct > (green?.roastLoss || 0) + 3 && (
+            <p className="text-red-600 flex items-center gap-1"><TriangleAlert className="w-3.5 h-3.5" /> الهدر أعلى من المتوقع بشكل ملحوظ — راجع الوزن.</p>
+          )}
+        </div>
+      )}
+
+      <button type="submit" disabled={loading} className="w-full bg-orange-500 text-white py-2.5 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50">
+        {loading ? 'جاري التسجيل...' : 'تسجيل التحميصة (تشغيلة جديدة)'}
+      </button>
+    </form>
+  )
+}
+
+/* ===== المرحلة ٢: التوليف ===== */
+function BlendForm({ blends, onDone }: { blends: BlendT[]; onDone: () => void }) {
+  const [blendId, setBlendId] = useState('')
+  const [out, setOutKg] = useState('')
+  const [channel, setChannel] = useState(CHANNELS[0])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const blend = blends.find((b) => b.id === blendId)
+  const outN = Number(out) || 0
+  const coffeeComps = (blend?.components || []).filter((c) => c.percent > 0)
+  const spiceComps = (blend?.components || []).filter((c) => c.perKilo > 0)
+  const pctSum = +coffeeComps.reduce((s, c) => s + c.percent, 0).toFixed(3)
+  const pctOk = pctSum === 100
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError('')
+    if (!blendId || outN <= 0) { setError('اختار التوليفة والكمية'); return }
+    if (!pctOk) { setError(`مجموع نسب البن في الوصفة = ${pctSum}% — لازم يساوي 100% بالظبط (عدّلها من بنك الأصناف)`); return }
+    setLoading(true)
+    const res = await fetch('/api/factory/blend', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blendId, outputKg: outN, channel }),
+    })
+    const data = await res.json(); setLoading(false)
+    if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
+    setBlendId(''); setOutKg(''); onDone()
+  }
+
+  return (
+    <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
+      <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2">
+        <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-black flex items-center justify-center">٢</span>
+        <Blend className="w-5 h-5 text-amber-600" /> التوليف <span className="text-xs font-normal text-gray-400">(خلط المحمص بنسب الوصفة — لازم = 100%)</span>
+      </h3>
+      {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+
       <div className="grid grid-cols-2 gap-2">
         <select value={blendId} onChange={(e) => setBlendId(e.target.value)} className={inputCls}>
           <option value="">اختار التوليفة</option>
           {blends.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <input type="number" min="1" value={outputKg} onChange={(e) => setOutputKg(e.target.value)} placeholder="الكمية الناتجة (كجم)" className={inputCls} />
+        <input type="number" min="1" step="1" value={out} onChange={(e) => setOutKg(e.target.value)} placeholder="الكمية المطلوبة (كجم)" className={inputCls} />
       </div>
+      <select value={channel} onChange={(e) => setChannel(e.target.value)} className={inputCls}>
+        {CHANNELS.map((c) => <option key={c} value={c}>القناة: {c}</option>)}
+      </select>
 
-      {blend && out > 0 && (
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-[11px] font-semibold text-gray-500 mb-2">المطلوب (البن الأخضر مضروب في الخسران + العطارة بالجرعة):</p>
-          <div className="space-y-1">
-            {rows.map((r, i) => (
-              <div key={i} className="flex justify-between text-xs">
-                <span>{r.name}{r.kind === 'GREEN' ? ` (${r.percent}% · خسران ${r.roastLoss}%)` : ` (${r.perKilo} جم/كيلو)`}</span>
-                <span className="font-semibold tabular-nums">{fmt(r.kg)} {r.unit}</span>
-              </div>
-            ))}
-            <div className="flex justify-between text-xs border-t border-gray-200 pt-1 mt-1">
-              <span className="text-gray-500">إجمالي المدخل / الناتج / الهدر</span>
-              <span className="font-bold tabular-nums">{fmt(totalInput)} / {out} / {fmt(waste)} كجم</span>
+      {blend && (
+        <div className={`rounded-lg p-3 text-xs space-y-1 ${pctOk ? 'bg-gray-50' : 'bg-red-50 border border-red-200'}`}>
+          {coffeeComps.map((c, i) => (
+            <div key={i} className="flex justify-between">
+              <span>{c.percent}% {c.name} <b className="text-orange-600">({c.roastDegree || 'وسط'})</b></span>
+              {outN > 0 && <span className="tabular-nums font-semibold">{fmt((outN * c.percent) / 100)} كجم محمص</span>}
             </div>
+          ))}
+          {spiceComps.map((c, i) => (
+            <div key={'s' + i} className="flex justify-between text-gray-500">
+              <span>{c.name} ({c.perKilo} {c.unit}/كيلو)</span>
+              {outN > 0 && <span className="tabular-nums">{fmt(c.perKilo * outN)}</span>}
+            </div>
+          ))}
+          <div className={`flex justify-between border-t pt-1 font-bold ${pctOk ? 'text-green-700 border-gray-200' : 'text-red-600 border-red-200'}`}>
+            <span>مجموع نسب البن</span><span className="tabular-nums">{pctSum}% {pctOk ? '✓' : '✗ لازم 100%'}</span>
           </div>
         </div>
       )}
       {blend && blend.components.length === 0 && (
         <div className="flex items-center gap-2 bg-amber-50 text-amber-700 p-2.5 rounded-lg text-xs"><TriangleAlert className="w-4 h-4" /> التوليفة دي ملهاش وصفة — عرّفها في بنك الأصناف.</div>
       )}
+      <p className="text-[10px] text-gray-400">المدخلات بتتخصم من مخزون <b>المحمص بدرجته</b> — لو مش متوفر لازم تحمّص الأول (مرحلة ١).</p>
 
-      <button type="submit" disabled={loading} className="w-full bg-amber-500 text-white py-2.5 rounded-lg font-semibold hover:bg-amber-600 disabled:opacity-50">
-        {loading ? 'جاري التنفيذ...' : 'تنفيذ إنتاج التوليفة'}
+      <button type="submit" disabled={loading || (blend && !pctOk) || false} className="w-full bg-amber-500 text-white py-2.5 rounded-lg font-semibold hover:bg-amber-600 disabled:opacity-50">
+        {loading ? 'جاري التنفيذ...' : 'تنفيذ التوليف (تشغيلة جديدة)'}
       </button>
     </form>
   )
 }
 
+/* ===== المرحلة ٣: الطحن ===== */
+function GrindForm({ roastedProducts, onDone }: { roastedProducts: RoastedT[]; onDone: () => void }) {
+  const [inputId, setInputId] = useState('')
+  const [fineness, setFineness] = useState('')
+  const [inKg, setInKg] = useState('')
+  const [outKg, setOutKg] = useState('')
+  const [channel, setChannel] = useState(CHANNELS[0])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const inN = Number(inKg) || 0
+  const outN = Number(outKg) || 0
+  const waste = inN > 0 && outN > 0 ? inN - outN : 0
+  const wastePct = inN > 0 && outN > 0 ? (waste / inN) * 100 : 0
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError('')
+    if (!inputId || !fineness || inN <= 0 || outN <= 0) { setError('اختار الحبوب والنعومة واكتب وزن الداخل والخارج'); return }
+    setLoading(true)
+    const res = await fetch('/api/factory/grind', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inputProductId: inputId, fineness, inputKg: inN, outputKg: outN, channel }),
+    })
+    const data = await res.json(); setLoading(false)
+    if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
+    setInputId(''); setFineness(''); setInKg(''); setOutKg(''); onDone()
+  }
+
+  return (
+    <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
+      <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2">
+        <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 text-xs font-black flex items-center justify-center">٣</span>
+        <Wheat className="w-5 h-5 text-purple-600" /> الطحن <span className="text-xs font-normal text-gray-400">(حبوب محمصة ← مطحون بنعومة)</span>
+      </h3>
+      {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+
+      <select value={inputId} onChange={(e) => setInputId(e.target.value)} className={inputCls}>
+        <option value="">اختار الحبوب المحمصة</option>
+        {roastedProducts.map((r) => <option key={r.id} value={r.id}>{r.isBlendBeans ? '🔸 ' : ''}{r.name} (متاح {r.quantity} كجم)</option>)}
+      </select>
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-600 mb-1">درجة النعومة</label>
+        <div className="grid grid-cols-4 gap-1.5">
+          {GRIND_LEVELS.map((d) => (
+            <button key={d} type="button" onClick={() => setFineness(d)} className={`px-2 py-2 rounded-lg text-xs font-bold transition ${fineness === d ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>{d}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <input type="number" min="1" step="1" value={inKg} onChange={(e) => setInKg(e.target.value)} placeholder="وزن الداخل للطحن (كجم)" className={inputCls} />
+        <input type="number" min="1" step="1" value={outKg} onChange={(e) => setOutKg(e.target.value)} placeholder="وزن المطحون الخارج (كجم)" className={inputCls} />
+      </div>
+      <select value={channel} onChange={(e) => setChannel(e.target.value)} className={inputCls}>
+        {CHANNELS.map((c) => <option key={c} value={c}>القناة: {c}</option>)}
+      </select>
+
+      {inN > 0 && outN > 0 && (
+        <div className="bg-gray-50 rounded-lg p-3 text-xs">
+          <div className={`flex justify-between font-bold ${wastePct > 8 ? 'text-red-600' : 'text-purple-600'}`}>
+            <span>هدر الطحن</span><span className="tabular-nums">{fmt(waste)} كجم ({fmt(wastePct)}%)</span>
+          </div>
+        </div>
+      )}
+      <p className="text-[10px] text-gray-400">🔸 حبوب التوليفة بتتطحن لمنتج التوليفة الجاهز للتعبئة. المحمص المفرد بيطلع "مطحون" مستقل.</p>
+
+      <button type="submit" disabled={loading} className="w-full bg-purple-600 text-white py-2.5 rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50">
+        {loading ? 'جاري التسجيل...' : 'تسجيل الطحن (تشغيلة جديدة)'}
+      </button>
+    </form>
+  )
+}
+
+/* ===== المرحلة ٤: التعبئة والتغليف ===== */
 function PackFinished({ finished, onDone }: { finished: FinishedT[]; onDone: () => void }) {
   const [finishedId, setFinishedId] = useState('')
   const [boxes, setBoxes] = useState('')
@@ -162,7 +396,10 @@ function PackFinished({ finished, onDone }: { finished: FinishedT[]; onDone: () 
 
   return (
     <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
-      <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2"><Package className="w-5 h-5 text-[#0f3460]" /> تعبئة منتج نهائي</h3>
+      <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2">
+        <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-black flex items-center justify-center">٤</span>
+        <Package className="w-5 h-5 text-[#0f3460]" /> التعبئة والتغليف <span className="text-xs font-normal text-gray-400">(مطحون ← عبوات ← مخزن المنتجات)</span>
+      </h3>
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
         <select value={finishedId} onChange={(e) => setFinishedId(e.target.value)} className={inputCls}>
