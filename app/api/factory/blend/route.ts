@@ -3,13 +3,14 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { adjustStock, getStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
-import { ensureRoastedBlendBeans, ensureRoastedVariant, nextBatchNo, validateBlendPercents } from '@/lib/manufacturing'
+import { GRIND_LEVELS, ensureRoastedVariant, nextBatchNo, validateBlendPercents, flagWasteIfExceeded } from '@/lib/manufacturing'
 
 const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
-// المرحلة ٢ — التوليف: خلط البن المحمص بنسب الوصفة (٧٠٪ إندونيسي فاتح + ١٥٪ برازيلي وسط...).
-// السيرفر يمنع التنفيذ لو مجموع نسب البن ≠ 100%. المدخلات من مخزون المحمص (لازم تحميص الأول).
-// الناتج: "حبوب التوليفة المحمصة" — تتطحن في المرحلة الجاية.
+// المرحلة ٢ — طحن وتوليف (خطوة واحدة): خلط البن المحمص بنسب الوصفة ثم طحنه بنعومة محددة.
+// الناتج: منتج التوليفة المطحون مباشرة (جاهز للتعبئة) — بدون مرحلة وسيطة "حبوب توليفة".
+// السيرفر يمنع الحفظ لو مجموع نسب البن ≠ 100%.
+// المستخدم بيدخل الوزن الخارج الفعلي بعد الطحن → الفرق = هدر التوليف والطحن مجتمعين.
 export async function POST(req: NextRequest) {
   const auth = await requireRole([...ALLOWED])
   if ('response' in auth) return auth.response
@@ -17,10 +18,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const b = await req.json()
-    const outputKg = Math.round(Number(b.outputKg))
+    const outputKg = Math.round(Number(b.outputKg)) // الوزن المطحون الخارج فعليًا
+    const fineness = String(b.fineness || '')
     const channel = b.channel || 'المصنع'
+
     if (!b.blendId || !(outputKg > 0)) {
-      return NextResponse.json({ error: 'اختار التوليفة واكتب الكمية المطلوبة' }, { status: 400 })
+      return NextResponse.json({ error: 'اختار التوليفة واكتب الوزن المطحون الخارج' }, { status: 400 })
+    }
+    if (!GRIND_LEVELS.includes(fineness as any)) {
+      return NextResponse.json({ error: `درجة النعومة لازم تكون: ${GRIND_LEVELS.join(' / ')}` }, { status: 400 })
     }
 
     const blend = await prisma.product.findUnique({
@@ -38,12 +44,14 @@ export async function POST(req: NextRequest) {
     const invalid = validateBlendPercents(coffeeComps.map((c) => ({ percent: Number(c.percent) })))
     if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
 
-    // مدخلات البن: المحمص بدرجة الوصفة (مش الأخضر) — التحميص حصل في المرحلة ١
+    // كمية البن المحمص المطلوبة تقريبًا = outputKg (بدون احتساب هدر بسيط في الطحن — الفرق بيتحسب من الوزن الفعلي)
+    // بس نسحب حسب النسب من مخزون المحمص الموجود
+    const targetTotal = outputKg
     const coffeeInputs: { productId: string; name: string; kg: number; whId: string; pct: number }[] = []
     for (const c of coffeeComps) {
       const degree = c.roastDegree || 'وسط'
       const roasted = await ensureRoastedVariant(prisma, c.component, degree)
-      const kg = Math.round((outputKg * Number(c.percent)) / 100)
+      const kg = Math.max(1, Math.round((targetTotal * Number(c.percent)) / 100))
       const whId = await warehouseForStage(roasted.stageId)
       const stock = await getStock(whId, roasted.id)
       if (stock < kg) {
@@ -67,22 +75,26 @@ export async function POST(req: NextRequest) {
       spiceInputs.push({ productId: c.component.id, name: c.component.name, kg, whId })
     }
 
+    const totalIn = coffeeInputs.reduce((s, i) => s + i.kg, 0) + spiceInputs.reduce((s, i) => s + i.kg, 0)
+    const wasteKg = Math.max(0, totalIn - outputKg)
+    const wastePct = totalIn > 0 ? +((wasteKg / totalIn) * 100).toFixed(2) : 0
+
     const production = await prisma.$transaction(async (tx) => {
-      const beans = await ensureRoastedBlendBeans(tx, blend)
-      const beansWh = await warehouseForStage(beans.stageId)
+      // ناتج التوليف والطحن = منتج التوليفة نفسه (مطحون، جاهز للتعبئة)
+      const blendWh = await warehouseForStage(blend.stageId)
       const batchNo = await nextBatchNo(tx, 'TLF')
-      const totalIn = coffeeInputs.reduce((s, i) => s + i.kg, 0) + spiceInputs.reduce((s, i) => s + i.kg, 0)
 
       const created = await tx.production.create({
         data: {
           orderNo: `BLD-${Date.now()}`,
           lineType: 'PROCESSING',
-          stage: `توليف — ${blend.name}`,
+          stage: `طحن وتوليف (${fineness}) — ${blend.name}`,
           batchNo,
+          grindType: fineness,
           inputWeight: totalIn,
           outputWeight: outputKg,
-          wasteWeight: Math.max(0, totalIn - outputKg),
-          wastePercent: totalIn > 0 ? +(((Math.max(0, totalIn - outputKg)) / totalIn) * 100).toFixed(2) : 0,
+          wasteWeight: wasteKg,
+          wastePercent: wastePct,
           channel,
           notes: b.notes?.trim() || null,
           createdById: session.user.id,
@@ -92,7 +104,7 @@ export async function POST(req: NextRequest) {
               ...spiceInputs.map((i) => ({ productId: i.productId, quantity: i.kg, percentage: 0 })),
             ],
           },
-          items: { create: [{ productId: beans.id, quantity: outputKg }] },
+          items: { create: [{ productId: blend.id, quantity: outputKg }] },
         },
         include: { items: { include: { product: true } } },
       })
@@ -101,22 +113,30 @@ export async function POST(req: NextRequest) {
         await tx.product.update({ where: { id: inp.productId }, data: { quantity: { decrement: inp.kg } } })
         await adjustStock(tx, inp.whId, inp.productId, -inp.kg)
       }
-      await tx.product.update({ where: { id: beans.id }, data: { quantity: { increment: outputKg } } })
-      await adjustStock(tx, beansWh, beans.id, outputKg)
+      // إضافة المطحون النهائي لمخزن المطحون/التوليفات
+      await tx.product.update({ where: { id: blend.id }, data: { quantity: { increment: outputKg } } })
+      await adjustStock(tx, blendWh, blend.id, outputKg)
 
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
-          action: 'توليف',
-          description: `تشغيلة ${batchNo}: توليف ${outputKg} كجم ${blend.name} — ${channel}`,
-          impact: coffeeInputs.map((i) => `${i.pct}% ${i.name}`).join(' + '),
+          action: 'طحن وتوليف',
+          description: `تشغيلة ${batchNo}: طحن وتوليف ${outputKg} كجم ${blend.name} (${fineness}) — ${channel}`,
+          impact: `${coffeeInputs.map((i) => `${i.pct}% ${i.name}`).join(' + ')} · هدر ${wasteKg} كجم (${wastePct}%)`,
         },
+      })
+
+      // فحص حد الهدر لعملية "طحن وتوليف" (fallback على "طحن" لو مش موجود اسم مطابق)
+      await flagWasteIfExceeded(tx, created.id, 'طحن', wastePct, {
+        batchNo,
+        userId: session.user.id,
+        desc: `طحن وتوليف ${blend.name} (${fineness}) — دخل ${totalIn} خرج ${outputKg} كجم`,
       })
       return created
     })
 
     return NextResponse.json(production, { status: 201 })
   } catch {
-    return NextResponse.json({ error: 'فشل تنفيذ التوليف' }, { status: 500 })
+    return NextResponse.json({ error: 'فشل تنفيذ طحن وتوليف' }, { status: 500 })
   }
 }

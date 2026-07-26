@@ -15,11 +15,9 @@ export default async function ProducePage() {
   if (!session) redirect('/')
   await ensureStockStages()
 
-  const [greens, roastedProducts, blends, finished, productions, kpiAgg] = await Promise.all([
+  const [greens, blends, finished, productions, kpiAgg] = await Promise.all([
     // بن أخضر (مدخل التحميص)
     prisma.product.findMany({ where: { isActive: true, itemKind: 'GREEN' }, orderBy: { name: 'asc' } }),
-    // حبوب محمصة (مدخل الطحن): محمص أصل أو حبوب توليفة
-    prisma.product.findMany({ where: { isActive: true, itemKind: { in: ['ROASTED', 'ROASTED_BLEND'] } }, orderBy: { name: 'asc' } }),
     prisma.product.findMany({
       where: { isActive: true, itemKind: 'BLEND' },
       orderBy: { name: 'asc' },
@@ -37,30 +35,30 @@ export default async function ProducePage() {
       take: 25,
       include: { items: { include: { product: true } }, inputs: { include: { product: true } } },
     }),
-    // KPI تراكمي لكل مرحلة
+    // KPI تراكمي لكل مرحلة (BLD = طحن وتوليف مندمجين، GRD القديم بيتجمّع كمان لو موجود)
     Promise.all([
       prisma.production.aggregate({ where: { orderNo: { startsWith: 'RST-' } }, _sum: { inputWeight: true, outputWeight: true, wasteWeight: true }, _count: true }),
-      prisma.production.aggregate({ where: { orderNo: { startsWith: 'GRD-' } }, _sum: { inputWeight: true, outputWeight: true, wasteWeight: true }, _count: true }),
+      prisma.production.aggregate({ where: { OR: [{ orderNo: { startsWith: 'BLD-' } }, { orderNo: { startsWith: 'GRD-' } }] }, _sum: { inputWeight: true, outputWeight: true, wasteWeight: true }, _count: true }),
       prisma.production.aggregate({ where: { orderNo: { startsWith: 'PACK-' } }, _sum: { inputWeight: true, outputWeight: true, wasteWeight: true }, _count: true }),
     ]),
   ])
 
-  const [roastAgg, grindAgg, packAgg] = kpiAgg
+  const [roastAgg, gbAgg, packAgg] = kpiAgg
   const kpi = {
     greenIn: roastAgg._sum.inputWeight || 0,
     roastedOut: roastAgg._sum.outputWeight || 0,
     roastWaste: roastAgg._sum.wasteWeight || 0,
     roastCount: roastAgg._count,
-    grindIn: grindAgg._sum.inputWeight || 0,
-    grindOut: grindAgg._sum.outputWeight || 0,
-    grindWaste: grindAgg._sum.wasteWeight || 0,
+    grindIn: gbAgg._sum.inputWeight || 0,
+    grindOut: gbAgg._sum.outputWeight || 0,
+    grindWaste: gbAgg._sum.wasteWeight || 0,
     packCoffee: packAgg._sum.inputWeight || 0, // كجم بن استُهلك في التعبئة
     packUnits: packAgg._sum.outputWeight || 0, // عدد العبوات
     packWaste: packAgg._sum.wasteWeight || 0,
   }
 
   const stageOf = (orderNo: string) =>
-    orderNo.startsWith('RST-') ? 'تحميص' : orderNo.startsWith('BLD-') ? 'توليف' : orderNo.startsWith('GRD-') ? 'طحن' : 'تعبئة'
+    orderNo.startsWith('RST-') ? 'تحميص' : (orderNo.startsWith('BLD-') || orderNo.startsWith('GRD-')) ? 'طحن وتوليف' : 'تعبئة'
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -76,7 +74,6 @@ export default async function ProducePage() {
 
       <FactoryProduction
         greens={greens.map((g) => ({ id: g.id, name: g.name, quantity: g.quantity, roastLoss: Number(g.roastLossPercent) }))}
-        roastedProducts={roastedProducts.map((r) => ({ id: r.id, name: r.name, quantity: r.quantity, isBlendBeans: r.itemKind === 'ROASTED_BLEND' }))}
         blends={blends.map((b) => ({
           id: b.id,
           name: b.name,

@@ -1,11 +1,10 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Printer, Flame, ShoppingBag, Blend, TrendingDown, Package2, Image as ImageIcon } from 'lucide-react'
+import { Printer, Flame, ShoppingBag, Blend, TrendingDown, Package2, Image as ImageIcon, Factory } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
-import { ProductionForm } from '@/components/production-form'
 import { PurchaseForm } from '@/components/purchase-form'
 import { RecipeManager } from '@/components/recipe-manager'
 
@@ -295,12 +294,18 @@ export default async function FactoryPage() {
         </div>
 
         <div className="space-y-4">
-          <ProductionForm
-            products={productForms}
-            operations={operationsLite}
-            warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-            recipes={recipeLite}
-          />
+          {/* التصنيع بقى في خط تصنيع كامل (تحميص → طحن وتوليف → تعبئة) — الفورم القديم اتشال لمنع التعارض */}
+          <Link href="/factory/produce" className="block bg-gradient-to-br from-[#0f3460] to-[#16213e] text-white p-5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                <Factory className="w-6 h-6 text-[#e9b44c]" />
+              </div>
+              <div>
+                <p className="font-bold text-base">خط التصنيع الكامل</p>
+                <p className="text-xs text-white/60 mt-0.5">تحميص → طحن وتوليف → تعبئة وتغليف · تشغيلات مستقلة وهدر متتبَّع</p>
+              </div>
+            </div>
+          </Link>
           <PurchaseForm
             products={rawProducts.map((p) => ({ id: p.id, name: p.name, unit: p.unit }))}
             suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
