@@ -8,6 +8,7 @@ export default async function ReturnPrintPage({ params }: { params: { id: string
     include: {
       customer: true,
       deliveryOrder: { include: { delegate: true } },
+      invoice: { include: { items: { include: { product: true } } } },
       creator: true,
       items: { include: { product: true } },
     },
@@ -18,12 +19,12 @@ export default async function ReturnPrintPage({ params }: { params: { id: string
 
   return (
     <PrintDoc
-      title="إشعار مرتجع"
+      title="إشعار مرتجع بفاتورة"
       docNo={r.returnNo}
       date={r.createdAt}
       meta={[
         { label: 'العميل', value: r.customer?.name || r.customerName || '—' },
-        ...(r.deliveryOrder ? [{ label: 'أمر الجولة', value: r.deliveryOrder.orderNo }] : []),
+        ...(r.invoice ? [{ label: 'مرتجع من فاتورة', value: r.invoice.invoiceNo }] : []),
         ...(r.deliveryOrder?.delegate ? [{ label: 'المندوب', value: r.deliveryOrder.delegate.name }] : []),
         { label: 'نوع التسوية', value: r.refundCash ? 'رد نقدي' : 'خصم من الآجل' },
         ...(r.reason ? [{ label: 'السبب', value: r.reason }] : []),
@@ -31,15 +32,33 @@ export default async function ReturnPrintPage({ params }: { params: { id: string
       ]}
       signatures={['العميل', 'المندوب']}
     >
+      {/* بنود الفاتورة الأصلية */}
+      {r.invoice && (
+        <div style={{ marginBottom: 20 }}>
+          <h4 className="font-bold text-sm mb-2">بنود الفاتورة الأصلية — {r.invoice.invoiceNo}</h4>
+          <PrintTable
+            headers={['#', 'الصنف', 'الكمية', 'سعر الوحدة', 'الإجمالي']}
+            rows={r.invoice.items.map((it, i) => [
+              i + 1,
+              it.isBonus ? `🎁 ${it.product.name} (هدية)` : it.product.name,
+              `${it.quantity} ${it.product.unit}`,
+              it.isBonus ? 'هدية' : egp(Number(it.unitPrice)),
+              it.isBonus ? '—' : egp(Number(it.totalPrice)),
+            ])}
+          />
+        </div>
+      )}
+
+      <h4 className="font-bold text-sm mb-2">المرتجع</h4>
       <PrintTable
         headers={['#', 'الصنف', 'الوحدة', 'الكمية', 'سعر الوحدة', 'الإجمالي']}
         rows={r.items.map((it, i) => [
           i + 1,
-          it.product.name,
+          it.isBonus ? `🎁 ${it.product.name} (هدية)` : it.product.name,
           it.product.unit,
           it.quantity,
-          egp(Number(it.unitPrice)),
-          egp(Number(it.totalPrice)),
+          it.isBonus ? 'هدية' : egp(Number(it.unitPrice)),
+          it.isBonus ? '—' : egp(Number(it.totalPrice)),
         ])}
         totals={[{ label: 'إجمالي قيمة المرتجع', value: egp(Number(r.totalValue)) }]}
       />

@@ -737,6 +737,7 @@ model InvoiceItem {
   invoice    Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product    Product     @relation(fields: [productId], references: [id])
   rewardRule RewardRule? @relation(fields: [rewardRuleId], references: [id])
+  returnItems DeliveryReturnItem[]
 
   @@map("invoice_items")
 }
@@ -835,15 +836,18 @@ model DeliveryReturn {
 }
 
 model DeliveryReturnItem {
-  id         String  @id @default(cuid())
-  returnId   String
-  productId  String
-  quantity   Int
-  unitPrice  Decimal @db.Decimal(10, 2)
-  totalPrice Decimal @db.Decimal(10, 2)
+  id            String  @id @default(cuid())
+  returnId      String
+  productId     String
+  invoiceItemId String? // بند الفاتورة الأصلي (يفرّق بين البند المدفوع والهدية لنفس الصنف)
+  isBonus       Boolean @default(false) // بند هدية اترجع
+  quantity      Int
+  unitPrice     Decimal @db.Decimal(10, 2)
+  totalPrice    Decimal @db.Decimal(10, 2)
 
   deliveryReturn DeliveryReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
   product        Product        @relation(fields: [productId], references: [id])
+  invoiceItem    InvoiceItem?   @relation(fields: [invoiceItemId], references: [id])
 
   @@map("delivery_return_items")
 }
