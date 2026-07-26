@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 
 // ===== ثوابت خط التصنيع =====
-export const ROAST_DEGREES = ['فاتح', 'وسط', 'غامق', 'غامق جداً'] as const
+export const ROAST_DEGREES = ['فاتح', 'وسط', 'غامق', 'محروق'] as const
 export const GRIND_LEVELS = ['ناعم جداً', 'ناعم', 'متوسط', 'خشن'] as const
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0] | typeof prisma

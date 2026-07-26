@@ -165,7 +165,7 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
                       <option value="فاتح">فاتح</option>
                       <option value="وسط">وسط</option>
                       <option value="غامق">غامق</option>
-                      <option value="غامق جداً">غامق جداً</option>
+                      <option value="محروق">محروق</option>
                     </select>
                   )}
                   <div className="flex items-center gap-1 shrink-0">

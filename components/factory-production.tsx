@@ -21,7 +21,7 @@ interface KpiT {
 }
 
 const CHANNELS = ['المصنع', 'حلوان (الكافيه)', 'عبدالله (تحميص أجرة)']
-const ROAST_DEGREES = ['فاتح', 'وسط', 'غامق', 'غامق جداً']
+const ROAST_DEGREES = ['فاتح', 'وسط', 'غامق', 'محروق']
 const GRIND_LEVELS = ['ناعم جداً', 'ناعم', 'متوسط', 'خشن']
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })

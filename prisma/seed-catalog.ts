@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { ensureStockStages } from '../lib/stock-stages'
+import { ROAST_DEGREES } from '../lib/manufacturing'
 
 const prisma = new PrismaClient()
 
@@ -84,6 +85,14 @@ async function main() {
   }
 
   for (const g of GREEN) await upsert(g.name, 'GREEN', { roastLossPercent: g.roastLoss, unit: 'كجم' }, rawStage)
+
+  // محمصات جاهزة لكل بن أخضر × كل درجة تحميص (5 × 4 = 20 صنف)
+  const roastedStage = stageBy('محمّص')
+  for (const g of GREEN) {
+    for (const degree of ROAST_DEGREES) {
+      await upsert(`${g.name} — محمص (${degree})`, 'ROASTED', { unit: 'كجم' }, roastedStage)
+    }
+  }
   for (const s of SPICE) await upsert(s, 'SPICE', { unit: 'كجم' }, spiceStage)
   for (const f of FLAVOR) await upsert(f, 'FLAVOR', { unit: 'كجم' }, flavorStage)
   for (const p of PACKAGING) await upsert(p.name, 'PACKAGING', { tareWeight: p.tare, unit: 'قطعة' }, packStage)
@@ -117,7 +126,7 @@ async function main() {
   }
 
   const counts = {
-    green: GREEN.length, spice: SPICE.length, flavor: FLAVOR.length,
+    green: GREEN.length, roasted: GREEN.length * ROAST_DEGREES.length, spice: SPICE.length, flavor: FLAVOR.length,
     packaging: PACKAGING.length, blends: BLENDS.length, finished: FINISHED.length,
   }
   console.log('✅ كتالوج المصنع:', counts)
