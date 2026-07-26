@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { adjustStock, getStock, getDefaultWarehouseId } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
+import { flagWasteIfExceeded } from '@/lib/manufacturing'
 
 const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
@@ -101,6 +102,14 @@ export async function POST(req: NextRequest) {
       await tx.warehouseIn.create({ data: { productId: fin.id, warehouseId: finWh, quantity: boxes, source: `تعبئة — أمر ${created.orderNo}`, createdById: session.user.id } })
 
       await tx.auditLog.create({ data: { userId: session.user.id, action: 'تعبئة', description: `${created.orderNo} — ${fin.name} ${boxes} علبة`, impact: `توليفة ${coffeeKg} كجم + تغليف ${pieces}` } })
+
+      // فحص حد الهدر المسموح للتعبئة
+      const packWastePct = coffeeKg > 0 ? (wasteKg / coffeeKg) * 100 : 0
+      await flagWasteIfExceeded(tx, created.id, 'تعبئة', packWastePct, {
+        batchNo: created.batchNo || created.orderNo,
+        userId: session.user.id,
+        desc: `تعبئة ${fin.name} — ${boxes} علبة (هدر ${wasteKg} كجم)`,
+      })
       return created
     })
 

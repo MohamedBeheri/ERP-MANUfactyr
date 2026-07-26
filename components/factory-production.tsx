@@ -12,7 +12,7 @@ interface FinishedT { id: string; name: string; blendName: string | null; hasBle
 interface ProdT {
   id: string; orderNo: string; batchNo: string | null; stage: string; stageDetail: string
   roastLevel: string | null; grindType: string | null; output: string
-  inputWeight: number; outputWeight: number; wasteWeight: number; wastePercent: number; channel: string; createdAt: string
+  inputWeight: number; outputWeight: number; wasteWeight: number; wastePercent: number; wasteExceeded: boolean; channel: string; createdAt: string
 }
 interface KpiT {
   greenIn: number; roastedOut: number; roastWaste: number; roastCount: number
@@ -97,8 +97,11 @@ export function FactoryProduction({ greens, roastedProducts, blends, finished, p
                 <tr><td colSpan={8} className="p-6 text-center text-gray-400 text-sm">مفيش تشغيلات لسه — ابدأ بالتحميص.</td></tr>
               )}
               {productions.map((p) => (
-                <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                  <td className="p-3 font-bold tabular-nums text-[#0f3460]">{p.batchNo || p.orderNo.slice(0, 12)}</td>
+                <tr key={p.id} className={`border-b last:border-0 ${p.wasteExceeded ? 'bg-red-50/70 border-red-100 hover:bg-red-50' : 'border-gray-50 hover:bg-gray-50/50'}`}>
+                  <td className="p-3 font-bold tabular-nums text-[#0f3460]">
+                    {p.batchNo || p.orderNo.slice(0, 12)}
+                    {p.wasteExceeded && <span className="block text-[9px] text-red-600 font-bold mt-0.5">⚠ هدر أعلى من الحد</span>}
+                  </td>
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${STAGE_COLORS[p.stage] || 'bg-gray-100 text-gray-600'}`}>{p.stage}</span>
                     {p.roastLevel && <span className="text-[10px] text-gray-400 mr-1">{p.roastLevel}</span>}

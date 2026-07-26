@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { adjustStock, getStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
-import { GRIND_LEVELS, ensureGroundVariant, nextBatchNo } from '@/lib/manufacturing'
+import { GRIND_LEVELS, ensureGroundVariant, nextBatchNo, flagWasteIfExceeded } from '@/lib/manufacturing'
 
 const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
@@ -85,6 +85,13 @@ export async function POST(req: NextRequest) {
           description: `تشغيلة ${batchNo}: طحن ${inputKg} كجم ${input.name} (${fineness}) — ${channel}`,
           impact: `خرج ${outputKg} كجم مطحون · هدر ${wasteKg} كجم (${wastePct}%)`,
         },
+      })
+
+      // فحص حد الهدر المسموح للطحن
+      await flagWasteIfExceeded(tx, created.id, 'طحن', wastePct, {
+        batchNo,
+        userId: session.user.id,
+        desc: `طحن ${input.name} (${fineness}) — دخل ${inputKg} خرج ${outputKg} كجم`,
       })
       return created
     })

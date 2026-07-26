@@ -113,6 +113,7 @@ export default async function ProducePage() {
           outputWeight: p.outputWeight,
           wasteWeight: p.wasteWeight,
           wastePercent: Number(p.wastePercent),
+          wasteExceeded: p.wasteExceeded,
           channel: p.channel,
           createdAt: p.createdAt.toISOString(),
         }))}

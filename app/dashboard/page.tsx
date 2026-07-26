@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   from.setDate(from.getDate() - (days - 1))
   from.setHours(0, 0, 0, 0)
 
-  const [invoices, productions, purchases, allProducts, activeDelegates, recentActivity, pendingOnline, activeTours, keyClaims] =
+  const [invoices, productions, purchases, allProducts, activeDelegates, recentActivity, pendingOnline, activeTours, keyClaims, wasteAlerts] =
     await Promise.all([
       prisma.invoice.findMany({
         where: { createdAt: { gte: from }, status: 'COMPLETED' },
@@ -79,6 +79,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       prisma.onlineOrder.count({ where: { status: 'PENDING' } }).catch(() => 0),
       prisma.deliveryOrder.count({ where: { status: 'IN_PROGRESS' } }),
       prisma.keyAccount.aggregate({ where: { isActive: true }, _sum: { balance: true } }).catch(() => ({ _sum: { balance: 0 } })),
+      // إشعار تجاوز حد الهدر في التصنيع (آخر 7 أيام)
+      prisma.production.count({ where: { wasteExceeded: true, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } }).catch(() => 0),
     ])
 
   // صلاحيات المستخدم — الداشبورد بيعرض بس الأقسام اللي من حقه
@@ -169,6 +171,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       Icon: Wallet,
       text: `مطالبات كبار الموردين المستحقة ${keyClaimsTotal.toLocaleString('ar-EG')} ج.م`,
       cls: 'bg-amber-50 text-amber-700 ring-amber-100 hover:ring-amber-300',
+    },
+    wasteAlerts > 0 && perms.includes('factory') && {
+      href: '/factory/produce',
+      Icon: AlertTriangle,
+      text: `⚠️ ${wasteAlerts} تشغيلة تصنيع هدرها أعلى من الحد المسموح — راجع خط التصنيع`,
+      cls: 'bg-red-50 text-red-700 ring-red-100 hover:ring-red-300',
     },
     lowStockProducts.length > 0 && perms.includes('warehouse') && {
       href: '/warehouse',

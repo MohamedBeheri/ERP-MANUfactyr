@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/api-auth'
 import { adjustStock, getStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
-import { ROAST_DEGREES, ensureRoastedVariant, nextBatchNo } from '@/lib/manufacturing'
+import { ROAST_DEGREES, ensureRoastedVariant, nextBatchNo, flagWasteIfExceeded } from '@/lib/manufacturing'
 
 const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
@@ -83,6 +83,13 @@ export async function POST(req: NextRequest) {
           description: `تشغيلة ${batchNo}: تحميص ${inputKg} كجم ${green.name} (${degree}) — ${channel}`,
           impact: `خرج ${outputKg} كجم محمص · هدر ${wasteKg} كجم (${wastePct}%)`,
         },
+      })
+
+      // فحص حد الهدر المسموح للتحميص — لو اتعدّى: تعليم التشغيلة + إشعار للأدمن
+      await flagWasteIfExceeded(tx, created.id, 'تحميص', wastePct, {
+        batchNo,
+        userId: session.user.id,
+        desc: `تحميص ${green.name} (${degree}) — دخل ${inputKg} خرج ${outputKg} كجم`,
       })
       return created
     })

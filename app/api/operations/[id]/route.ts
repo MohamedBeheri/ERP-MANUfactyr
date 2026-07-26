@@ -9,7 +9,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if ('response' in auth) return auth.response
 
   try {
-    const { name, inputStageId, outputStageId, hasYieldLoss, sortOrder } = await req.json()
+    const { name, inputStageId, outputStageId, hasYieldLoss, sortOrder, maxWastePercent } = await req.json()
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم العملية مطلوب' }, { status: 400 })
     }
@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         inputStageId,
         outputStageId,
         hasYieldLoss: hasYieldLoss !== undefined ? !!hasYieldLoss : undefined,
+        maxWastePercent: maxWastePercent !== undefined ? Math.min(100, Math.max(0, Number(maxWastePercent) || 0)) : undefined,
         sortOrder: sortOrder !== undefined ? Number(sortOrder) : undefined,
       },
       include: { inputStage: true, outputStage: true },

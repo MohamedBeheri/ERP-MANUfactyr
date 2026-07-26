@@ -79,6 +79,34 @@ export async function ensureGroundVariant(tx: Tx, roasted: { id: string; name: s
   })
 }
 
+// حد الهدر الأقصى المسموح لعملية معيّنة (بالاسم: تحميص/طحن/تعبئة) — 0 يعني مفيش حد
+export async function wasteThresholdFor(tx: Tx, kw: string): Promise<number> {
+  const op = await (tx as typeof prisma).productionOperation.findFirst({ where: { isActive: true, name: { contains: kw } } })
+  return op ? Number(op.maxWastePercent) : 0
+}
+
+// فحص تجاوز الهدر: يعلّم التشغيلة + إشعار للأدمن في سجل الحوكمة/لوحة التحكم
+export async function flagWasteIfExceeded(
+  tx: Tx,
+  productionId: string,
+  opKeyword: string,
+  wastePct: number,
+  detail: { batchNo: string; userId: string; desc: string }
+): Promise<boolean> {
+  const limit = await wasteThresholdFor(tx, opKeyword)
+  if (!(limit > 0) || wastePct <= limit) return false
+  await (tx as typeof prisma).production.update({ where: { id: productionId }, data: { wasteExceeded: true } })
+  await (tx as typeof prisma).auditLog.create({
+    data: {
+      userId: detail.userId,
+      action: 'تجاوز حد الهدر',
+      description: `⚠️ تشغيلة ${detail.batchNo}: ${detail.desc}`,
+      impact: `هدر ${wastePct.toFixed(2)}% أعلى من الحد المسموح (${limit}%)`,
+    },
+  })
+  return true
+}
+
 // تحقق وصفة التوليفة: مجموع نسب مكوّنات البن لازم = 100% بالظبط
 export function validateBlendPercents(components: { percent?: number; perKilo?: number }[]): string | null {
   const coffeeComps = components.filter((c) => (Number(c.percent) || 0) > 0)

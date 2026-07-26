@@ -143,11 +143,12 @@ model StockStage {
 // كل عملية بتحدد: بتسحب من أنهي مرحلة مخزنية وبتنتج في أنهي مرحلة
 // مثال: "تحميص" تسحب من (بن أخضر) وتنتج في (بن محمّص) — "طحن وتعبئة" تسحب من (بن محمّص) وتنتج في (منتج نهائي)
 model ProductionOperation {
-  id            String   @id @default(cuid())
-  name          String   @unique
-  inputStageId  String?
-  outputStageId String?
-  hasYieldLoss  Boolean  @default(true) // فيها هدر (زي التحميص)
+  id             String  @id @default(cuid())
+  name           String  @unique
+  inputStageId   String?
+  outputStageId  String?
+  hasYieldLoss   Boolean @default(true) // فيها هدر (زي التحميص)
+  maxWastePercent Decimal @default(0) @db.Decimal(5, 2) // حد الهدر الأقصى المسموح % (0 = بدون حد) — يحدده الأدمن
   sortOrder     Int      @default(0)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -357,6 +358,7 @@ model Production {
   outputWeight Int         @default(0) // إجمالي وزن المخرجات (جرام)
   wasteWeight  Int         @default(0) // الهدر (جرام)
   wastePercent Decimal     @default(0) @db.Decimal(5, 2) // نسبة الهدر %
+  wasteExceeded Boolean    @default(false) // الهدر عدّى الحد المسموح للعملية — تشغيلة متعلّمة + إشعار للأدمن
   expiryDate   DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
   recipeId     String? // الوصفة المستخدمة (BOM)
   operationId  String? // عملية التصنيع المستخدمة

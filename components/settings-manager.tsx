@@ -67,6 +67,7 @@ interface OperationRow {
   inputStageName: string | null
   outputStageName: string | null
   hasYieldLoss: boolean
+  maxWastePercent: number
   sortOrder: number
 }
 
@@ -700,7 +701,7 @@ function StockStagesTab({ stages, warehouses }: { stages: StockStageRow[]; wareh
 /* ================= عمليات التصنيع ================= */
 function OperationsTab({ operations, stages }: { operations: OperationRow[]; stages: StockStageRow[] }) {
   const router = useRouter()
-  const empty = { name: '', inputStageId: '', outputStageId: '', hasYieldLoss: false, sortOrder: '0' }
+  const empty = { name: '', inputStageId: '', outputStageId: '', hasYieldLoss: false, maxWastePercent: '', sortOrder: '0' }
   const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -758,6 +759,10 @@ function OperationsTab({ operations, stages }: { operations: OperationRow[]; sta
           <input type="checkbox" checked={form.hasYieldLoss} onChange={(e) => setForm({ ...form, hasYieldLoss: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
           فيها هدر في الوزن (زي التحميص 15-20%)
         </label>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">حد الهدر الأقصى المسموح % (لو التشغيلة عدّته: إشعار للأدمن وتتعلّم بالأحمر — سيبه فاضي = بدون حد)</label>
+          <input type="number" min="0" max="100" step="0.5" value={form.maxWastePercent} onChange={(e) => setForm({ ...form, maxWastePercent: e.target.value })} placeholder="مثال: 12" className={inputCls} />
+        </div>
         <div className="flex gap-2">
           <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
             {editId ? 'حفظ' : 'إضافة'}
@@ -777,6 +782,7 @@ function OperationsTab({ operations, stages }: { operations: OperationRow[]; sta
                 <p className="font-semibold text-sm flex items-center gap-2">
                   {op.name}
                   {op.hasYieldLoss && <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded font-semibold">هدر</span>}
+                  {op.maxWastePercent > 0 && <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-semibold">حد {op.maxWastePercent}%</span>}
                 </p>
                 <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
                   <span className="bg-gray-100 px-1.5 py-0.5 rounded">{op.inputStageName || '؟'}</span>
@@ -785,7 +791,7 @@ function OperationsTab({ operations, stages }: { operations: OperationRow[]; sta
                 </p>
               </div>
               <div className="flex gap-1 shrink-0">
-                <button onClick={() => { setEditId(op.id); setForm({ name: op.name, inputStageId: op.inputStageId || '', outputStageId: op.outputStageId || '', hasYieldLoss: op.hasYieldLoss, sortOrder: String(op.sortOrder) }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
+                <button onClick={() => { setEditId(op.id); setForm({ name: op.name, inputStageId: op.inputStageId || '', outputStageId: op.outputStageId || '', hasYieldLoss: op.hasYieldLoss, maxWastePercent: op.maxWastePercent > 0 ? String(op.maxWastePercent) : '', sortOrder: String(op.sortOrder) }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
                   <Pencil className="w-4 h-4" />
                 </button>
                 <button onClick={() => remove(op.id, op.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">

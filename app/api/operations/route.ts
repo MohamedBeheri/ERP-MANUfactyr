@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if ('response' in auth) return auth.response
 
   try {
-    const { name, inputStageId, outputStageId, hasYieldLoss, sortOrder } = await req.json()
+    const { name, inputStageId, outputStageId, hasYieldLoss, sortOrder, maxWastePercent } = await req.json()
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم العملية مطلوب' }, { status: 400 })
     }
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
         inputStageId,
         outputStageId,
         hasYieldLoss: !!hasYieldLoss,
+        maxWastePercent: Math.min(100, Math.max(0, Number(maxWastePercent) || 0)),
         sortOrder: Number(sortOrder) || 0,
       },
       include: { inputStage: true, outputStage: true },

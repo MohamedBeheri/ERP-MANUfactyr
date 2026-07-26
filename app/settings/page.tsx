@@ -104,6 +104,7 @@ export default async function SettingsPage() {
           inputStageName: op.inputStage?.name || null,
           outputStageName: op.outputStage?.name || null,
           hasYieldLoss: op.hasYieldLoss,
+          maxWastePercent: Number(op.maxWastePercent),
           sortOrder: op.sortOrder,
         }))}
         warehouses={warehouses.map((w) => ({
