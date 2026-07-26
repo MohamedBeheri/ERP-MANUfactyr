@@ -6,7 +6,7 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
   const inv = await prisma.invoice.findUnique({
     where: { id: params.id },
     include: {
-      customer: true,
+      customer: { include: { tier: true } },
       delegate: true,
       items: { include: { product: true } },
       creator: true,
@@ -22,6 +22,10 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
   const bonusItems = inv.items.filter((it) => it.isBonus)
   const soldQty = paidItems.reduce((s, it) => s + it.quantity, 0)
   const bonusQty = bonusItems.reduce((s, it) => s + it.quantity, 0)
+  // بونص نقاط الفئة المكتسب على الفاتورة دي (نفس حساب السيرفر)
+  const bonusPct = inv.customer.tier ? Number(inv.customer.tier.bonusPercent) : 0
+  const pointsEarned = bonusPct > 0 ? +((net * bonusPct) / 100).toFixed(2) : 0
+  const hasRewards = bonusQty > 0 || pointsEarned > 0
 
   return (
     <PrintDoc
@@ -38,7 +42,6 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
         ...(inv.delegate ? [{ label: 'المندوب', value: inv.delegate.name }] : []),
         { label: 'المسجّل', value: inv.creator.name },
       ]}
-      footerNote={inv.invoiceNotes || undefined}
       signatures={['استلمت البضاعة (العميل)', 'المندوب']}
     >
       <PrintTable
@@ -62,12 +65,27 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
         ]}
       />
 
-      {bonusQty > 0 && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 13 }}>
-          <strong>🎁 الهدايا والبونص:</strong> العميل استلم{' '}
-          {bonusItems.map((b, i) => (
-            <span key={b.id}>{i > 0 ? ' + ' : ' '}{b.quantity} {b.product.unit} {b.product.name}</span>
-          ))}{' '}مجانًا مع الفاتورة دي.
+      {/* بيان الهدايا والبونص — يظهر دايمًا */}
+      <div style={{ marginTop: 12, padding: '10px 14px', background: hasRewards ? '#fffbeb' : '#f9fafb', border: `1px solid ${hasRewards ? '#fde68a' : '#e5e7eb'}`, borderRadius: 8, fontSize: 13 }}>
+        <strong>🎁 الهدايا والبونص:</strong>
+        {hasRewards ? (
+          <ul style={{ margin: '6px 0 0', paddingInlineStart: 18 }}>
+            {bonusItems.map((b) => (
+              <li key={b.id}>هدية مجانية: {b.quantity} {b.product.unit} {b.product.name}</li>
+            ))}
+            {pointsEarned > 0 && (
+              <li>بونص نقاط مكتسب: {pointsEarned.toLocaleString('ar-EG')} نقطة (فئة {inv.customer.tier?.name})</li>
+            )}
+          </ul>
+        ) : (
+          <span style={{ color: '#6b7280' }}> مفيش هدايا أو بونص على الفاتورة دي.</span>
+        )}
+      </div>
+
+      {/* ملاحظات الفاتورة */}
+      {inv.invoiceNotes && (
+        <div style={{ marginTop: 10, padding: '10px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13 }}>
+          <strong>📝 ملاحظات الفاتورة:</strong> {inv.invoiceNotes}
         </div>
       )}
     </PrintDoc>
