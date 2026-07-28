@@ -5,10 +5,11 @@ import { requirePermission } from '@/lib/api-auth'
 // سداد قسط
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; installmentId: string } }
+  { params: rawParams }: { params: Promise<{ id: string; installmentId: string }> }
 ) {
   const auth = await requirePermission('treasury', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   const body = await req.json()

@@ -9,9 +9,10 @@ import { flagWasteIfExceeded } from '@/lib/manufacturing'
 // إقفال تشغيلة التعبئة: العامل يرجع بعد ما خط التعبئة يخلص ويعد الأكياس الفعلية.
 // النظام يحسب الهدر تلقائي:
 //   هدر = (كمية مسحوبة بالجرام) - (عدد أكياس × وزن الكيس بالجرام) - (عدد أكياس × وزن الفارغة)
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('factory', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

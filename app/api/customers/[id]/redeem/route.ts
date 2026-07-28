@@ -4,9 +4,10 @@ import { requirePermission } from '@/lib/api-auth'
 
 
 // استبدال نقاط البونص (1 نقطة = 1 ج.م خصم/كاش باك) — بيتخصم من رصيد العميل ويتوثق في سجل المراجعة
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('customers', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

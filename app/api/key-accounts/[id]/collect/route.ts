@@ -4,9 +4,10 @@ import { requirePermission } from '@/lib/api-auth'
 
 
 // تحصيل من المقر الرئيسي — يقلّل المطالبات ويسجّل دفعة في سجل التحصيل والخزينة
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('keyaccounts', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

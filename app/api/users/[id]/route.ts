@@ -3,9 +3,10 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('governance', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {
@@ -67,9 +68,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('governance', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

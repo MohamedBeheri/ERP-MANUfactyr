@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('delegates', 'view')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     const deliveryOrder = await prisma.deliveryOrder.findUnique({

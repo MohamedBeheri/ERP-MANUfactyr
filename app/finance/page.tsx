@@ -53,7 +53,8 @@ function SectionHeader({ icon: Icon, title, badge, iconColor = 'text-[#0f3460]' 
   )
 }
 
-export default async function ReportsPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function ReportsPage({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 

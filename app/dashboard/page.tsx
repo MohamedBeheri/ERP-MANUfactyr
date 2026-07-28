@@ -43,7 +43,8 @@ function buildPeriod(searchParams: { days?: string; from?: string; to?: string }
   return { from, to, days, label: days === 1 ? 'اليوم' : `آخر ${days} يوم` }
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: { days?: string; from?: string; to?: string } }) {
+export default async function DashboardPage({ searchParams: rawSearchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 

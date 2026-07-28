@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 import { validateBlendPercents } from '@/lib/manufacturing'
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('catalog', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     const b = await req.json()
@@ -65,9 +66,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('catalog', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     await prisma.product.update({ where: { id: params.id }, data: { isActive: false } })

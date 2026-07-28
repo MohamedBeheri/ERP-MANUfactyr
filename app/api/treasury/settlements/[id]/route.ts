@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('treasury', 'view')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   const settlement = await prisma.treasurySettlement.findUnique({
     where: { id: params.id },
@@ -20,9 +21,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // قبول أو رفض التسوية — أمين الخزنة أو المحاسب أو الأدمن
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('treasury', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   const body = await req.json()

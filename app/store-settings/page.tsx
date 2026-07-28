@@ -31,7 +31,7 @@ export default async function StoreSettingsPage() {
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   })
 
-  const h = headers()
+  const h = await headers()
   const host = h.get('x-forwarded-host') || h.get('host') || ''
   const proto = h.get('x-forwarded-proto') || 'https'
   const storeUrl = host ? `${proto}://${host}/store` : '/store'

@@ -6,9 +6,10 @@ import { requirePermission } from '@/lib/api-auth'
 // مرتجع من عميل — لازم يكون من فاتورة سابقة (أي فاتورة للعميل، حتى من جولة/شهر سابق).
 // البضاعة ترجع لعربية الجولة الحالية. لو المرتجع كسّر شرط العرض، لازم يترجّع الهدية كمان.
 // وبونص نقاط الفئة يترجع بنسبة قيمة المرتجع.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('delegates', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

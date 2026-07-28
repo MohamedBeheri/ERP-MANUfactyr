@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('treasury', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   const cat = await prisma.expenseCategory.findUnique({ where: { id: params.id } })
   if (!cat) return NextResponse.json({ error: 'البند غير موجود' }, { status: 404 })
@@ -40,9 +41,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(updated)
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('treasury', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   const cat = await prisma.expenseCategory.findUnique({
     where: { id: params.id },

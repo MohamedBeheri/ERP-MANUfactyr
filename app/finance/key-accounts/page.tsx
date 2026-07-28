@@ -5,7 +5,8 @@ import { fmt, money, parsePeriod } from '@/lib/report-utils'
 
 export const dynamic = 'force-dynamic'
 
-export default async function KeyAccountsReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function KeyAccountsReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const accounts = await prisma.keyAccount.findMany({

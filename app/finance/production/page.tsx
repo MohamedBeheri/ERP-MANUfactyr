@@ -5,7 +5,8 @@ import { fmt, money, pct, parsePeriod, dateShort } from '@/lib/report-utils'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ProductionReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function ProductionReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const productions = await prisma.production.findMany({

@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('settings', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     const { name, sortOrder } = await req.json()
@@ -22,9 +23,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('settings', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     await prisma.productionStage.update({ where: { id: params.id }, data: { isActive: false } })

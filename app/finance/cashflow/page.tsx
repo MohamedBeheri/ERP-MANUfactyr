@@ -11,7 +11,8 @@ const ACT_LABEL: Record<string, { label: string; color: string; bg: string }> = 
   FINANCING: { label: 'تمويلي', color: 'text-teal-700', bg: 'bg-teal-50' },
 }
 
-export default async function CashFlowReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function CashFlowReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const flows = await prisma.cashFlow.findMany({

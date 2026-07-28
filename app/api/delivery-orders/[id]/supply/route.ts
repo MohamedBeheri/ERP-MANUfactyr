@@ -5,9 +5,10 @@ import { requirePermission } from '@/lib/api-auth'
 
 // توريد لفرع من فروع كبار الموردين أثناء جولة المندوب.
 // البضاعة خرجت من المخزن وقت التحميل، فهنا بننشئ توريد ونضيف مطالبة على المقر الرئيسي فقط.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('delegates', 'add')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

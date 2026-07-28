@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PrintDoc, PrintTable } from '@/components/print-doc'
 
-export default async function SettlementPrintPage({ params }: { params: { id: string } }) {
+export default async function SettlementPrintPage({ params: rawParams }: { params: Promise<{ id: string }> }) {
+  const params = await rawParams;
   const settlement = await prisma.settlement.findUnique({
     where: { id: params.id },
     include: {

@@ -5,9 +5,10 @@ import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
 
 
 // تأكيد استلام حمولة العربية (مطابقة الاستلام) — البضاعة تخرج من المخزن فعليًا والعربية تتحرك.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('delegates', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

@@ -16,7 +16,8 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: 'ملغي', cls: 'bg-gray-100 text-gray-500' },
 }
 
-export default async function LiabilitiesReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function LiabilitiesReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr } = parsePeriod(searchParams)
 
   const liabilities = await prisma.liability.findMany({

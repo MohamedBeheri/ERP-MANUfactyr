@@ -5,9 +5,10 @@ import { adjustStock, getDefaultWarehouseId } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
 
 // حذف/عكس أمر تصنيع: بيرجّع المدخلات ويشيل المخرجات من المخزون (للأدمن)
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('factory', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

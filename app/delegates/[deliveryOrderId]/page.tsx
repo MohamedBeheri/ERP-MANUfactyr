@@ -26,7 +26,8 @@ const STATUS_COLOR: Record<string, string> = {
   CANCELLED: 'bg-red-50 text-red-600',
 }
 
-export default async function DeliveryOrderPage({ params }: { params: { deliveryOrderId: string } }) {
+export default async function DeliveryOrderPage({ params: rawParams }: { params: Promise<{ deliveryOrderId: string }> }) {
+  const params = await rawParams;
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('customers', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   try {
     const b = await req.json()
     if (!b.name?.trim()) return NextResponse.json({ error: 'اسم الفئة مطلوب' }, { status: 400 })
@@ -25,9 +26,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('customers', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   try {
     await prisma.$transaction([
       prisma.customer.updateMany({ where: { tierId: params.id }, data: { tierId: null } }),

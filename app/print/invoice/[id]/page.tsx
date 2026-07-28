@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PrintDoc, PrintTable } from '@/components/print-doc'
 
-export default async function InvoicePrintPage({ params }: { params: { id: string } }) {
+export default async function InvoicePrintPage({ params: rawParams }: { params: Promise<{ id: string }> }) {
+  const params = await rawParams;
   const inv = await prisma.invoice.findUnique({
     where: { id: params.id },
     include: {

@@ -4,9 +4,10 @@ import { requirePermission } from '@/lib/api-auth'
 
 
 // تحويل عميل عادي إلى Key Account (كبار الموردين) — ينقل رصيده ويعطّل حسابه القديم
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('customers', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     const customer = await prisma.customer.findUnique({ where: { id: params.id } })

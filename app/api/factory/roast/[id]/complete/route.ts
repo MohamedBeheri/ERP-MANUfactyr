@@ -8,9 +8,10 @@ import { flagWasteIfExceeded } from '@/lib/manufacturing'
 
 // إقفال تشغيلة التحميص: العامل بيرجع بعد ساعة/ساعتين ويوزن الناتج،
 // النظام يضيف المحمص للمخزن ويحسب الهدر الفعلي = المدخل − المخرج.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('factory', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('store', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   try {
     const b = await req.json()
     const slide = await prisma.heroSlide.update({
@@ -28,9 +29,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('store', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   try {
     await prisma.heroSlide.update({ where: { id: params.id }, data: { isActive: false } })
     return NextResponse.json({ success: true })

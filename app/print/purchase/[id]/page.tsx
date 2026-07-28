@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PrintDoc, PrintTable } from '@/components/print-doc'
 
-export default async function PurchasePrintPage({ params }: { params: { id: string } }) {
+export default async function PurchasePrintPage({ params: rawParams }: { params: Promise<{ id: string }> }) {
+  const params = await rawParams;
   const pur = await prisma.purchase.findUnique({
     where: { id: params.id },
     include: { supplier: true, items: { include: { product: true } }, creator: true },

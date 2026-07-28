@@ -5,7 +5,8 @@ import { fmt, money, parsePeriod } from '@/lib/report-utils'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DelegatesReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function DelegatesReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const delegates = await prisma.delegate.findMany({

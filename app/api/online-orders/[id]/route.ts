@@ -6,9 +6,10 @@ import { warehouseForStage } from '@/lib/stock-stages'
 
 
 // تحديث حالة الطلب الأونلاين — التأكيد بيخصم من المخزن وينشئ فاتورة، الإلغاء بيرجّع الرصيد
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('store', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {
@@ -121,9 +122,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // حذف طلب نهائيًا — لو المخزون كان اتخصم بيرجع الأول
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('store', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

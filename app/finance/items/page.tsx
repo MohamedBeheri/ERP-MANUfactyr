@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic'
 
 interface Agg { name: string; unit: string; qty: number; revenue: number; cost: number }
 
-export default async function ItemsReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function ItemsReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const [invItems, supplyItems] = await Promise.all([

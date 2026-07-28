@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PrintDoc, PrintTable } from '@/components/print-doc'
 
-export default async function DayReportPrintPage({ params }: { params: { deliveryOrderId: string } }) {
+export default async function DayReportPrintPage({ params: rawParams }: { params: Promise<{ deliveryOrderId: string }> }) {
+  const params = await rawParams;
   const order = await prisma.deliveryOrder.findUnique({
     where: { id: params.deliveryOrderId },
     include: {

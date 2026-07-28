@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic'
 
 const ACTIVITY_LABEL: Record<string, string> = { OPERATING: 'تشغيلي', INVESTING: 'استثماري', FINANCING: 'تمويلي' }
 
-export default async function ExpensesReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function ExpensesReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const vouchers = await prisma.paymentVoucher.findMany({

@@ -4,9 +4,10 @@ import { requirePermission } from '@/lib/api-auth'
 
 
 // فواتير عميل معيّن (لاختيار الفاتورة اللي بيترجّع منها) — بالبنود لكل سطر + المرتجع قبل كده + بيانات العرض
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('customers', 'view')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     const invoices = await prisma.invoice.findMany({

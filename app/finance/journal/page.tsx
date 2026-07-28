@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic'
 
 interface Entry { at: Date; kind: string; desc: string; inAmt: number; outAmt: number; color: string }
 
-export default async function JournalReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function JournalReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const [invoices, supplies, purchases, supPays, kaPays] = await Promise.all([

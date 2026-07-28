@@ -8,9 +8,10 @@ import { flagWasteIfExceeded } from '@/lib/manufacturing'
 
 // إقفال تشغيلة الطحن والتوليف: العامل يرجع بعد ما الماكينة تخلص ويوزن الناتج،
 // النظام يضيف المطحون النهائي للمخزن ويحسب الهدر الفعلي.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('factory', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
   const { session } = auth
 
   try {

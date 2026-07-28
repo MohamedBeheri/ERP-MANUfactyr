@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('treasury', 'view')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   const liability = await prisma.liability.findUnique({
     where: { id: params.id },
@@ -18,9 +19,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(liability)
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('treasury', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   const body = await req.json()
   const { creditor, totalAmount, interestRate, dueDate, notes, status } = body
@@ -43,9 +45,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json(updated)
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('treasury', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   await prisma.liability.delete({ where: { id: params.id } })
   return NextResponse.json({ ok: true })

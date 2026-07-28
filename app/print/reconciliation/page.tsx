@@ -3,7 +3,8 @@ import { PrintDoc, PrintTable } from '@/components/print-doc'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ReconciliationPrintPage({ searchParams }: { searchParams: { from?: string; to?: string; channel?: string } }) {
+export default async function ReconciliationPrintPage({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string; channel?: string }> }) {
+  const searchParams = await rawSearchParams;
   const now = new Date()
   const from = searchParams.from ? new Date(searchParams.from) : new Date(now.getFullYear(), now.getMonth(), 1)
   const to = searchParams.to ? new Date(searchParams.to + 'T23:59:59') : now

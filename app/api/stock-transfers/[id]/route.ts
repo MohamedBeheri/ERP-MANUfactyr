@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 import { adjustStock } from '@/lib/warehouse'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('warehouse', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   const { action } = await req.json()
   const transfer = await prisma.stockTransfer.findUnique({ where: { id: params.id } })

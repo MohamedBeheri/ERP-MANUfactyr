@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('settings', 'edit')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     const { name, sortOrder, sellable, purchasable, warehouseId } = await req.json()
@@ -28,9 +29,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('settings', 'delete')
   if ('response' in auth) return auth.response
+  const params = await rawParams;
 
   try {
     const count = await prisma.product.count({ where: { stageId: params.id, isActive: true } })

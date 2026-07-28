@@ -5,7 +5,8 @@ import { fmt, money, pct, parsePeriod } from '@/lib/report-utils'
 
 export const dynamic = 'force-dynamic'
 
-export default async function StockWarehousesReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function StockWarehousesReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr } = parsePeriod(searchParams)
 
   const [warehouses, products, allStocks, transfers] = await Promise.all([

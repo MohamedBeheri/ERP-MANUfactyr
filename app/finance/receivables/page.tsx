@@ -6,7 +6,8 @@ import { fmt, money, parsePeriod } from '@/lib/report-utils'
 export const dynamic = 'force-dynamic'
 
 // المستحقات لحظية (كل الأرصدة المفتوحة) — لا تتقيّد بالفترة
-export default async function ReceivablesReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function ReceivablesReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr } = parsePeriod(searchParams)
 
   const [customers, keyAccounts, suppliers] = await Promise.all([

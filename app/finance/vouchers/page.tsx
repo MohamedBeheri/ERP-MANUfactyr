@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic'
 
 interface Voucher { at: Date; type: 'قبض' | 'صرف'; no: string; party: string; amount: number; method: string; category?: string }
 
-export default async function VouchersReport({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function VouchersReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
 
   const [kaPays, supPays, pvOuts] = await Promise.all([
