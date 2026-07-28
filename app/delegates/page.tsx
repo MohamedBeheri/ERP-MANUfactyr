@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Truck, Users, Printer, ChevronLeft, TrendingUp } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { DeliveryOrderForm } from '@/components/delivery-order-form'
 import { DelegateManager } from '@/components/delegate-manager'
 import { ExportButtons } from '@/components/export-buttons'
@@ -27,6 +28,11 @@ const STATUS_COLOR: Record<string, string> = {
 export default async function DelegatesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
+
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  const canAdd = canDoAction(perms, 'delegates', 'add')
+  const canEdit = canDoAction(perms, 'delegates', 'edit')
+  const canDelete = canDoAction(perms, 'delegates', 'delete')
 
   const [delegates, products, deliveryOrders, warehouses, vehicles, delegateUsers] = await Promise.all([
     prisma.delegate.findMany({
@@ -140,9 +146,11 @@ export default async function DelegatesPage() {
         </div>
 
         {/* فورم التحميل */}
-        <div className="space-y-4">
-          <DeliveryOrderForm delegates={delegates} products={products} warehouses={warehouses} />
-        </div>
+        {canAdd && (
+          <div className="space-y-4">
+            <DeliveryOrderForm delegates={delegates} products={products} warehouses={warehouses} />
+          </div>
+        )}
       </div>
 
       {/* قياس الأداء */}
@@ -239,6 +247,9 @@ export default async function DelegatesPage() {
             delegateNames: v.delegates.map((x) => x.name),
           }))}
           users={delegateUsers}
+          canAdd={canAdd}
+          canEdit={canEdit}
+          canDelete={canDelete}
         />
       </div>
     </div>

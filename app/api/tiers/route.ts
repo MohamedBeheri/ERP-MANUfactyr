@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { ensureTiers } from '@/lib/tiers'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
 export async function GET() {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('customers', 'view')
   if ('response' in auth) return auth.response
   await ensureTiers()
   const tiers = await prisma.customerTier.findMany({
@@ -18,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole(['ADMIN'])
+  const auth = await requirePermission('customers', 'add')
   if ('response' in auth) return auth.response
   try {
     const b = await req.json()

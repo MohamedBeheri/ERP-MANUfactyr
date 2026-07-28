@@ -9,6 +9,7 @@ export const PERMISSIONS = [
   { key: 'keyaccounts', label: 'كبار الموردين وبيانات الأسعار', path: '/key-accounts' },
   { key: 'delegates', label: 'إدارة المناديب وجولات التوزيع', path: '/delegates' },
   { key: 'drivers', label: 'شاشة المندوب الشخصية', path: '/drivers' },
+  { key: 'treasury', label: 'الخزنة والالتزامات المالية', path: '/treasury' },
   { key: 'finance', label: 'التقارير الشاملة', path: '/finance' },
   { key: 'store', label: 'موقع العميل أونلاين وطلباته', path: '/store-settings' },
   { key: 'governance', label: 'الحوكمة وإدارة المستخدمين', path: '/governance' },
@@ -37,6 +38,7 @@ const PATH_PERMS: { prefix: string; key: string }[] = [
   { prefix: '/key-accounts', key: 'keyaccounts' },
   { prefix: '/delegates', key: 'delegates' },
   { prefix: '/drivers', key: 'drivers' },
+  { prefix: '/treasury', key: 'treasury' },
   { prefix: '/finance', key: 'finance' },
   { prefix: '/store-settings', key: 'store' },
   { prefix: '/online-orders', key: 'store' },
@@ -51,7 +53,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
   FACTORY: ['factory', 'catalog', 'purchases', 'warehouse'],
   WAREHOUSE: ['warehouse', 'purchases'],
   SALES: ['sales', 'customers', 'keyaccounts', 'delegates', 'drivers', 'store'],
-  ACCOUNTANT: ['finance', 'customers:view', 'sales:view'],
+  ACCOUNTANT: ['finance', 'treasury', 'customers:view', 'sales:view'],
   DELEGATE: ['drivers'],
 }
 

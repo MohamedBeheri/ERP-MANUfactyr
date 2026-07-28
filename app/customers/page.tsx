@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 import { ensureTiers } from '@/lib/tiers'
 import { CustomersManager } from '@/components/customers-manager'
@@ -10,6 +11,11 @@ export const dynamic = 'force-dynamic'
 export default async function CustomersPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
+
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  const canAdd = canDoAction(perms, 'customers', 'add')
+  const canEdit = canDoAction(perms, 'customers', 'edit')
+  const canDelete = canDoAction(perms, 'customers', 'delete')
 
   await ensureTiers()
 
@@ -58,6 +64,9 @@ export default async function CustomersPage() {
 
       <CustomersManager
         tiers={tiers.map((t) => ({ id: t.id, name: t.name }))}
+        canAdd={canAdd}
+        canEdit={canEdit}
+        canDelete={canDelete}
         customers={customers.map((c) => {
           const lastOrders = [
             ...c.invoices.map((i) => ({ no: i.invoiceNo, total: Number(i.netAmount), date: i.createdAt.toISOString(), source: 'محل' })),

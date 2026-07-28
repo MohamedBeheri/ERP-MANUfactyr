@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { computeReconciliation } from '@/lib/reconciliation'
 
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
 export async function GET(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('factory', 'view')
   if ('response' in auth) return auth.response
 
   try {

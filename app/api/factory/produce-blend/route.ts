@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { adjustStock, getStock, getDefaultWarehouseId } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
 
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
 // إنتاج توليفة: من البن الأخضر (مضروبًا في نسبة الخسران) + العطارة (بالجرعة) → توليفة جاهزة.
 // المطلوب من كل بن أخضر = (الناتج × النسبة) ÷ (1 − نسبة الخسران).
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('factory', 'add')
   if ('response' in auth) return auth.response
   const { session } = auth
 

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { getDefaultWarehouseId, getStock } from '@/lib/warehouse'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
 export async function GET(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('delegates', 'view')
   if ('response' in auth) return auth.response
 
   try {
@@ -30,7 +29,7 @@ export async function GET(req: NextRequest) {
 // أمر تحميل جديد (مدير المبيعات): بيتعمل «معلّق» ويحدد المخزن — البضاعة لسه في المخزن.
 // المندوب لازم يأكّد استلام الحمولة (مطابقة) وساعتها البضاعة تخرج من المخزن وتتحرك العربية.
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('delegates', 'add')
   if ('response' in auth) return auth.response
   const { session } = auth
 

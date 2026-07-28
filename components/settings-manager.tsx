@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Truck as TruckIcon,
-  Package,
   Tags,
   Flame,
   Layers,
@@ -33,22 +32,6 @@ interface CategoryRow {
   name: string
   productCount: number
 }
-interface ProductRow {
-  id: string
-  name: string
-  type: string
-  categoryId: string | null
-  stageId: string | null
-  costPrice: number
-  sellPrice: number
-  oldPrice: number | null
-  wholesalePrice: number
-  minKeyPrice: number
-  minStock: number
-  quantity: number
-  unit: string
-  imageUrl: string | null
-}
 interface StockStageRow {
   id: string
   name: string
@@ -71,27 +54,6 @@ interface OperationRow {
   sortOrder: number
 }
 
-// تحويل صورة مرفوعة لـ data URL مضغوط عشان تتخزن في قاعدة البيانات
-function fileToDataUrl(file: File, maxSize = 400): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image()
-    const reader = new FileReader()
-    reader.onload = () => {
-      img.onload = () => {
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
-        const canvas = document.createElement('canvas')
-        canvas.width = Math.round(img.width * scale)
-        canvas.height = Math.round(img.height * scale)
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-        resolve(canvas.toDataURL('image/webp', 0.8))
-      }
-      img.onerror = reject
-      img.src = reader.result as string
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
 interface TierRow {
   id: string
   name: string
@@ -123,19 +85,19 @@ interface RewardRuleRow {
   isActive: boolean
 }
 
+interface ProductRef { id: string; name: string }
 interface Props {
   suppliers: Supplier[]
   categories: CategoryRow[]
-  products: ProductRow[]
   stockStages: StockStageRow[]
   operations: OperationRow[]
   warehouses: WarehouseRow[]
   tiers: TierRow[]
   rewards: RewardRuleRow[]
+  products: ProductRef[]
 }
 
 const TABS = [
-  { key: 'products', label: 'الأصناف', Icon: Package },
   { key: 'categories', label: 'تصنيفات البيع', Icon: Tags },
   { key: 'stockStages', label: 'المراحل المخزنية', Icon: Layers },
   { key: 'operations', label: 'عمليات التصنيع', Icon: Flame },
@@ -159,8 +121,8 @@ async function apiCall(url: string, method: string, body?: any) {
   return data
 }
 
-export function SettingsManager({ suppliers, categories, products, stockStages, operations, warehouses, tiers, rewards }: Props) {
-  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('products')
+export function SettingsManager({ suppliers, categories, stockStages, operations, warehouses, tiers, rewards, products }: Props) {
+  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('categories')
 
   return (
     <div className="space-y-4">
@@ -179,7 +141,6 @@ export function SettingsManager({ suppliers, categories, products, stockStages, 
         ))}
       </div>
 
-      {tab === 'products' && <ProductsTab products={products} categories={categories} stockStages={stockStages} />}
       {tab === 'categories' && <CategoriesTab categories={categories} />}
       {tab === 'stockStages' && <StockStagesTab stages={stockStages} warehouses={warehouses} />}
       {tab === 'operations' && <OperationsTab operations={operations} stages={stockStages} />}
@@ -191,223 +152,7 @@ export function SettingsManager({ suppliers, categories, products, stockStages, 
   )
 }
 
-/* ================= الأصناف ================= */
-function ProductsTab({ products, categories, stockStages }: { products: ProductRow[]; categories: CategoryRow[]; stockStages: StockStageRow[] }) {
-  const router = useRouter()
-  const defaultStage = stockStages.find((s) => s.sellable)?.id || stockStages[0]?.id || ''
-  const empty = { name: '', stageId: defaultStage, categoryId: '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '', minStock: '0', unit: 'كجم', imageUrl: '' }
-  const [form, setForm] = useState<any>(empty)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const startEdit = (p: ProductRow) => {
-    setEditId(p.id)
-    setForm({
-      name: p.name,
-      stageId: p.stageId || defaultStage,
-      categoryId: p.categoryId || '',
-      costPrice: String(p.costPrice),
-      sellPrice: String(p.sellPrice),
-      oldPrice: p.oldPrice ? String(p.oldPrice) : '',
-      wholesalePrice: String(p.wholesalePrice),
-      minKeyPrice: p.minKeyPrice ? String(p.minKeyPrice) : '',
-      minStock: String(p.minStock),
-      unit: p.unit,
-      imageUrl: p.imageUrl || '',
-    })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const handleImage = async (file?: File) => {
-    if (!file) return
-    try {
-      const dataUrl = await fileToDataUrl(file)
-      setForm((f: any) => ({ ...f, imageUrl: dataUrl }))
-    } catch {
-      setError('فشل تحميل الصورة — جرّب صورة تانية')
-    }
-  }
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      await apiCall(editId ? `/api/products/${editId}` : '/api/products', editId ? 'PUT' : 'POST', form)
-      setForm(empty)
-      setEditId(null)
-      router.refresh()
-    } catch (err: any) {
-      setError(err.message)
-    }
-    setLoading(false)
-  }
-
-  const remove = async (id: string, name: string) => {
-    if (!confirm(`متأكد من حذف الصنف "${name}"؟`)) return
-    try {
-      await apiCall(`/api/products/${id}`, 'DELETE')
-      router.refresh()
-    } catch (err: any) {
-      alert(err.message)
-    }
-  }
-
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-      <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
-        <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل صنف' : 'إضافة صنف جديد'}</h3>
-        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">اسم الصنف</label>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">المرحلة المخزنية</label>
-            <select value={form.stageId} onChange={(e) => setForm({ ...form, stageId: e.target.value })} className={inputCls}>
-              {stockStages.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}{s.sellable ? ' (بيع)' : s.purchasable ? ' (شراء)' : ''}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">تصنيف البيع</label>
-            <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className={inputCls}>
-              <option value="">بدون تصنيف</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">سعر التكلفة</label>
-            <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">الوحدة</label>
-            <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">سعر القطاعي</label>
-            <input type="number" min="0" step="0.01" value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">السعر قبل الخصم <span className="text-gray-400 font-normal">(لشارة تخفيض)</span></label>
-            <input type="number" min="0" step="0.01" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} className={inputCls} placeholder="اختياري" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">سعر الجملة</label>
-            <input type="number" min="0" step="0.01" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">أقل سعر لكبار الموردين</label>
-            <input type="number" min="0" step="0.01" value={form.minKeyPrice} onChange={(e) => setForm({ ...form, minKeyPrice: e.target.value })} className={inputCls} placeholder="الحد الأدنى في بيان السعر" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">الحد الأدنى للمخزون</label>
-            <input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inputCls} />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">صورة المنتج (هتظهر في نقطة البيع)</label>
-          <div className="flex items-center gap-3">
-            {form.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={form.imageUrl} alt="معاينة" className="w-16 h-16 object-contain rounded-lg border border-gray-200 bg-gray-50" />
-            ) : (
-              <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-300 text-xs">
-                بدون
-              </div>
-            )}
-            <div className="flex-1 space-y-1.5">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImage(e.target.files?.[0])}
-                className="block w-full text-xs text-gray-500 file:ml-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-[#0f3460] file:text-white file:text-xs file:font-semibold file:cursor-pointer"
-              />
-              {form.imageUrl && (
-                <button type="button" onClick={() => setForm({ ...form, imageUrl: '' })} className="text-xs text-red-500 hover:underline">
-                  حذف الصورة
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <button type="submit" disabled={loading} className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] disabled:opacity-50 text-sm">
-            {loading ? 'جاري الحفظ...' : editId ? 'حفظ التعديلات' : 'إضافة الصنف'}
-          </button>
-          {editId && (
-            <button type="button" onClick={() => { setEditId(null); setForm(empty) }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-              إلغاء
-            </button>
-          )}
-        </div>
-      </form>
-
-      <div className="xl:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-        <h3 className="text-base font-bold text-[#1a1a2e] p-5 pb-3">الأصناف ({products.length})</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
-                <th className="p-3 font-medium">الصنف</th>
-                <th className="p-3 font-medium">المرحلة المخزنية</th>
-                <th className="p-3 font-medium">تصنيف البيع</th>
-                <th className="p-3 font-medium">قطاعي</th>
-                <th className="p-3 font-medium">جملة</th>
-                <th className="p-3 font-medium">الرصيد</th>
-                <th className="p-3 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                  <td className="p-3 font-semibold">
-                    <div className="flex items-center gap-2">
-                      {p.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imageUrl} alt="" className="w-8 h-8 object-contain rounded bg-gray-50 shrink-0" />
-                      )}
-                      {p.name}
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700">
-                      {stockStages.find((s) => s.id === p.stageId)?.name || '—'}
-                    </span>
-                  </td>
-                  <td className="p-3 text-gray-500">{categories.find((c) => c.id === p.categoryId)?.name || '—'}</td>
-                  <td className="p-3 tabular-nums">{p.sellPrice.toFixed(2)}</td>
-                  <td className="p-3 tabular-nums">{p.wholesalePrice.toFixed(2)}</td>
-                  <td className="p-3 tabular-nums font-semibold">{p.quantity} {p.unit}</td>
-                  <td className="p-3">
-                    <div className="flex gap-1 justify-end">
-                      <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => remove(p.id, p.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-gray-500">مفيش أصناف — ضيف أول صنف من الفورم.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 /* ================= التصنيفات ================= */
 function CategoriesTab({ categories }: { categories: CategoryRow[] }) {
@@ -919,7 +664,7 @@ function RewardsTab({
   tiers,
 }: {
   rewards: RewardRuleRow[]
-  products: ProductRow[]
+  products: ProductRef[]
   tiers: TierRow[]
 }) {
   const router = useRouter()

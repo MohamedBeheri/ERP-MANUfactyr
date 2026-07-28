@@ -115,7 +115,11 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
   }
 
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setLoading(true)
+    e.preventDefault(); setError('')
+    if (!form.jobTitle?.trim()) { setError('المسمى الوظيفي مطلوب'); return }
+    if (!form.phone || !/^\d{11}$/.test(form.phone)) { setError('رقم التليفون لازم يكون 11 رقم'); return }
+    if (!form.nationalId || !/^\d{14}$/.test(form.nationalId)) { setError('الرقم القومي لازم يكون 14 رقم'); return }
+    setLoading(true)
     const permissions = form.role === 'ADMIN' ? [] : matrixToPerms(form.matrix)
     const body = { ...form, permissions }
     delete body.matrix
@@ -172,20 +176,22 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
                 <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="أحمد محمد علي" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><Briefcase className="w-3 h-3" /> المسمى الوظيفي</label>
-                <input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputCls} placeholder="محاسب رئيسي / مندوب توزيع / مشرف مصنع" />
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><Briefcase className="w-3 h-3" /> المسمى الوظيفي *</label>
+                <input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputCls} placeholder="محاسب رئيسي / مندوب توزيع / مشرف مصنع" required />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><Phone className="w-3 h-3" /> رقم التليفون</label>
-                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} dir="ltr" placeholder="0100 000 0000" />
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><Phone className="w-3 h-3" /> رقم التليفون * <span className="text-gray-400 font-normal">(11 رقم)</span></label>
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} className={inputCls} dir="ltr" placeholder="01000000000" required maxLength={11} pattern="\d{11}" />
+                {form.phone && form.phone.length !== 11 && <p className="text-[10px] text-red-500 mt-0.5">{form.phone.length}/11 رقم</p>}
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><Mail className="w-3 h-3" /> البريد الإلكتروني</label>
                 <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} dir="ltr" placeholder="name@example.com" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><IdCard className="w-3 h-3" /> الرقم القومي</label>
-                <input value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} className={inputCls} dir="ltr" placeholder="14 رقم" />
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><IdCard className="w-3 h-3" /> الرقم القومي * <span className="text-gray-400 font-normal">(14 رقم)</span></label>
+                <input value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value.replace(/\D/g, '').slice(0, 14) })} className={inputCls} dir="ltr" placeholder="12345678901234" required maxLength={14} pattern="\d{14}" />
+                {form.nationalId && form.nationalId.length !== 14 && <p className="text-[10px] text-red-500 mt-0.5">{form.nationalId.length}/14 رقم</p>}
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> تاريخ التعيين</label>

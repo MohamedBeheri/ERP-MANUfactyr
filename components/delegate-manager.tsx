@@ -42,7 +42,7 @@ async function api(url: string, method: string, body?: any) {
   return data
 }
 
-export function DelegateManager({ delegates, vehicles, users }: { delegates: DelegateRow[]; vehicles: VehicleRow[]; users: UserLite[] }) {
+export function DelegateManager({ delegates, vehicles, users, canAdd = true, canEdit = true, canDelete = true }: { delegates: DelegateRow[]; vehicles: VehicleRow[]; users: UserLite[]; canAdd?: boolean; canEdit?: boolean; canDelete?: boolean }) {
   const [tab, setTab] = useState<'delegates' | 'vehicles'>('delegates')
 
   return (
@@ -57,16 +57,16 @@ export function DelegateManager({ delegates, vehicles, users }: { delegates: Del
       </div>
 
       {tab === 'delegates' ? (
-        <DelegatesTab delegates={delegates} vehicles={vehicles} users={users} />
+        <DelegatesTab delegates={delegates} vehicles={vehicles} users={users} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
       ) : (
-        <VehiclesTab vehicles={vehicles} />
+        <VehiclesTab vehicles={vehicles} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
       )}
     </div>
   )
 }
 
 /* ============ المناديب ============ */
-function DelegatesTab({ delegates, vehicles, users }: { delegates: DelegateRow[]; vehicles: VehicleRow[]; users: UserLite[] }) {
+function DelegatesTab({ delegates, vehicles, users, canAdd, canEdit, canDelete }: { delegates: DelegateRow[]; vehicles: VehicleRow[]; users: UserLite[]; canAdd: boolean; canEdit: boolean; canDelete: boolean }) {
   const router = useRouter()
   const empty = { name: '', phone: '', area: '', route: '', commissionRate: '5', vehicleId: '', userId: '' }
   const [form, setForm] = useState<any>(empty)
@@ -93,7 +93,8 @@ function DelegatesTab({ delegates, vehicles, users }: { delegates: DelegateRow[]
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+    <div className={`grid grid-cols-1 ${canAdd || canEdit ? 'xl:grid-cols-3' : ''} gap-6 items-start`}>
+      {(canAdd || editId) && (
       <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
         <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل مندوب' : 'مندوب جديد'}</h3>
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
@@ -127,6 +128,7 @@ function DelegatesTab({ delegates, vehicles, users }: { delegates: DelegateRow[]
           {editId && <button type="button" onClick={() => { setEditId(null); setForm(empty) }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">إلغاء</button>}
         </div>
       </form>
+      )}
 
       <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
         <h3 className="text-base font-bold text-[#1a1a2e] mb-3">المناديب ({delegates.length})</h3>
@@ -147,10 +149,12 @@ function DelegatesTab({ delegates, vehicles, users }: { delegates: DelegateRow[]
                   {d.commissionDue > 0 && <span className="text-amber-700 font-semibold tabular-nums">مستحق {d.commissionDue.toLocaleString('ar-EG')} ج.م</span>}
                 </p>
               </div>
+              {(canEdit || canDelete) && (
               <div className="flex gap-1 shrink-0">
-                <button onClick={() => { setEditId(d.id); setForm({ name: d.name, phone: d.phone || '', area: d.area || '', route: d.route || '', commissionRate: String(d.commissionRate), vehicleId: d.vehicleId || '', userId: d.userId || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل"><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => remove(d)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف"><Trash2 className="w-4 h-4" /></button>
+                {canEdit && <button onClick={() => { setEditId(d.id); setForm({ name: d.name, phone: d.phone || '', area: d.area || '', route: d.route || '', commissionRate: String(d.commissionRate), vehicleId: d.vehicleId || '', userId: d.userId || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل"><Pencil className="w-4 h-4" /></button>}
+                {canDelete && <button onClick={() => remove(d)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف"><Trash2 className="w-4 h-4" /></button>}
               </div>
+              )}
             </div>
           ))}
         </div>
@@ -160,7 +164,7 @@ function DelegatesTab({ delegates, vehicles, users }: { delegates: DelegateRow[]
 }
 
 /* ============ العربيات ============ */
-function VehiclesTab({ vehicles }: { vehicles: VehicleRow[] }) {
+function VehiclesTab({ vehicles, canAdd, canEdit, canDelete }: { vehicles: VehicleRow[]; canAdd: boolean; canEdit: boolean; canDelete: boolean }) {
   const router = useRouter()
   const empty = { plateNo: '', model: '', capacity: '', notes: '' }
   const [form, setForm] = useState<any>(empty)

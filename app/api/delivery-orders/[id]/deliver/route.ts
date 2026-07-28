@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { computeBonuses } from '@/lib/rewards'
 import { customerUnitPrice } from '@/lib/tiers'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 // تسليم لعميل أثناء جولة التوزيع. البضاعة خرجت من المخزن أصلاً وقت التحميل،
 // فهنا بس بننشئ فاتورة مرتبطة بالجولة من غير ما نلمس Product.quantity تاني.
 // السعر بيتحسب على السيرفر حسب فئة/نوع العميل — المندوب ما بيحطش سعر بإيده.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('delegates', 'add')
   if ('response' in auth) return auth.response
   const { session } = auth
 

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 // مرتجع من عميل — لازم يكون من فاتورة سابقة (أي فاتورة للعميل، حتى من جولة/شهر سابق).
 // البضاعة ترجع لعربية الجولة الحالية. لو المرتجع كسّر شرط العرض، لازم يترجّع الهدية كمان.
 // وبونص نقاط الفئة يترجع بنسبة قيمة المرتجع.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('delegates', 'edit')
   if ('response' in auth) return auth.response
   const { session } = auth
 

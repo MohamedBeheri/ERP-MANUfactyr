@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowDownToLine, ArrowUpFromLine, PackageSearch } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { StocktakeForm } from '@/components/stocktake-form'
@@ -14,6 +15,9 @@ export const dynamic = 'force-dynamic'
 export default async function WarehousePage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
+
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  const canEdit = canDoAction(perms, 'warehouse', 'edit')
 
   await ensureStockStages() // يضمن وجود المخازن والمراحل وترحيل الأرصدة
 
@@ -195,15 +199,17 @@ export default async function WarehousePage() {
         </div>
 
         <div className="space-y-4 no-print">
-          <StocktakeForm
-            products={products.map((p) => ({
-              id: p.id,
-              name: p.name,
-              unit: p.unit,
-              stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, s.quantity])),
-            }))}
-            warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-          />
+          {canEdit && (
+            <StocktakeForm
+              products={products.map((p) => ({
+                id: p.id,
+                name: p.name,
+                unit: p.unit,
+                stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, s.quantity])),
+              }))}
+              warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+            />
+          )}
 
           <div className="bg-white p-5 rounded-xl shadow-sm">
             <h3 className="text-sm font-bold text-[#1a1a2e] mb-3">إزاي البضاعة بتتحرك؟</h3>

@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { adjustStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
 import { flagWasteIfExceeded } from '@/lib/manufacturing'
 
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
 // إقفال تشغيلة التحميص: العامل بيرجع بعد ساعة/ساعتين ويوزن الناتج،
 // النظام يضيف المحمص للمخزن ويحسب الهدر الفعلي = المدخل − المخرج.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('factory', 'edit')
   if ('response' in auth) return auth.response
   const { session } = auth
 

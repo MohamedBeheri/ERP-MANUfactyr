@@ -63,11 +63,13 @@ export function Pos({
   customers,
   categories,
   warehouses,
+  canAdd = true,
 }: {
   products: Product[]
   customers: Customer[]
   categories: Category[]
   warehouses: WarehouseOption[]
+  canAdd?: boolean
 }) {
   const router = useRouter()
   const [cart, setCart] = useState<CartItem[]>([])
@@ -538,13 +540,15 @@ export function Pos({
           </div>
         </div>
 
-        <button
-          onClick={checkout}
-          disabled={loading || cart.length === 0}
-          className="w-full bg-[#e94560] text-white py-3.5 rounded-xl font-bold text-base hover:bg-[#c73e54] disabled:opacity-50 transition-colors"
-        >
-          {loading ? 'جاري التسجيل...' : `تأكيد البيع — ${fmt(net)} ج.م`}
-        </button>
+        {canAdd && (
+          <button
+            onClick={checkout}
+            disabled={loading || cart.length === 0}
+            className="w-full bg-[#e94560] text-white py-3.5 rounded-xl font-bold text-base hover:bg-[#c73e54] disabled:opacity-50 transition-colors"
+          >
+            {loading ? 'جاري التسجيل...' : `تأكيد البيع — ${fmt(net)} ج.م`}
+          </button>
+        )}
       </div>
     </div>
   )

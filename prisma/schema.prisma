@@ -101,6 +101,15 @@ model User {
   deliveryReturns    DeliveryReturn[]
   supplierPayments   SupplierPayment[]
   delegateProfile    Delegate? @relation("DelegateUser")
+  treasurySettlementsCreated  TreasurySettlement[] @relation("TreasurySettlementCreator")
+  treasurySettlementsAccepted TreasurySettlement[] @relation("TreasurySettlementAcceptor")
+  liabilitiesCreated         Liability[]          @relation("LiabilityCreator")
+  installmentsPaid           Installment[]        @relation("InstallmentPayer")
+  treasuryNotifications      TreasuryNotification[] @relation("TreasuryNotifications")
+  vouchersCreated            PaymentVoucher[]       @relation("VoucherCreator")
+  vouchersApproved           PaymentVoucher[]       @relation("VoucherApprover")
+  transfersCreated           StockTransfer[]        @relation("TransferCreator")
+  transfersApproved          StockTransfer[]        @relation("TransferApprover")
 
   @@map("users")
 }
@@ -183,6 +192,8 @@ model Warehouse {
   outs   WarehouseOut[]
   stages StockStage[]
   deliveryOrders DeliveryOrder[]
+  transfersOut StockTransfer[] @relation("TransferFrom")
+  transfersIn  StockTransfer[] @relation("TransferTo")
 
   @@map("warehouses")
 }
@@ -250,6 +261,7 @@ model Product {
   priceQuoteItems       PriceQuoteItem[]
   keyAccountSupplyItems KeyAccountSupplyItem[]
   deliveryReturnItems   DeliveryReturnItem[]
+  stockTransfers        StockTransfer[]
 
   // بنية المصنع: التوليفة والتغليف والمكوّنات
   blend           Product?         @relation("ProductBlend", fields: [blendId], references: [id])
@@ -487,6 +499,38 @@ model WarehouseOut {
   creator   User       @relation(fields: [createdById], references: [id])
 
   @@map("warehouse_outs")
+}
+
+// ============== STOCK TRANSFERS (تحويلات بين المخازن) ==============
+model StockTransfer {
+  id              String   @id @default(cuid())
+  transferNo      String   @unique @default(cuid())
+  fromWarehouseId String
+  toWarehouseId   String
+  productId       String
+  quantity        Int
+  reason          String // سبب التحويل
+  notes           String?
+  status          TransferStatus @default(PENDING)
+  createdAt       DateTime @default(now())
+  executedAt      DateTime?
+  createdById     String
+  approvedById    String?
+
+  fromWarehouse Warehouse @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouse   Warehouse @relation("TransferTo", fields: [toWarehouseId], references: [id])
+  product       Product   @relation(fields: [productId], references: [id])
+  creator       User      @relation("TransferCreator", fields: [createdById], references: [id])
+  approvedBy    User?     @relation("TransferApprover", fields: [approvedById], references: [id])
+
+  @@map("stock_transfers")
+}
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
 }
 
 // ============== CUSTOMER TIERS (فئات العملاء والبونص) ==============
@@ -794,6 +838,7 @@ model Delegate {
   settlements    Settlement[]
   invoices       Invoice[]
   keyAccountSupplies KeyAccountSupply[]
+  treasurySettlements TreasurySettlement[] @relation("TreasurySettlements")
 
   @@map("delegates")
 }
@@ -816,6 +861,7 @@ model DeliveryOrder {
   items          DeliveryItem[]
   invoices       Invoice[]
   settlement     Settlement?
+  treasurySettlement TreasurySettlement? @relation("TreasurySettlementOrder")
   keyAccountSupplies KeyAccountSupply[]
   returns        DeliveryReturn[]
   creator        User               @relation(fields: [createdById], references: [id])
@@ -903,13 +949,17 @@ model Settlement {
 
 // ============== CASH FLOW (التدفق النقدي) ==============
 model CashFlow {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   description String
   type        String // "IN" or "OUT"
-  amount      Decimal  @db.Decimal(12, 2)
-  balance     Decimal  @db.Decimal(12, 2)
+  amount      Decimal           @db.Decimal(12, 2)
+  balance     Decimal           @db.Decimal(12, 2)
   reference   String? // رقم الفاتورة/الأمر
-  createdAt   DateTime @default(now())
+  activity    CashFlowActivity  @default(OPERATING) // نوع النشاط في قائمة التدفقات
+  voucherId   String? // سند الصرف المرتبط
+  createdAt   DateTime          @default(now())
+
+  voucher PaymentVoucher? @relation(fields: [voucherId], references: [id])
 
   @@map("cash_flow")
 }
@@ -928,6 +978,184 @@ model AuditLog {
   user User @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
+}
+
+// ============== TREASURY SETTLEMENTS (تسويات الخزنة) ==============
+enum TreasurySettlementStatus {
+  PENDING // مقدّمة من المندوب — في انتظار قبول أمين الخزنة
+  ACCEPTED // اعتمدها أمين الخزنة — حُدّث رصيد الخزنة
+  REJECTED // رفضها أمين الخزنة مع سبب الرفض
+}
+
+model TreasurySettlement {
+  id              String                    @id @default(cuid())
+  settlementNo    String                    @unique // TRS-YYYYMMDD-001
+  delegateId      String
+  deliveryOrderId String? @unique // الجولة اللي التسوية دي ناتجة عنها
+  amount          Decimal                   @db.Decimal(12, 2) // المبلغ المسلّم
+  method          String                    @default("CASH") // CASH | CHECK | TRANSFER
+  checkNo         String? // رقم الشيك (لو الدفع بشيك)
+  bankName        String? // البنك (لو شيك أو تحويل)
+  notes           String?
+  status          TreasurySettlementStatus  @default(PENDING)
+  rejectionReason String? // سبب الرفض (لو REJECTED)
+  createdById     String // المندوب اللي قدّم التسوية
+  acceptedById    String? // أمين الخزنة اللي قبل
+  acceptedAt      DateTime?
+  createdAt       DateTime                  @default(now())
+
+  delegate      Delegate       @relation("TreasurySettlements", fields: [delegateId], references: [id])
+  deliveryOrder DeliveryOrder? @relation("TreasurySettlementOrder", fields: [deliveryOrderId], references: [id])
+  createdBy  User     @relation("TreasurySettlementCreator", fields: [createdById], references: [id])
+  acceptedBy User?    @relation("TreasurySettlementAcceptor", fields: [acceptedById], references: [id])
+
+  @@map("treasury_settlements")
+}
+
+// ============== LIABILITIES (الالتزامات المالية) ==============
+enum LiabilityType {
+  LOAN // قرض بنكي
+  CHECK // شيك مستحق
+  INSTALLMENT_PLAN // تقسيط
+  FINANCING_COMPANY // شركة تمويل (أمان/تسهيل)
+  REAL_ESTATE // عقارات (فيلا/شقة)
+  INSURANCE // وثيقة تأمين على الحياة
+  OTHER
+}
+
+enum CashFlowActivity {
+  OPERATING // أنشطة تشغيلية — تدخل قائمة الدخل
+  INVESTING // أنشطة استثمارية — أصول عقارية وتأمين (لا تدخل P&L)
+  FINANCING // أنشطة تمويلية — قروض وتسهيلات (لا تدخل P&L)
+}
+
+enum PaymentVoucherStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+}
+
+enum LiabilityStatus {
+  ACTIVE // جارية
+  SETTLED // مسدّدة بالكامل
+  OVERDUE // متأخرة
+  CANCELLED
+}
+
+enum InstallmentStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  PARTIALLY_PAID
+}
+
+model Liability {
+  id            String          @id @default(cuid())
+  liabilityNo   String          @unique // LIB-YYYYMMDD-001
+  type          LiabilityType
+  creditor      String // الجهة الدائنة (بنك / مورد / شخص)
+  totalAmount   Decimal         @db.Decimal(12, 2) // إجمالي المبلغ
+  paidAmount    Decimal         @default(0) @db.Decimal(12, 2) // المسدّد
+  remainingAmount Decimal       @db.Decimal(12, 2) // المتبقي (يتحدّث تلقائي)
+  interestRate  Decimal         @default(0) @db.Decimal(5, 2) // نسبة الفائدة %
+  startDate     DateTime // تاريخ بداية الالتزام
+  dueDate       DateTime? // تاريخ السداد النهائي
+  status        LiabilityStatus @default(ACTIVE)
+  notes         String?
+  createdById   String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  createdBy       User             @relation("LiabilityCreator", fields: [createdById], references: [id])
+  installments    Installment[]
+  paymentVouchers PaymentVoucher[]
+
+  @@map("liabilities")
+}
+
+model Installment {
+  id           String            @id @default(cuid())
+  liabilityId  String
+  installmentNo Int // رقم القسط (1, 2, 3...)
+  amount       Decimal           @db.Decimal(12, 2) // المبلغ المطلوب
+  paidAmount   Decimal           @default(0) @db.Decimal(12, 2) // المدفوع فعلياً
+  dueDate      DateTime // تاريخ الاستحقاق
+  paidDate     DateTime? // تاريخ السداد الفعلي
+  status       InstallmentStatus @default(UNPAID)
+  notes        String?
+  paidById     String? // الشخص اللي سدّد
+
+  liability       Liability        @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+  paidBy          User?            @relation("InstallmentPayer", fields: [paidById], references: [id])
+  paymentVouchers PaymentVoucher[]
+
+  @@unique([liabilityId, installmentNo])
+  @@map("installments")
+}
+
+// ============== PAYMENT VOUCHERS (سندات الصرف) ==============
+model PaymentVoucher {
+  id            String               @id @default(cuid())
+  voucherNo     String               @unique // PV-YYYYMMDD-001
+  description   String // وصف السند
+  amount        Decimal              @db.Decimal(12, 2)
+  categoryId    String? // بند المصروف
+  activity      CashFlowActivity // نوع النشاط (تشغيلي/استثماري/تمويلي)
+  status        PaymentVoucherStatus @default(DRAFT)
+  liabilityId   String? // الالتزام المرتبط (لو سداد قسط/قرض)
+  installmentId String? // القسط المرتبط
+  paymentMethod String               @default("CASH") // CASH | CHECK | TRANSFER
+  checkNo       String?
+  bankName      String?
+  notes         String?
+  createdById   String
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime             @default(now())
+
+  category    ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  liability   Liability?    @relation(fields: [liabilityId], references: [id])
+  installment Installment?  @relation(fields: [installmentId], references: [id])
+  createdBy   User          @relation("VoucherCreator", fields: [createdById], references: [id])
+  approvedBy  User?         @relation("VoucherApprover", fields: [approvedById], references: [id])
+  cashFlows   CashFlow[]
+
+  @@map("payment_vouchers")
+}
+
+// ============== EXPENSE CATEGORIES (بنود المصروفات) ==============
+model ExpenseCategory {
+  id          String           @id @default(cuid())
+  name        String // اسم البند (رواتب / إيجار / صيانة ...)
+  code        String?          @unique // كود اختصاري اختياري
+  activity    CashFlowActivity @default(OPERATING) // تصنيف النشاط
+  affectsPL   Boolean          @default(true) // يدخل قائمة الأرباح والخسائر؟
+  parentId    String? // بند أب (مجموعة)
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+
+  parent   ExpenseCategory?  @relation("SubCategories", fields: [parentId], references: [id])
+  children ExpenseCategory[] @relation("SubCategories")
+  vouchers PaymentVoucher[]
+
+  @@map("expense_categories")
+}
+
+// ============== TREASURY NOTIFICATIONS (إشعارات الخزنة) ==============
+model TreasuryNotification {
+  id        String   @id @default(cuid())
+  type      String // INSTALLMENT_DUE | INSTALLMENT_OVERDUE | SETTLEMENT_PENDING | LIABILITY_OVERDUE
+  title     String
+  message   String
+  refId     String? // معرّف الكيان المرتبط (liability / installment / settlement)
+  isRead    Boolean  @default(false)
+  userId    String? // المستخدم المستهدف بالإشعار (null = الكل)
+  createdAt DateTime @default(now())
+
+  user User? @relation("TreasuryNotifications", fields: [userId], references: [id])
+
+  @@map("treasury_notifications")
 }
 
 // ============== ONLINE STORE (متجر العميل أونلاين) ==============

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED_ROLES = ['ADMIN', 'FACTORY'] as const
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('settings', 'delete')
   if ('response' in auth) return auth.response
 
   try {
@@ -36,7 +35,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('settings', 'delete')
   if ('response' in auth) return auth.response
 
   try {

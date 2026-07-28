@@ -25,7 +25,7 @@ export interface RecipeRow {
 const inputCls =
   'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 
-export function RecipeManager({ recipes, products }: { recipes: RecipeRow[]; products: ProductLite[] }) {
+export function RecipeManager({ recipes, products, canAdd = true, canEdit = true, canDelete = true }: { recipes: RecipeRow[]; products: ProductLite[]; canAdd?: boolean; canEdit?: boolean; canDelete?: boolean }) {
   const router = useRouter()
   const empty = {
     name: '',
@@ -97,7 +97,7 @@ export function RecipeManager({ recipes, products }: { recipes: RecipeRow[]; pro
           <BookMarked className="w-5 h-5 text-[#0f3460]" />
           <h3 className="text-base font-bold text-[#1a1a2e]">الوصفات والخلطات (BOM) — {recipes.length}</h3>
         </div>
-        {!open && (
+        {!open && canAdd && (
           <button onClick={() => { setOpen(true); setEditId(null); setForm(empty) }} className="flex items-center gap-2 px-4 py-2 bg-[#0f3460] text-white rounded-lg text-sm font-semibold hover:bg-[#0a2545]">
             <Plus className="w-4 h-4" /> وصفة جديدة
           </button>
@@ -207,12 +207,16 @@ export function RecipeManager({ recipes, products }: { recipes: RecipeRow[]; pro
               )}
             </div>
             <div className="flex gap-1 shrink-0">
-              <button onClick={() => startEdit(r)} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
-                <Pencil className="w-4 h-4" />
-              </button>
-              <button onClick={() => remove(r)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {canEdit && (
+                <button onClick={() => startEdit(r)} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
+                  <Pencil className="w-4 h-4" />
+                </button>
+              )}
+              {canDelete && (
+                <button onClick={() => remove(r)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         ))}

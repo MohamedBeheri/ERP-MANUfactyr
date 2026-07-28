@@ -11,7 +11,9 @@ interface Item {
   unit: string
   costPrice: number
   sellPrice: number
-  wholesalePrice?: number
+  oldPrice: number | null
+  wholesalePrice: number
+  minKeyPrice: number
   quantity: number
   roastLossPercent: number
   tareWeight: number
@@ -21,8 +23,15 @@ interface Item {
   packagingName: string | null
   gramsPerPiece: number
   piecesPerBox: number
+  categoryId: string | null
+  stageId: string | null
+  imageUrl: string | null
+  minStock: number
+  isActive: boolean
   components: Component[]
 }
+interface CategoryRef { id: string; name: string }
+interface StageRef { id: string; name: string; sellable: boolean; purchasable: boolean }
 
 const KINDS = [
   { key: 'GREEN', label: 'البن الأخضر', Icon: Coffee },
@@ -37,15 +46,31 @@ const KINDS = [
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 3 })
 
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export function CatalogManager() {
   const [items, setItems] = useState<Item[]>([])
+  const [categories, setCategories] = useState<CategoryRef[]>([])
+  const [stages, setStages] = useState<StageRef[]>([])
   const [tab, setTab] = useState<string>('GREEN')
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
     const res = await fetch('/api/catalog')
-    setItems(res.ok ? await res.json() : [])
+    if (res.ok) {
+      const data = await res.json()
+      setItems(data.items || [])
+      setCategories(data.categories || [])
+      setStages(data.stages || [])
+    }
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -67,15 +92,19 @@ export function CatalogManager() {
       {loading ? (
         <div className="bg-white rounded-xl shadow-sm p-10 text-center text-gray-400 text-sm">جاري التحميل…</div>
       ) : (
-        <KindTab key={tab} kind={tab} items={items} reload={load} />
+        <KindTab key={tab} kind={tab} items={items} categories={categories} stages={stages} reload={load} />
       )}
     </div>
   )
 }
 
-function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload: () => void }) {
+function KindTab({ kind, items, categories, stages, reload }: { kind: string; items: Item[]; categories: CategoryRef[]; stages: StageRef[]; reload: () => void }) {
   const list = items.filter((i) => i.itemKind === kind)
-  const empty = { name: '', unit: '', costPrice: '', sellPrice: '', wholesalePrice: '', roastLossPercent: '', tareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1' }
+  const empty: any = {
+    name: '', unit: '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '',
+    roastLossPercent: '', tareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1',
+    categoryId: '', stageId: '', minStock: '0', imageUrl: '',
+  }
   const [form, setForm] = useState<any>(empty)
   const [components, setComponents] = useState<Component[]>([])
   const [editId, setEditId] = useState<string | null>(null)
@@ -91,12 +120,25 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
     setEditId(it.id)
     setForm({
       name: it.name, unit: it.unit, costPrice: String(it.costPrice || ''), sellPrice: String(it.sellPrice || ''),
-      wholesalePrice: String(it.wholesalePrice || ''), roastLossPercent: String(it.roastLossPercent || ''),
+      oldPrice: it.oldPrice ? String(it.oldPrice) : '', wholesalePrice: String(it.wholesalePrice || ''),
+      minKeyPrice: String(it.minKeyPrice || ''), roastLossPercent: String(it.roastLossPercent || ''),
       tareWeight: String(it.tareWeight || ''), blendId: it.blendId || '', packagingId: it.packagingId || '',
       gramsPerPiece: String(it.gramsPerPiece || ''), piecesPerBox: String(it.piecesPerBox || 1),
+      categoryId: it.categoryId || '', stageId: it.stageId || '', minStock: String(it.minStock || 0),
+      imageUrl: it.imageUrl || '',
     })
     setComponents(it.components.map((c) => ({ ...c })))
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleImage = async (file?: File) => {
+    if (!file) return
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      setForm((f: any) => ({ ...f, imageUrl: dataUrl }))
+    } catch {
+      setError('فشل تحميل الصورة — جرّب صورة تانية')
+    }
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -129,6 +171,28 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
 
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم الصنف" className={inputCls} />
+
+        {/* المرحلة المخزنية + تصنيف البيع */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">المرحلة المخزنية</label>
+            <select value={form.stageId} onChange={(e) => setForm({ ...form, stageId: e.target.value })} className={inputCls}>
+              <option value="">تلقائي</option>
+              {stages.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}{s.sellable ? ' (بيع)' : s.purchasable ? ' (شراء)' : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">تصنيف البيع</label>
+            <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className={inputCls}>
+              <option value="">بدون تصنيف</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {kind === 'GREEN' && (
           <div>
@@ -210,31 +274,91 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
                 {packagings.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">سعر البيع</label>
-                <input type="number" min="0" step="0.01" value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} className={inputCls} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الجملة</label>
-                <input type="number" min="0" step="0.01" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} className={inputCls} />
-              </div>
-            </div>
           </>
         )}
 
-        {kind !== 'FINISHED' && (
+        {/* الأسعار حسب النوع:
+            - خامات (أخضر/عطارة/نكهات): سعر شراء فقط — بتتشرى ومبتتبعش
+            - توليفات: بدون أسعار — التكلفة محسوبة من المكونات
+            - تغليف/محمص/منتجات نهائية: كل الأسعار (بيع وشراء) */}
+        {['GREEN', 'SPICE', 'FLAVOR'].includes(kind) && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
-              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={kind === 'PACKAGING' ? 'قطعة' : 'كجم'} className={inputCls} />
+              <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الشراء</label>
+              <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
+              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="كجم" className={inputCls} />
+            </div>
+          </div>
+        )}
+        {kind === 'BLEND' && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
+            <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="كجم" className={inputCls} />
+          </div>
+        )}
+        {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">سعر التكلفة</label>
               <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">سعر القطاعي</label>
+              <input type="number" min="0" step="0.01" value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">السعر قبل الخصم <span className="text-gray-400 font-normal">(شارة تخفيض)</span></label>
+              <input type="number" min="0" step="0.01" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} className={inputCls} placeholder="اختياري" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الجملة</label>
+              <input type="number" min="0" step="0.01" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">أقل سعر لكبار الموردين</label>
+              <input type="number" min="0" step="0.01" value={form.minKeyPrice} onChange={(e) => setForm({ ...form, minKeyPrice: e.target.value })} className={inputCls} placeholder="الحد الأدنى في بيان السعر" />
+            </div>
+            {kind !== 'FINISHED' && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
+                <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={kind === 'PACKAGING' ? 'قطعة' : 'كجم'} className={inputCls} />
+              </div>
+            )}
           </div>
         )}
+
+        {/* الحد الأدنى للمخزون */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الأدنى للمخزون</label>
+          <input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inputCls} />
+        </div>
+
+        {/* صورة المنتج */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">صورة المنتج</label>
+          <div className="flex items-center gap-3">
+            {form.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.imageUrl} alt="معاينة" className="w-16 h-16 object-contain rounded-lg border border-gray-200 bg-gray-50" />
+            ) : (
+              <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-300 text-xs">بدون</div>
+            )}
+            <div className="flex-1 space-y-1.5">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImage(e.target.files?.[0])}
+                className="block w-full text-xs text-gray-500 file:ml-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-[#0f3460] file:text-white file:text-xs file:font-semibold file:cursor-pointer"
+              />
+              {form.imageUrl && (
+                <button type="button" onClick={() => setForm({ ...form, imageUrl: '' })} className="text-xs text-red-500 hover:underline">حذف الصورة</button>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="flex gap-2">
           <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">{editId ? 'حفظ' : 'إضافة'}</button>
@@ -249,24 +373,34 @@ function KindTab({ kind, items, reload }: { kind: string; items: Item[]; reload:
         <div className="space-y-2">
           {list.map((it) => (
             <div key={it.id} className="flex items-start justify-between border border-gray-100 rounded-lg p-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-sm">{it.name}</p>
-                <div className="flex flex-wrap gap-1.5 mt-1 text-[10px]">
-                  {kind === 'GREEN' && it.roastLossPercent > 0 && <span className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-semibold">خسران {fmt(it.roastLossPercent)}%</span>}
-                  {kind === 'PACKAGING' && <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold">فارغ {fmt(it.tareWeight)}جم</span>}
-                  {kind === 'FINISHED' && it.blendName && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-semibold">{it.blendName}</span>}
-                  {kind === 'FINISHED' && <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold tabular-nums">{fmt(it.gramsPerPiece)}جم × {it.piecesPerBox}</span>}
-                  {kind === 'FINISHED' && it.packagingName && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold">{it.packagingName}</span>}
-                  {it.quantity !== 0 && <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">رصيد {fmt(it.quantity)} {it.unit}</span>}
-                </div>
-                {kind === 'BLEND' && it.components.length > 0 && (
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    {it.components.map((c) => {
-                      const suffix = c.componentKind === 'GREEN' ? ` — محمص ${c.roastDegree || 'وسط'}` : ''
-                      return `${c.percent}% ${c.componentName}${suffix}`
-                    }).join(' · ')}
-                  </p>
+              <div className="min-w-0 flex gap-3">
+                {it.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.imageUrl} alt="" className="w-10 h-10 object-contain rounded bg-gray-50 shrink-0" />
                 )}
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm">{it.name}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-1 text-[10px]">
+                    {kind === 'GREEN' && it.roastLossPercent > 0 && <span className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-semibold">خسران {fmt(it.roastLossPercent)}%</span>}
+                    {kind === 'PACKAGING' && <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold">فارغ {fmt(it.tareWeight)}جم</span>}
+                    {kind === 'FINISHED' && it.blendName && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-semibold">{it.blendName}</span>}
+                    {kind === 'FINISHED' && <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold tabular-nums">{fmt(it.gramsPerPiece)}جم × {it.piecesPerBox}</span>}
+                    {kind === 'FINISHED' && it.packagingName && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold">{it.packagingName}</span>}
+                    {it.quantity !== 0 && <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">رصيد {fmt(it.quantity)} {it.unit}</span>}
+                    {['GREEN', 'SPICE', 'FLAVOR'].includes(kind) && it.costPrice > 0 && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">شراء {fmt(it.costPrice)}</span>}
+                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && it.sellPrice > 0 && <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">قطاعي {fmt(it.sellPrice)}</span>}
+                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && it.wholesalePrice > 0 && <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">جملة {fmt(it.wholesalePrice)}</span>}
+                    {it.minStock > 0 && <span className="bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">حد أدنى {it.minStock}</span>}
+                  </div>
+                  {kind === 'BLEND' && it.components.length > 0 && (
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      {it.components.map((c) => {
+                        const suffix = c.componentKind === 'GREEN' ? ` — محمص ${c.roastDegree || 'وسط'}` : ''
+                        return `${c.percent}% ${c.componentName}${suffix}`
+                      }).join(' · ')}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="flex gap-1 shrink-0">
                 <button onClick={() => startEdit(it)} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل"><Pencil className="w-4 h-4" /></button>

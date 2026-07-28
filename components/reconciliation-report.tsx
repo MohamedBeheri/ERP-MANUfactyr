@@ -1,14 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Printer, RefreshCw } from 'lucide-react'
+import { Printer, RefreshCw, Flame, Wind, Package } from 'lucide-react'
 
 interface Data {
   greens: { name: string; kg: number; roastLoss: number }[]
+  roasted: { name: string; kg: number; wasteKg: number; wastePct: number }[]
+  roastCount: number
   spices: { name: string; kg: number }[]
-  packaging: { name: string; pieces: number }[]
   blends: { name: string; output: number; waste: number; input: number; lossPercent: number }[]
-  finished: { name: string; boxes: number; coffeeKg: number }[]
+  blendCount: number
+  finished: { name: string; bags: number; coffeeKg: number; wasteKg: number; wastePct: number }[]
+  packaging: { name: string; pieces: number }[]
+  packCount: number
   ordersCount: number
 }
 
@@ -84,18 +88,32 @@ export function ReconciliationReport() {
             <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-500 text-sm">مفيش أوامر تصنيع في الفترة/القناة دي.</div>
           )}
 
+          {/* ملخص عام */}
+          {data.ordersCount > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <SummaryCard icon={<Flame className="w-5 h-5" />} color="orange" label="تشغيلات التحميص" value={data.roastCount} />
+              <SummaryCard icon={<Wind className="w-5 h-5" />} color="purple" label="تشغيلات التوليف والطحن" value={data.blendCount} />
+              <SummaryCard icon={<Package className="w-5 h-5" />} color="blue" label="تشغيلات التعبئة" value={data.packCount} />
+            </div>
+          )}
+
+          {/* ═══════ مرحلة التحميص ═══════ */}
           {data.greens.length > 0 && (
-            <Card title="البن الأخضر المستهلك">
-              <Table headers={['الصنف', 'المطلوب (كجم)', 'نسبة الخسران', 'الفعلي من المصنع', 'العجز / الزيادة']}>
+            <SectionTitle icon={<Flame className="w-5 h-5 text-orange-500" />} title="مرحلة التحميص" />
+          )}
+
+          {data.greens.length > 0 && (
+            <Card title="البن الأخضر المستهلك (مدخلات التحميص)">
+              <Table headers={['الصنف', 'الكمية المسحوبة (كجم)', 'نسبة خسران التحميص', 'الفعلي من المصنع', 'العجز / الزيادة']}>
                 {data.greens.map((g) => {
-                  const v = variance(g.name, g.kg)
+                  const v = variance(`green-${g.name}`, g.kg)
                   return (
                     <tr key={g.name} className="border-b border-gray-50 last:border-0">
                       <td className="p-3 font-semibold">{g.name}</td>
                       <td className="p-3 tabular-nums">{fmt(g.kg)}</td>
                       <td className="p-3 tabular-nums text-red-600">{fmt(g.roastLoss)}%</td>
                       <td className="p-3">
-                        <input type="number" step="0.01" value={actual[g.name] ?? ''} onChange={(e) => setActual({ ...actual, [g.name]: e.target.value })} placeholder={fmt(g.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" />
+                        <input type="number" step="0.01" value={actual[`green-${g.name}`] ?? ''} onChange={(e) => setActual({ ...actual, [`green-${g.name}`]: e.target.value })} placeholder={fmt(g.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" />
                       </td>
                       <td className={`p-3 tabular-nums font-bold ${v === null ? 'text-gray-300' : v === 0 ? 'text-green-600' : v > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                         {v === null ? '—' : `${v > 0 ? '+' : ''}${fmt(v)}`}
@@ -107,16 +125,36 @@ export function ReconciliationReport() {
             </Card>
           )}
 
+          {data.roasted.length > 0 && (
+            <Card title="البن المحمص المنتج (مخرجات التحميص)">
+              <Table headers={['الصنف', 'الكمية المنتجة (كجم)', 'الهدر (كجم)', 'نسبة الهدر']}>
+                {data.roasted.map((r) => (
+                  <tr key={r.name} className="border-b border-gray-50 last:border-0">
+                    <td className="p-3 font-semibold">{r.name}</td>
+                    <td className="p-3 tabular-nums text-green-700">{fmt(r.kg)}</td>
+                    <td className="p-3 tabular-nums text-orange-600">{fmt(r.wasteKg)}</td>
+                    <td className="p-3 tabular-nums font-bold">{fmt(r.wastePct)}%</td>
+                  </tr>
+                ))}
+              </Table>
+            </Card>
+          )}
+
+          {/* ═══════ مرحلة التوليف والطحن ═══════ */}
+          {(data.blends.length > 0 || data.spices.length > 0) && (
+            <SectionTitle icon={<Wind className="w-5 h-5 text-purple-500" />} title="مرحلة التوليف والطحن" />
+          )}
+
           {data.spices.length > 0 && (
-            <Card title="العطارة المستهلكة">
+            <Card title="العطارة والنكهات المستهلكة">
               <Table headers={['الصنف', 'المطلوب (كجم)', 'الفعلي', 'العجز / الزيادة']}>
                 {data.spices.map((s) => {
-                  const v = variance(s.name, s.kg)
+                  const v = variance(`spice-${s.name}`, s.kg)
                   return (
                     <tr key={s.name} className="border-b border-gray-50 last:border-0">
                       <td className="p-3 font-semibold">{s.name}</td>
                       <td className="p-3 tabular-nums">{fmt(s.kg)}</td>
-                      <td className="p-3"><input type="number" step="0.01" value={actual[s.name] ?? ''} onChange={(e) => setActual({ ...actual, [s.name]: e.target.value })} placeholder={fmt(s.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" /></td>
+                      <td className="p-3"><input type="number" step="0.01" value={actual[`spice-${s.name}`] ?? ''} onChange={(e) => setActual({ ...actual, [`spice-${s.name}`]: e.target.value })} placeholder={fmt(s.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" /></td>
                       <td className={`p-3 tabular-nums font-bold ${v === null ? 'text-gray-300' : v === 0 ? 'text-green-600' : v > 0 ? 'text-blue-600' : 'text-red-600'}`}>{v === null ? '—' : `${v > 0 ? '+' : ''}${fmt(v)}`}</td>
                     </tr>
                   )
@@ -126,8 +164,8 @@ export function ReconciliationReport() {
           )}
 
           {data.blends.length > 0 && (
-            <Card title="التوليفات المنتجة">
-              <Table headers={['التوليفة', 'المدخل (كجم)', 'الناتج (كجم)', 'الهدر', 'نسبة الهدر']}>
+            <Card title="التوليفات المنتجة (مخرجات الطحن)">
+              <Table headers={['التوليفة', 'المدخل (كجم)', 'الناتج (كجم)', 'الهدر (كجم)', 'نسبة الهدر']}>
                 {data.blends.map((b) => (
                   <tr key={b.name} className="border-b border-gray-50 last:border-0">
                     <td className="p-3 font-semibold">{b.name}</td>
@@ -141,14 +179,21 @@ export function ReconciliationReport() {
             </Card>
           )}
 
+          {/* ═══════ مرحلة التعبئة ═══════ */}
+          {(data.finished.length > 0 || data.packaging.length > 0) && (
+            <SectionTitle icon={<Package className="w-5 h-5 text-blue-500" />} title="مرحلة التعبئة والتغليف" />
+          )}
+
           {data.finished.length > 0 && (
             <Card title="المنتجات المعبّأة">
-              <Table headers={['المنتج', 'العلب', 'البن المستهلك (كجم)']}>
+              <Table headers={['المنتج', 'عدد العبوات', 'البن المسحوب (كجم)', 'الهدر (كجم)', 'نسبة الهدر']}>
                 {data.finished.map((f) => (
                   <tr key={f.name} className="border-b border-gray-50 last:border-0">
                     <td className="p-3 font-semibold">{f.name}</td>
-                    <td className="p-3 tabular-nums">{f.boxes}</td>
-                    <td className="p-3 tabular-nums text-amber-700">{fmt(f.coffeeKg)}</td>
+                    <td className="p-3 tabular-nums">{f.bags}</td>
+                    <td className="p-3 tabular-nums">{fmt(f.coffeeKg)}</td>
+                    <td className="p-3 tabular-nums text-orange-600">{fmt(f.wasteKg)}</td>
+                    <td className="p-3 tabular-nums font-bold">{fmt(f.wastePct)}%</td>
                   </tr>
                 ))}
               </Table>
@@ -169,6 +214,30 @@ export function ReconciliationReport() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function SummaryCard({ icon, color, label, value }: { icon: React.ReactNode; color: string; label: string; value: number }) {
+  const colors: Record<string, string> = {
+    orange: 'from-orange-500 to-orange-600',
+    purple: 'from-purple-500 to-purple-600',
+    blue: 'from-blue-600 to-blue-700',
+  }
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} text-white rounded-xl p-4 shadow-sm`}>
+      <div className="flex items-center gap-2 mb-1 opacity-90">{icon}<span className="text-xs font-medium">{label}</span></div>
+      <div className="text-2xl font-bold">{value}</div>
+    </div>
+  )
+}
+
+function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-2">
+      {icon}
+      <h2 className="text-lg font-bold text-[#1a1a2e]">{title}</h2>
+      <div className="flex-1 border-b border-gray-200" />
     </div>
   )
 }

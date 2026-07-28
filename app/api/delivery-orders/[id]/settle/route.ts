@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock } from '@/lib/warehouse'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 // تسوية آخر اليوم: المباع والمحصّل بيتحسبوا تلقائي من الفواتير المرتبطة بالجولة،
 // والمستخدم بس بيدخل الكمية المرتجعة الفعلية (جرد) لكل صنف عشان ترجع للمخزن.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('delegates', 'edit')
   if ('response' in auth) return auth.response
   const { session } = auth
 
@@ -142,6 +141,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       where: { id: deliveryOrder.id },
       data: { status: 'COMPLETED' },
     })
+
+    // إنشاء تسوية خزنة معلقة — أمين الخزنة لازم يعتمدها عشان الفلوس تدخل الخزنة فعلياً
+    if (cashAmount > 0) {
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const trsCount = await prisma.treasurySettlement.count({
+        where: { settlementNo: { startsWith: `TRS-${today}` } },
+      })
+      const trsNo = `TRS-${today}-${String(trsCount + 1).padStart(3, '0')}`
+      await prisma.treasurySettlement.create({
+        data: {
+          settlementNo: trsNo,
+          delegateId: deliveryOrder.delegateId,
+          amount: cashAmount,
+          method: 'CASH',
+          notes: `تسوية جولة ${deliveryOrder.orderNo} — نقدي محصّل`,
+          status: 'PENDING',
+          createdById: session.user.id,
+          deliveryOrderId: deliveryOrder.id,
+        },
+      })
+    }
 
     await prisma.auditLog.create({
       data: {

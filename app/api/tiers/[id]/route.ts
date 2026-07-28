@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(['ADMIN'])
+  const auth = await requirePermission('customers', 'delete')
   if ('response' in auth) return auth.response
   try {
     const b = await req.json()
@@ -26,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(['ADMIN'])
+  const auth = await requirePermission('customers', 'delete')
   if ('response' in auth) return auth.response
   try {
     await prisma.$transaction([

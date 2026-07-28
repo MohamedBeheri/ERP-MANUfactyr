@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { validateBlendPercents } from '@/lib/manufacturing'
 
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
-
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('catalog', 'edit')
   if ('response' in auth) return auth.response
 
   try {
@@ -28,13 +26,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         unit: b.unit || undefined,
         costPrice: b.costPrice !== undefined ? Number(b.costPrice) || 0 : undefined,
         sellPrice: b.sellPrice !== undefined ? Number(b.sellPrice) || 0 : undefined,
+        oldPrice: b.oldPrice !== undefined ? (b.oldPrice ? Number(b.oldPrice) : null) : undefined,
         wholesalePrice: b.wholesalePrice !== undefined ? Number(b.wholesalePrice) || 0 : undefined,
+        minKeyPrice: b.minKeyPrice !== undefined ? Number(b.minKeyPrice) || 0 : undefined,
         roastLossPercent: b.roastLossPercent !== undefined ? Number(b.roastLossPercent) || 0 : undefined,
         tareWeight: b.tareWeight !== undefined ? Number(b.tareWeight) || 0 : undefined,
         blendId: b.blendId !== undefined ? b.blendId || null : undefined,
         packagingId: b.packagingId !== undefined ? b.packagingId || null : undefined,
         gramsPerPiece: b.gramsPerPiece !== undefined ? Number(b.gramsPerPiece) || 0 : undefined,
         piecesPerBox: b.piecesPerBox !== undefined ? Number(b.piecesPerBox) || 1 : undefined,
+        categoryId: b.categoryId !== undefined ? b.categoryId || null : undefined,
+        stageId: b.stageId !== undefined ? b.stageId || undefined : undefined,
+        minStock: b.minStock !== undefined ? Number(b.minStock) || 0 : undefined,
+        imageUrl: b.imageUrl !== undefined ? b.imageUrl || null : undefined,
       },
     })
 
@@ -62,7 +66,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('catalog', 'delete')
   if ('response' in auth) return auth.response
 
   try {

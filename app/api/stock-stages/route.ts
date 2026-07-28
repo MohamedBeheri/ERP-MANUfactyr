@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { ensureStockStages } from '@/lib/stock-stages'
 
-const READ_ROLES = ['ADMIN', 'FACTORY', 'WAREHOUSE', 'SALES'] as const
 
 export async function GET() {
-  const auth = await requireRole([...READ_ROLES])
+  const auth = await requirePermission('settings', 'view')
   if ('response' in auth) return auth.response
 
   try {
@@ -23,7 +22,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole(['ADMIN', 'WAREHOUSE'])
+  const auth = await requirePermission('settings', 'add')
   if ('response' in auth) return auth.response
 
   try {

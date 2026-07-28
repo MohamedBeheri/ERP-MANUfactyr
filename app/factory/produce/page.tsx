@@ -15,7 +15,7 @@ export default async function ProducePage() {
   if (!session) redirect('/')
   await ensureStockStages()
 
-  const [greens, blends, finished, productions, kpiAgg] = await Promise.all([
+  const [greens, blends, finished, roastedAll, flavorAll, spiceAll, , productions, kpiAgg] = await Promise.all([
     // بن أخضر (مدخل التحميص)
     prisma.product.findMany({ where: { isActive: true, itemKind: 'GREEN' }, orderBy: { name: 'asc' } }),
     prisma.product.findMany({
@@ -28,6 +28,14 @@ export default async function ProducePage() {
       orderBy: { name: 'asc' },
       include: { blend: true, packaging: true },
     }),
+    // بن محمص (للتوليفة المخصصة)
+    prisma.product.findMany({ where: { isActive: true, itemKind: 'ROASTED' }, orderBy: { name: 'asc' } }),
+    // نكهات (للتوليفة المخصصة)
+    prisma.product.findMany({ where: { isActive: true, itemKind: 'FLAVOR' }, orderBy: { name: 'asc' } }),
+    // عطارة (للتوليفة المخصصة)
+    prisma.product.findMany({ where: { isActive: true, itemKind: 'SPICE' }, orderBy: { name: 'asc' } }),
+    // مواد تغليف (للتعبئة)
+    prisma.product.findMany({ where: { isActive: true, itemKind: 'PACKAGING' }, orderBy: { name: 'asc' } }),
     // آخر التشغيلات بكل المراحل
     prisma.production.findMany({
       where: { OR: [{ orderNo: { startsWith: 'RST-' } }, { orderNo: { startsWith: 'BLD-' } }, { orderNo: { startsWith: 'GRD-' } }, { orderNo: { startsWith: 'PACK-' } }, { orderNo: { startsWith: 'BLND-' } }] },
@@ -97,6 +105,11 @@ export default async function ProducePage() {
           tare: Number(f.packaging?.tareWeight || 0),
           packagingName: f.packaging?.name || null,
         }))}
+        availableIngredients={[
+          ...roastedAll.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, kind: 'ROASTED' as const })),
+          ...flavorAll.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, kind: 'FLAVOR' as const })),
+          ...spiceAll.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, kind: 'SPICE' as const })),
+        ]}
         productions={productions.map((p) => ({
           id: p.id,
           orderNo: p.orderNo,

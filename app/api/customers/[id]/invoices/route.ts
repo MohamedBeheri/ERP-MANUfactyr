@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED = ['ADMIN', 'SALES', 'DELEGATE'] as const
 
 // فواتير عميل معيّن (لاختيار الفاتورة اللي بيترجّع منها) — بالبنود لكل سطر + المرتجع قبل كده + بيانات العرض
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('customers', 'view')
   if ('response' in auth) return auth.response
 
   try {

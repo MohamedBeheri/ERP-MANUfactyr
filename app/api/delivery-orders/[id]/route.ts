@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('delegates', 'view')
   if ('response' in auth) return auth.response
 
   try {

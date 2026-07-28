@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { getStoreSettings } from '@/lib/store'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
 export async function GET() {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'edit')
   if ('response' in auth) return auth.response
   const settings = await getStoreSettings()
   return NextResponse.json(settings)
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'edit')
   if ('response' in auth) return auth.response
 
   try {

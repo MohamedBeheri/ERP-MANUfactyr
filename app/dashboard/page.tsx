@@ -2,188 +2,191 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ShoppingCart,
-  Factory,
-  Truck,
-  PackageOpen,
-  AlertTriangle,
-  ChevronLeft,
-  Globe,
-  Warehouse,
-  Building2,
-  Wallet,
-  Users,
-  Gift,
-  Coins,
-  Clock,
-  Crown,
-  Undo2,
-  Car,
-  MapPin,
-  ClipboardList,
-  TrendingUp,
+  ShoppingCart, Factory, Truck, PackageOpen, AlertTriangle, ChevronLeft, Globe,
+  Warehouse, Building2, Wallet, Users, Gift, Coins, Clock, Crown, Undo2, Car,
+  MapPin, ClipboardList, TrendingUp, TrendingDown, Banknote, ReceiptText,
+  ShoppingBag, Scale, ArrowUpRight, ArrowDownRight, DollarSign, CreditCard,
+  Boxes, FileSpreadsheet, Landmark, CircleDollarSign, BadgePercent,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { effectivePermissions } from '@/lib/permissions'
-import { DashboardStats } from '@/components/dashboard-stats'
-import { RecentActivity } from '@/components/recent-activity'
-import { SalesChart } from '@/components/sales-chart'
-import { TopProductsChart, PaymentSplitChart } from '@/components/top-products-chart'
 import { PeriodSelector } from '@/components/period-selector'
 import { AlBadrLogo } from '@/components/albadr-logo'
+import {
+  SalesTrendChart, RevenueBreakdownChart, TopProductsBar,
+  ExpensesByCategoryChart, ProductionTrendChart, CashFlowChart,
+} from '@/components/dashboard-charts'
+import { RecentActivity } from '@/components/recent-activity'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardPage({ searchParams }: { searchParams: { days?: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) redirect('/')
+const egp = (n: number) => `${n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م`
+const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 0 })
+const pct = (part: number, whole: number) => whole > 0 ? ((part / whole) * 100).toFixed(1) : '0'
 
-  // مدة العرض: من يوم واحد لحد 30 يوم
-  const days = Math.min(30, Math.max(1, Number(searchParams.days) || 7))
-
-  // المندوب: لوحة تحكم خاصة بإحصائيات شغله بدل لوحة الإدارة
-  if ((session.user as any).role === 'DELEGATE') {
-    return <DelegateDashboard userId={(session.user as any).id} userName={session.user?.name || 'المندوب'} days={days} />
+function buildPeriod(searchParams: { days?: string; from?: string; to?: string }) {
+  if (searchParams.from && searchParams.to) {
+    const from = new Date(searchParams.from)
+    from.setHours(0, 0, 0, 0)
+    const to = new Date(searchParams.to)
+    to.setHours(23, 59, 59, 999)
+    const days = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / 86400000))
+    return { from, to, days, label: `من ${searchParams.from} إلى ${searchParams.to}` }
   }
-
+  const days = Math.min(90, Math.max(1, Number(searchParams.days) || 7))
   const from = new Date()
   from.setDate(from.getDate() - (days - 1))
   from.setHours(0, 0, 0, 0)
+  const to = new Date()
+  to.setHours(23, 59, 59, 999)
+  return { from, to, days, label: days === 1 ? 'اليوم' : `آخر ${days} يوم` }
+}
 
-  const [invoices, productions, purchases, allProducts, activeDelegates, recentActivity, pendingOnline, activeTours, keyClaims, wasteAlerts] =
-    await Promise.all([
-      prisma.invoice.findMany({
-        where: { createdAt: { gte: from }, status: 'COMPLETED' },
-        include: { items: { include: { product: true } } },
-        orderBy: { createdAt: 'asc' },
-      }),
-      prisma.production.findMany({
-        where: { createdAt: { gte: from } },
-        include: { items: true },
-      }),
-      prisma.purchase.aggregate({
-        where: { createdAt: { gte: from } },
-        _sum: { totalAmount: true },
-      }),
-      prisma.product.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, quantity: true, minStock: true, unit: true },
-      }),
-      prisma.delegate.count({ where: { isActive: true } }),
-      prisma.auditLog.findMany({
-        take: 8,
-        orderBy: { createdAt: 'desc' },
-        include: { user: true },
-      }),
-      prisma.onlineOrder.count({ where: { status: 'PENDING' } }).catch(() => 0),
-      prisma.deliveryOrder.count({ where: { status: 'IN_PROGRESS' } }),
-      prisma.keyAccount.aggregate({ where: { isActive: true }, _sum: { balance: true } }).catch(() => ({ _sum: { balance: 0 } })),
-      // إشعار تجاوز حد الهدر في التصنيع (آخر 7 أيام)
-      prisma.production.count({ where: { wasteExceeded: true, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } }).catch(() => 0),
-    ])
+export default async function DashboardPage({ searchParams }: { searchParams: { days?: string; from?: string; to?: string } }) {
+  const session = await getServerSession(authOptions)
+  if (!session) redirect('/')
 
-  // صلاحيات المستخدم — الداشبورد بيعرض بس الأقسام اللي من حقه
+  const { from, to, days, label } = buildPeriod(searchParams)
+  const period = { gte: from, lte: to }
+
+  if ((session.user as any).role === 'DELEGATE') {
+    return <DelegateDashboard userId={(session.user as any).id} userName={session.user?.name || 'المندوب'} days={days} from={from} to={to} searchParams={searchParams} />
+  }
+
   const perms = effectivePermissions((session.user as any).role, (session.user as any).permissions)
-  const keyClaimsTotal = Number(keyClaims._sum.balance) || 0
+  const showOps = perms.some(p => ['sales', 'finance', 'warehouse', 'factory', 'delegates'].includes(p))
 
-  // KPIs
-  const periodSales = invoices.reduce((s, i) => s + Number(i.netAmount), 0)
-  const cashAmount = invoices.filter((i) => i.type === 'CASH').reduce((s, i) => s + Number(i.netAmount), 0)
-  const creditAmount = invoices.filter((i) => i.type === 'CREDIT').reduce((s, i) => s + Number(i.netAmount), 0)
+  const [
+    invoices, productions, purchaseAgg, allProducts, activeDelegates,
+    recentActivity, pendingOnline, activeTours, keyClaims, wasteAlerts,
+    paymentVouchers, cashFlows, liabilities, customerCount, supplierPayAgg,
+    kaPayAgg, creditCollections,
+  ] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { createdAt: period, status: 'COMPLETED' },
+      include: { items: { include: { product: { select: { name: true, costPrice: true } } } } },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.production.findMany({
+      where: { createdAt: period },
+      include: { items: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.purchase.aggregate({ where: { createdAt: period }, _sum: { totalAmount: true, paidAmount: true }, _count: true }),
+    prisma.product.findMany({ where: { isActive: true }, select: { id: true, name: true, quantity: true, minStock: true, unit: true, costPrice: true } }),
+    prisma.delegate.count({ where: { isActive: true } }),
+    prisma.auditLog.findMany({ take: 8, orderBy: { createdAt: 'desc' }, include: { user: true } }),
+    prisma.onlineOrder.count({ where: { status: 'PENDING' } }).catch(() => 0),
+    prisma.deliveryOrder.count({ where: { status: 'IN_PROGRESS' } }),
+    prisma.keyAccount.aggregate({ where: { isActive: true }, _sum: { balance: true } }).catch(() => ({ _sum: { balance: 0 } })),
+    prisma.production.count({ where: { wasteExceeded: true, createdAt: { gte: new Date(Date.now() - 7 * 86400000) } } }).catch(() => 0),
+    prisma.paymentVoucher.findMany({ where: { status: 'APPROVED', createdAt: period }, include: { category: { select: { name: true, activity: true } } }, orderBy: { createdAt: 'asc' } }),
+    prisma.cashFlow.findMany({ where: { createdAt: period }, orderBy: { createdAt: 'asc' } }),
+    prisma.liability.findMany({ where: { status: { in: ['ACTIVE', 'OVERDUE'] } }, select: { remainingAmount: true, status: true, type: true } }),
+    prisma.customer.count({ where: { isActive: true } }),
+    prisma.supplierPayment.aggregate({ where: { createdAt: period }, _sum: { amount: true } }),
+    prisma.keyAccountPayment.aggregate({ where: { createdAt: period }, _sum: { amount: true } }),
+    prisma.invoice.aggregate({ where: { createdAt: period, status: 'COMPLETED', type: 'CREDIT', paidAmount: { gt: 0 } }, _sum: { paidAmount: true } }),
+  ])
+
+  // ─── KPIs ───
+  const totalSales = invoices.reduce((s, i) => s + Number(i.netAmount), 0)
+  const cashSales = invoices.filter(i => i.type === 'CASH').reduce((s, i) => s + Number(i.netAmount), 0)
+  const creditSales = invoices.filter(i => i.type === 'CREDIT').reduce((s, i) => s + Number(i.netAmount), 0)
+  const kaSales = Number(kaPayAgg._sum.amount) || 0
+  const cogs = invoices.reduce((s, inv) => s + inv.items.reduce((a, it) => a + it.quantity * Number(it.product.costPrice), 0), 0)
+  const grossProfit = totalSales - cogs
+  const totalExpenses = paymentVouchers.reduce((s, v) => s + Number(v.amount), 0)
+  const netProfit = grossProfit - totalExpenses
   const producedQty = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + i.quantity, 0), 0)
-  const lowStockProducts = allProducts.filter((p) => p.quantity <= p.minStock)
+  const purchaseTotal = Number(purchaseAgg._sum.totalAmount) || 0
+  const purchasePaid = Number(purchaseAgg._sum.paidAmount) || 0
+  const lowStockProducts = allProducts.filter(p => p.quantity <= p.minStock)
+  const inventoryValue = allProducts.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0)
+  const totalLiabilities = liabilities.reduce((s, l) => s + Number(l.remainingAmount), 0)
+  const overdueCount = liabilities.filter(l => l.status === 'OVERDUE').length
+  const keyClaimsTotal = Number(keyClaims._sum.balance) || 0
+  const supPayTotal = Number(supplierPayAgg._sum.amount) || 0
+  const kaPayTotal = Number(kaPayAgg._sum.amount) || 0
+  const collectionsTotal = Number(creditCollections._sum.paidAmount) || 0
 
-  // تجميع المبيعات: بالساعة لو يوم واحد، باليوم غير كده
-  let labels: string[] = []
-  let values: number[] = []
+  // ─── تجميع المبيعات والمصروفات اليومية ───
+  const dayMap = new Map<string, { sales: number; expenses: number; prodQty: number; prodOrders: number; cfIn: number; cfOut: number }>()
+  const fillDay = (key: string) => {
+    if (!dayMap.has(key)) dayMap.set(key, { sales: 0, expenses: 0, prodQty: 0, prodOrders: 0, cfIn: 0, cfOut: 0 })
+    return dayMap.get(key)!
+  }
+
   if (days === 1) {
-    const buckets = new Array(24).fill(0)
-    for (const inv of invoices) {
-      buckets[new Date(inv.createdAt).getHours()] += Number(inv.netAmount)
-    }
-    labels = buckets.map((_, h) => `${h}:00`)
-    values = buckets
+    for (let h = 0; h < 24; h++) fillDay(`${h}:00`)
+    invoices.forEach(inv => { fillDay(`${new Date(inv.createdAt).getHours()}:00`).sales += Number(inv.netAmount) })
+    paymentVouchers.forEach(v => { fillDay(`${new Date(v.createdAt).getHours()}:00`).expenses += Number(v.amount) })
+    productions.forEach(p => {
+      const d = fillDay(`${new Date(p.createdAt).getHours()}:00`)
+      d.prodOrders++
+      d.prodQty += p.items.reduce((a, i) => a + i.quantity, 0)
+    })
+    cashFlows.forEach(cf => {
+      const d = fillDay(`${new Date(cf.createdAt).getHours()}:00`)
+      if (cf.type === 'IN') d.cfIn += Number(cf.amount); else d.cfOut += Number(cf.amount)
+    })
   } else {
-    const dayKeys: string[] = []
-    const map = new Map<string, number>()
     for (let i = 0; i < days; i++) {
-      const d = new Date(from)
-      d.setDate(from.getDate() + i)
-      const key = d.toISOString().slice(0, 10)
-      dayKeys.push(key)
-      map.set(key, 0)
+      const dt = new Date(from)
+      dt.setDate(from.getDate() + i)
+      fillDay(dt.toISOString().slice(0, 10))
     }
-    for (const inv of invoices) {
-      const key = new Date(inv.createdAt).toISOString().slice(0, 10)
-      if (map.has(key)) map.set(key, (map.get(key) || 0) + Number(inv.netAmount))
-    }
-    labels = dayKeys.map((k) => new Date(k).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }))
-    values = dayKeys.map((k) => map.get(k) || 0)
+    invoices.forEach(inv => { fillDay(new Date(inv.createdAt).toISOString().slice(0, 10)).sales += Number(inv.netAmount) })
+    paymentVouchers.forEach(v => { fillDay(new Date(v.createdAt).toISOString().slice(0, 10)).expenses += Number(v.amount) })
+    productions.forEach(p => {
+      const d = fillDay(new Date(p.createdAt).toISOString().slice(0, 10))
+      d.prodOrders++
+      d.prodQty += p.items.reduce((a, i) => a + i.quantity, 0)
+    })
+    cashFlows.forEach(cf => {
+      const d = fillDay(new Date(cf.createdAt).toISOString().slice(0, 10))
+      if (cf.type === 'IN') d.cfIn += Number(cf.amount); else d.cfOut += Number(cf.amount)
+    })
   }
+  const chartEntries = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+  const chartLabels = days === 1
+    ? chartEntries.map(([k]) => k)
+    : chartEntries.map(([k]) => new Date(k).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }))
+  const chartSales = chartEntries.map(([, v]) => v.sales)
+  const chartExpenses = chartEntries.map(([, v]) => v.expenses)
+  const chartProdQty = chartEntries.map(([, v]) => v.prodQty)
+  const chartProdOrders = chartEntries.map(([, v]) => v.prodOrders)
+  const chartCfIn = chartEntries.map(([, v]) => v.cfIn)
+  const chartCfOut = chartEntries.map(([, v]) => v.cfOut)
 
-  // الأكثر مبيعًا في الفترة
-  const productSales = new Map<string, { name: string; qty: number }>()
+  // ─── المنتجات الأكثر مبيعًا ───
+  const productAgg = new Map<string, { name: string; qty: number; revenue: number }>()
   for (const inv of invoices) {
-    for (const item of inv.items) {
-      const prev = productSales.get(item.productId)
-      productSales.set(item.productId, {
-        name: item.product.name,
-        qty: (prev?.qty || 0) + item.quantity,
-      })
+    for (const it of inv.items) {
+      const prev = productAgg.get(it.productId) || { name: it.product.name, qty: 0, revenue: 0 }
+      prev.qty += it.quantity
+      prev.revenue += Number(it.totalPrice)
+      productAgg.set(it.productId, prev)
     }
   }
-  const topProducts = Array.from(productSales.values()).sort((a, b) => b.qty - a.qty).slice(0, 5)
+  const topProducts = Array.from(productAgg.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 6)
 
-  const kpi = {
-    periodSales,
-    invoiceCount: invoices.length,
-    producedQty,
-    purchasesAmount: Number(purchases._sum.totalAmount) || 0,
-    lowStock: lowStockProducts.length,
-    activeDelegates,
-    cashAmount,
-    creditAmount,
-  }
+  // ─── المصروفات حسب البند ───
+  const expCatMap = new Map<string, number>()
+  paymentVouchers.forEach(v => {
+    const key = v.category?.name || 'بدون تصنيف'
+    expCatMap.set(key, (expCatMap.get(key) || 0) + Number(v.amount))
+  })
+  const expensesByCategory = Array.from(expCatMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, amount]) => ({ name, amount }))
 
-  // الإحصائيات والرسوم التشغيلية تظهر بس لمن له صلاحية تشغيلية
-  const showOps = perms.some((p) => ['sales', 'finance', 'warehouse', 'factory', 'delegates'].includes(p))
-  const periodTitle = days === 1 ? 'مبيعات اليوم (بالساعة)' : `المبيعات آخر ${days} يوم`
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور'
-  const firstName = (session.user.name || '').split(' ')[0]
-
+  // ─── Alerts ───
   const alerts = [
-    pendingOnline > 0 && perms.includes('store') && {
-      href: '/online-orders',
-      Icon: Globe,
-      text: `${pendingOnline} طلب جديد من الموقع مستني تأكيدك`,
-      cls: 'bg-purple-50 text-purple-700 ring-purple-100 hover:ring-purple-300',
-    },
-    activeTours > 0 && perms.includes('delegates') && {
-      href: '/drivers',
-      Icon: Truck,
-      text: `${activeTours} عربية في الطريق دلوقتي`,
-      cls: 'bg-sky-50 text-sky-700 ring-sky-100 hover:ring-sky-300',
-    },
-    keyClaimsTotal > 0 && perms.includes('keyaccounts') && {
-      href: '/key-accounts',
-      Icon: Wallet,
-      text: `مطالبات كبار الموردين المستحقة ${keyClaimsTotal.toLocaleString('ar-EG')} ج.م`,
-      cls: 'bg-amber-50 text-amber-700 ring-amber-100 hover:ring-amber-300',
-    },
-    wasteAlerts > 0 && perms.includes('factory') && {
-      href: '/factory/produce',
-      Icon: AlertTriangle,
-      text: `⚠️ ${wasteAlerts} تشغيلة تصنيع هدرها أعلى من الحد المسموح — راجع خط التصنيع`,
-      cls: 'bg-red-50 text-red-700 ring-red-100 hover:ring-red-300',
-    },
-    lowStockProducts.length > 0 && perms.includes('warehouse') && {
-      href: '/warehouse',
-      Icon: AlertTriangle,
-      text: `${lowStockProducts.length} صنف وصل تحت الحد الأدنى`,
-      cls: 'bg-red-50 text-red-700 ring-red-100 hover:ring-red-300',
-    },
+    pendingOnline > 0 && perms.includes('store') && { href: '/online-orders', Icon: Globe, text: `${pendingOnline} طلب جديد من الموقع`, cls: 'bg-purple-50 text-purple-700 ring-purple-100' },
+    activeTours > 0 && perms.includes('delegates') && { href: '/drivers', Icon: Truck, text: `${activeTours} عربية في الطريق`, cls: 'bg-sky-50 text-sky-700 ring-sky-100' },
+    overdueCount > 0 && { href: '/treasury', Icon: AlertTriangle, text: `${overdueCount} التزام متأخر السداد`, cls: 'bg-red-50 text-red-700 ring-red-100' },
+    wasteAlerts > 0 && perms.includes('factory') && { href: '/factory/produce', Icon: AlertTriangle, text: `${wasteAlerts} تشغيلة هدرها أعلى من الحد`, cls: 'bg-red-50 text-red-700 ring-red-100' },
+    lowStockProducts.length > 0 && perms.includes('warehouse') && { href: '/warehouse', Icon: AlertTriangle, text: `${lowStockProducts.length} صنف تحت الحد الأدنى`, cls: 'bg-orange-50 text-orange-700 ring-orange-100' },
   ].filter(Boolean) as { href: string; Icon: any; text: string; cls: string }[]
 
   const quickActions = [
@@ -192,40 +195,35 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     { href: '/delegates', label: 'تحميل عربية', Icon: Truck, perm: 'delegates' },
     { href: '/key-accounts', label: 'كبار الموردين', Icon: Building2, perm: 'keyaccounts' },
     { href: '/online-orders', label: 'طلبات الموقع', Icon: PackageOpen, perm: 'store' },
-    { href: '/warehouse', label: 'جرد المخزن', Icon: Warehouse, perm: 'warehouse' },
-  ].filter((a) => perms.includes(a.perm))
+    { href: '/warehouse', label: 'المخزن', Icon: Warehouse, perm: 'warehouse' },
+    { href: '/treasury', label: 'الخزينة', Icon: Landmark, perm: 'treasury' },
+    { href: '/finance', label: 'التقارير', Icon: FileSpreadsheet, perm: 'finance' },
+  ].filter(a => perms.includes(a.perm))
+
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور'
+  const firstName = (session.user.name || '').split(' ')[0]
+
+  const profitMargin = totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(1) : '0'
+  const grossMargin = totalSales > 0 ? ((grossProfit / totalSales) * 100).toFixed(1) : '0'
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      {/* بانر الترحيب */}
-      <div
-        className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8"
-        style={{
-          background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 60%, #16213e 100%)',
-        }}
-      >
-        <div className="absolute -left-10 -bottom-16 opacity-[0.07] pointer-events-none">
-          <AlBadrLogo className="w-72 h-72" />
-        </div>
+    <div className="p-4 sm:p-6 space-y-5">
+      {/* ─── Hero Banner ─── */}
+      <div className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 50%, #16213e 100%)' }}>
+        <div className="absolute -left-10 -bottom-16 opacity-[0.05] pointer-events-none"><AlBadrLogo className="w-80 h-80" /></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#e9b44c]/5 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black">
-              {greeting}{firstName ? `، ${firstName}` : ''} 👋
-            </h1>
-            <p className="text-white/60 text-sm mt-1">
+            <h1 className="text-2xl sm:text-3xl font-black">{greeting}{firstName ? `، ${firstName}` : ''}</h1>
+            <p className="text-white/50 text-sm mt-1">
               {new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               {' · '}شركة البدر لتجارة البن
             </p>
-            {/* إجراءات سريعة */}
             <div className="flex flex-wrap gap-2 mt-5">
               {quickActions.map(({ href, label, Icon }) => (
-                <Link
-                  key={href + label}
-                  href={href}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-[#e9b44c] hover:text-[#1a1a2e] text-sm font-bold transition-all duration-200 backdrop-blur"
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
+                <Link key={href} href={href} className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-[#e9b44c] hover:text-[#1a1a2e] text-xs font-bold transition-all duration-200 backdrop-blur">
+                  <Icon className="w-3.5 h-3.5" />{label}
                 </Link>
               ))}
             </div>
@@ -234,56 +232,117 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         </div>
       </div>
 
-      {/* تنبيهات تحتاج تصرف */}
+      {/* ─── Alerts ─── */}
       {alerts.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {alerts.map(({ href, Icon, text, cls }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`group flex items-center justify-between gap-3 p-4 rounded-2xl ring-1 transition-all duration-200 hover:-translate-y-0.5 ${cls}`}
-            >
-              <span className="flex items-center gap-2.5 text-sm font-bold">
-                <Icon className="w-5 h-5 shrink-0" />
-                {text}
-              </span>
-              <ChevronLeft className="w-4 h-4 shrink-0 transition-transform duration-200 group-hover:-translate-x-1" />
+            <Link key={href + text} href={href} className={`group flex items-center justify-between gap-3 p-3.5 rounded-xl ring-1 transition-all hover:-translate-y-0.5 ${cls}`}>
+              <span className="flex items-center gap-2 text-xs font-bold"><Icon className="w-4 h-4 shrink-0" />{text}</span>
+              <ChevronLeft className="w-4 h-4 shrink-0 group-hover:-translate-x-1 transition-transform" />
             </Link>
           ))}
         </div>
       )}
 
-      {showOps ? (
+      {showOps && (
         <>
-          <DashboardStats data={kpi} />
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2">
-              <SalesChart labels={labels} values={values} title={periodTitle} />
-            </div>
-            <PaymentSplitChart cash={cashAmount} credit={creditAmount} />
+          {/* ─── KPI Cards — صف أول: المالية الرئيسية ─── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard label="إجمالي المبيعات" value={egp(totalSales)} sub={`${fmt(invoices.length)} فاتورة`} Icon={Banknote} color="bg-blue-50 text-blue-600" href="/finance/sales" trend={null} />
+            <KpiCard label="إجمالي الربح" value={egp(grossProfit)} sub={`هامش ${grossMargin}%`} Icon={TrendingUp} color="bg-green-50 text-green-600" href="/finance" trend={grossProfit >= 0 ? 'up' : 'down'} />
+            <KpiCard label="المصروفات" value={egp(totalExpenses)} sub={`${fmt(paymentVouchers.length)} سند صرف`} Icon={FileSpreadsheet} color="bg-red-50 text-red-600" href="/finance/expenses" trend={null} />
+            <KpiCard label="صافي الربح" value={egp(netProfit)} sub={`هامش ${profitMargin}%`} Icon={CircleDollarSign} color={netProfit >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'} href="/finance" trend={netProfit >= 0 ? 'up' : 'down'} />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <TopProductsChart labels={topProducts.map((p) => p.name)} values={topProducts.map((p) => p.qty)} />
+          {/* ─── KPI Cards — صف ثاني: التشغيل ─── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <MiniKpi label="محصّل نقدي" value={egp(cashSales)} Icon={Wallet} cls="text-green-600" />
+            <MiniKpi label="آجل (مديونية)" value={egp(creditSales)} Icon={Scale} cls="text-amber-600" />
+            <MiniKpi label="مشتريات الفترة" value={egp(purchaseTotal)} Icon={ShoppingBag} cls="text-orange-600" />
+            <MiniKpi label="إنتاج الفترة" value={`${fmt(producedQty)} وحدة`} Icon={Factory} cls="text-purple-600" />
+            <MiniKpi label="قيمة المخزون" value={egp(inventoryValue)} Icon={Boxes} cls="text-sky-600" />
+            <MiniKpi label="التزامات قائمة" value={egp(totalLiabilities)} Icon={CreditCard} cls="text-red-600" />
+          </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-[#1a1a2e]">أصناف تحت الحد الأدنى</h3>
-                <Link href="/warehouse" className="text-xs text-[#0f3460] font-bold hover:underline">
-                  المخزن ←
-                </Link>
-              </div>
+          {/* ─── P&L Waterfall Mini ─── */}
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <h3 className="text-sm font-bold text-[#1a1a2e] mb-4">ملخص الأرباح والخسائر — {label}</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                { label: 'الإيرادات', value: totalSales, cls: 'text-blue-600 bg-blue-50' },
+                { label: 'تكلفة المبيعات', value: cogs, cls: 'text-orange-600 bg-orange-50' },
+                { label: 'إجمالي الربح', value: grossProfit, cls: 'text-green-600 bg-green-50' },
+                { label: 'المصروفات', value: totalExpenses, cls: 'text-red-600 bg-red-50' },
+                { label: 'صافي الربح', value: netProfit, cls: netProfit >= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50' },
+              ].map((item, i) => (
+                <div key={i} className={`rounded-xl p-3.5 ${item.cls}`}>
+                  <p className="text-[11px] font-semibold opacity-70">{item.label}</p>
+                  <p className="text-lg font-black tabular-nums mt-0.5">{egp(item.value)}</p>
+                  {totalSales > 0 && i > 0 && <p className="text-[10px] font-semibold mt-0.5 opacity-60">{pct(Math.abs(item.value), totalSales)}% من الإيرادات</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ─── Charts Row 1: Sales Trend + Revenue Split ─── */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <div className="xl:col-span-2">
+              <SalesTrendChart labels={chartLabels} sales={chartSales} expenses={chartExpenses} title={days === 1 ? 'مبيعات اليوم (بالساعة)' : `المبيعات والمصروفات — ${label}`} />
+            </div>
+            <RevenueBreakdownChart cash={cashSales} credit={creditSales} ka={kaSales} />
+          </div>
+
+          {/* ─── Charts Row 2: Top Products + Expenses by Category ─── */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <TopProductsBar items={topProducts} />
+            <ExpensesByCategoryChart items={expensesByCategory} />
+          </div>
+
+          {/* ─── Charts Row 3: Production + Cash Flow ─── */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <ProductionTrendChart labels={chartLabels} produced={chartProdQty} orders={chartProdOrders} />
+            <CashFlowChart labels={chartLabels} inflows={chartCfIn} outflows={chartCfOut} />
+          </div>
+
+          {/* ─── Bottom: Receivables + Low Stock + Activity ─── */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            {/* ملخص التحصيل والذمم */}
+            <div className="bg-white rounded-2xl shadow-sm p-5">
+              <h3 className="text-sm font-bold text-[#1a1a2e] mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-green-600" />التحصيل والذمم</h3>
               <div className="space-y-3">
-                {lowStockProducts.length === 0 && (
-                  <p className="text-sm text-gray-500">كل الأصناف فوق الحد الأدنى ✓</p>
-                )}
-                {lowStockProducts.slice(0, 6).map((p) => (
+                {[
+                  { label: 'تحصيلات ديون عملاء', value: collectionsTotal, cls: 'text-green-600' },
+                  { label: 'مدفوعات الموردين', value: supPayTotal, cls: 'text-red-600' },
+                  { label: 'كبار الموردين — مدفوع', value: kaPayTotal, cls: 'text-blue-600' },
+                  { label: 'كبار الموردين — مستحق', value: keyClaimsTotal, cls: 'text-amber-600' },
+                  { label: 'مناديب نشطين', value: activeDelegates, cls: 'text-sky-600', isFmt: true },
+                  { label: 'عملاء نشطين', value: customerCount, cls: 'text-purple-600', isFmt: true },
+                ].map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm border-b border-gray-50 last:border-0 pb-2">
+                    <span className="text-gray-600">{r.label}</span>
+                    <span className={`font-bold tabular-nums ${r.cls}`}>{(r as any).isFmt ? fmt(r.value) : egp(r.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* أصناف تحت الحد */}
+            <div className="bg-white rounded-2xl shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-[#1a1a2e]">أصناف تحت الحد الأدنى</h3>
+                <Link href="/warehouse" className="text-[11px] text-[#0f3460] font-bold hover:underline">المخزن ←</Link>
+              </div>
+              <div className="space-y-2.5">
+                {lowStockProducts.length === 0 && <p className="text-sm text-gray-400">كل الأصناف فوق الحد ✓</p>}
+                {lowStockProducts.slice(0, 7).map(p => (
                   <div key={p.id} className="flex justify-between items-center text-sm pb-2 border-b border-gray-50 last:border-0">
-                    <span className="text-gray-700">{p.name}</span>
-                    <span className="font-bold text-red-600 tabular-nums">
-                      {p.quantity} / {p.minStock} {p.unit}
-                    </span>
+                    <span className="text-gray-700 text-xs">{p.name}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div className={`h-full rounded-full ${p.quantity === 0 ? 'bg-red-500' : 'bg-amber-400'}`} style={{ width: `${Math.min(100, (p.quantity / Math.max(p.minStock, 1)) * 100)}%` }} />
+                      </div>
+                      <span className="font-bold text-red-600 tabular-nums text-xs whitespace-nowrap">{p.quantity}/{p.minStock}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -292,65 +351,96 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
             <RecentActivity activities={recentActivity} />
           </div>
         </>
-      ) : perms.includes('keyaccounts') ? (
-        <Link
-          href="/key-accounts"
-          className="group flex items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-100 hover:ring-[#0f3460]/30 transition-all"
-        >
+      )}
+
+      {!showOps && perms.includes('keyaccounts') && (
+        <Link href="/key-accounts" className="group flex items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-100 hover:ring-[#0f3460]/30 transition-all">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#0f3460] text-white flex items-center justify-center shrink-0">
-              <Building2 className="w-6 h-6" />
-            </div>
+            <div className="w-12 h-12 rounded-xl bg-[#0f3460] text-white flex items-center justify-center shrink-0"><Building2 className="w-6 h-6" /></div>
             <div>
               <p className="font-bold text-[#1a1a2e]">إدارة كبار الموردين</p>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {keyClaimsTotal > 0 ? `مطالبات مستحقة ${keyClaimsTotal.toLocaleString('ar-EG')} ج.م` : 'الحسابات والفروع وبيانات الأسعار والتحصيل'}
-              </p>
+              <p className="text-sm text-gray-500 mt-0.5">{keyClaimsTotal > 0 ? `مطالبات مستحقة ${egp(keyClaimsTotal)}` : 'الحسابات والفروع والتحصيل'}</p>
             </div>
           </div>
-          <ChevronLeft className="w-5 h-5 text-gray-400 transition-transform group-hover:-translate-x-1" />
+          <ChevronLeft className="w-5 h-5 text-gray-400 group-hover:-translate-x-1 transition-transform" />
         </Link>
-      ) : null}
+      )}
     </div>
   )
 }
 
-/* ================= لوحة تحكم المندوب: إحصائيات شغله ================= */
-async function DelegateDashboard({ userId, userName, days }: { userId: string; userName: string; days: number }) {
-  const egp = (n: number) => `${n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م`
-  const from = new Date()
-  from.setDate(from.getDate() - (days - 1))
-  from.setHours(0, 0, 0, 0)
+/* ─── KPI Card Component ─── */
+function KpiCard({ label, value, sub, Icon, color, href, trend }: {
+  label: string; value: string; sub: string; Icon: any; color: string; href: string; trend: 'up' | 'down' | null
+}) {
+  return (
+    <Link href={href} className="group bg-white p-4 rounded-2xl shadow-sm ring-1 ring-transparent transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-gray-200">
+      <div className="flex items-start justify-between">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${color}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        {trend && (
+          <span className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${trend === 'up' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+            {trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+          </span>
+        )}
+      </div>
+      <p className="text-lg font-black text-[#1a1a2e] tabular-nums mt-2 truncate">{value}</p>
+      <p className="text-[11px] text-gray-500 flex items-center justify-between mt-0.5">
+        <span>{label}</span>
+        <span className="text-gray-400 tabular-nums">{sub}</span>
+      </p>
+    </Link>
+  )
+}
+
+/* ─── Mini KPI ─── */
+function MiniKpi({ label, value, Icon, cls }: { label: string; value: string; Icon: any; cls: string }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-2.5">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-gray-50 ${cls}`}><Icon className="w-4 h-4" /></div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-gray-500 truncate">{label}</p>
+        <p className="text-sm font-bold tabular-nums text-[#1a1a2e] truncate">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════ لوحة تحكم المندوب ═══════════════ */
+async function DelegateDashboard({ userId, userName, days, from, to, searchParams }: {
+  userId: string; userName: string; days: number; from: Date; to: Date; searchParams: { days?: string; from?: string; to?: string }
+}) {
+  const period = { gte: from, lte: to }
 
   const delegate = await prisma.delegate.findFirst({ where: { userId }, include: { vehicle: true } })
-
   if (!delegate) {
     return (
       <div className="p-6">
         <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
           <Truck className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">الحساب ده مش مربوط بمندوب — كلّم الإدارة تربطك بمندوب عشان تشوف إحصائياتك.</p>
+          <p className="text-gray-500 text-sm">الحساب ده مش مربوط بمندوب — كلّم الإدارة.</p>
         </div>
       </div>
     )
   }
 
-  const periodInv = { delegateId: delegate.id, createdAt: { gte: from } }
+  const periodInv = { delegateId: delegate.id, createdAt: period }
   const [invAgg, topByCustomer, bonusAgg, tours, distinctCust, settleAgg, activeTour] = await Promise.all([
     prisma.invoice.aggregate({ where: periodInv, _sum: { netAmount: true, paidAmount: true }, _count: true }),
     prisma.invoice.groupBy({ by: ['customerId'], where: periodInv, _sum: { netAmount: true }, _count: true, orderBy: { _sum: { netAmount: 'desc' } }, take: 5 }),
     prisma.invoiceItem.aggregate({ where: { isBonus: true, invoice: periodInv }, _sum: { quantity: true } }),
-    prisma.deliveryOrder.count({ where: { delegateId: delegate.id, createdAt: { gte: from } } }),
+    prisma.deliveryOrder.count({ where: { delegateId: delegate.id, createdAt: period } }),
     prisma.invoice.findMany({ where: periodInv, distinct: ['customerId'], select: { customerId: true } }),
-    prisma.settlement.aggregate({ where: { delegateId: delegate.id, createdAt: { gte: from } }, _sum: { commission: true, returnedQty: true } }),
+    prisma.settlement.aggregate({ where: { delegateId: delegate.id, createdAt: period }, _sum: { commission: true, returnedQty: true } }),
     prisma.deliveryOrder.findFirst({ where: { delegateId: delegate.id, status: 'IN_PROGRESS' }, select: { id: true, orderNo: true } }),
   ])
 
   const topCustNames = topByCustomer.length
-    ? await prisma.customer.findMany({ where: { id: { in: topByCustomer.map((t) => t.customerId) } }, select: { id: true, name: true, area: true } })
+    ? await prisma.customer.findMany({ where: { id: { in: topByCustomer.map(t => t.customerId) } }, select: { id: true, name: true, area: true } })
     : []
-  const custById = new Map(topCustNames.map((c) => [c.id, c]))
-  const topCustomers = topByCustomer.map((t) => ({
+  const custById = new Map(topCustNames.map(c => [c.id, c]))
+  const topCustomers = topByCustomer.map(t => ({
     name: custById.get(t.customerId)?.name || 'عميل',
     area: custById.get(t.customerId)?.area || '',
     total: Number(t._sum.netAmount) || 0,
@@ -377,13 +467,12 @@ async function DelegateDashboard({ userId, userName, days }: { userId: string; u
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      {/* بانر + فلتر المدة */}
       <div className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 60%, #16213e 100%)' }}>
-        <div className="absolute -left-10 -bottom-16 opacity-[0.07] pointer-events-none"><AlBadrLogo className="w-72 h-72" /></div>
+        <div className="absolute -left-10 -bottom-16 opacity-[0.05] pointer-events-none"><AlBadrLogo className="w-72 h-72" /></div>
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black">{greeting}، {userName.split(' ')[0]} 👋</h1>
-            <p className="text-white/60 text-sm mt-1">{new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })} · إحصائيات آخر {days} يوم</p>
+            <h1 className="text-2xl sm:text-3xl font-black">{greeting}، {userName.split(' ')[0]}</h1>
+            <p className="text-white/50 text-sm mt-1">{new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
             <div className="flex flex-wrap gap-2 mt-4 text-xs font-bold">
               {delegate.vehicle && <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg tabular-nums"><Car className="w-4 h-4 text-[#e9b44c]" /> {delegate.vehicle.plateNo}</span>}
               {(delegate.route || delegate.area) && <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg"><MapPin className="w-4 h-4 text-[#e9b44c]" /> {delegate.route || delegate.area}</span>}
@@ -394,26 +483,21 @@ async function DelegateDashboard({ userId, userName, days }: { userId: string; u
         </div>
       </div>
 
-      {/* مؤشرات */}
-      <div>
-        <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2 mb-3"><TrendingUp className="w-5 h-5 text-[#0f3460]" /> إحصائيات شغلي</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-          {kpis.map((s) => (
-            <div key={s.label} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${s.cls}`}><s.Icon className="w-5 h-5" /></div>
-              <div className="min-w-0">
-                <p className="text-[11px] text-gray-500 truncate">{s.label}</p>
-                <p className="text-base font-bold tabular-nums text-[#1a1a2e] truncate">{s.value}</p>
-              </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        {kpis.map(s => (
+          <div key={s.label} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${s.cls}`}><s.Icon className="w-5 h-5" /></div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-gray-500 truncate">{s.label}</p>
+              <p className="text-base font-bold tabular-nums text-[#1a1a2e] truncate">{s.value}</p>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        {/* أكتر العملاء */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2 p-5 pb-3"><Crown className="w-5 h-5 text-[#e9b44c]" /> أكتر العملاء شراءً</h3>
+          <h3 className="text-sm font-bold text-[#1a1a2e] flex items-center gap-2 p-5 pb-3"><Crown className="w-5 h-5 text-[#e9b44c]" /> أكتر العملاء شراءً</h3>
           {topCustomers.length === 0 ? (
             <p className="px-5 pb-5 text-sm text-gray-500">مفيش مبيعات في الفترة دي.</p>
           ) : (
@@ -434,11 +518,10 @@ async function DelegateDashboard({ userId, userName, days }: { userId: string; u
           )}
         </div>
 
-        {/* رابط شاشة العمليات */}
         <Link href="/drivers" className="group bg-gradient-to-br from-[#0f3460] to-[#16213e] text-white rounded-xl shadow-sm p-6 flex items-center justify-between hover:-translate-y-0.5 transition-all">
           <div>
             <p className="text-lg font-bold flex items-center gap-2"><Truck className="w-5 h-5 text-[#e9b44c]" /> شاشة المناديب</p>
-            <p className="text-white/60 text-sm mt-1">تحميل · تسليم عملاء · مرتجعات · تسوية اليوم</p>
+            <p className="text-white/60 text-sm mt-1">تحميل · تسليم عملاء · مرتجعات · تسوية</p>
           </div>
           <ChevronLeft className="w-6 h-6 text-white/60 group-hover:-translate-x-1 transition-transform" />
         </Link>

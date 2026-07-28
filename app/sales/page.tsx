@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Printer, ReceiptText } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { ensureTiers } from '@/lib/tiers'
@@ -14,6 +15,9 @@ export const dynamic = 'force-dynamic'
 export default async function SalesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
+
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  const canAdd = canDoAction(perms, 'sales', 'add')
 
   await ensureStockStages()
   await ensureTiers()
@@ -81,6 +85,7 @@ export default async function SalesPage() {
         }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+        canAdd={canAdd}
       />
 
       {/* سجل الفواتير */}

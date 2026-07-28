@@ -35,6 +35,7 @@ export const config = {
     '/key-accounts/:path*',
     '/delegates/:path*',
     '/drivers/:path*',
+    '/treasury/:path*',
     '/finance/:path*',
     '/store-settings/:path*',
     '/online-orders/:path*',

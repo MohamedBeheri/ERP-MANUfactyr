@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
 // تسديد دفعة للمورد — يقلّل المستحق ويسجّل في سجل التسديد
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('purchases', 'edit')
   if ('response' in auth) return auth.response
   const { session } = auth
 

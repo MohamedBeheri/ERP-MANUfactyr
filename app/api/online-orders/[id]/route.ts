@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { adjustStock, getStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
 // تحديث حالة الطلب الأونلاين — التأكيد بيخصم من المخزن وينشئ فاتورة، الإلغاء بيرجّع الرصيد
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'edit')
   if ('response' in auth) return auth.response
   const { session } = auth
 
@@ -123,7 +122,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 // حذف طلب نهائيًا — لو المخزون كان اتخصم بيرجع الأول
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'delete')
   if ('response' in auth) return auth.response
   const { session } = auth
 

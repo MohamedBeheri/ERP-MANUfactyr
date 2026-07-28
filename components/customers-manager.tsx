@@ -34,7 +34,7 @@ function waUrl(phone: string) {
   return `https://wa.me/${p.startsWith('0') ? `2${p}` : p}`
 }
 
-export function CustomersManager({ customers, tiers = [] }: { customers: CustomerRow[]; tiers?: { id: string; name: string }[] }) {
+export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit = true, canDelete = true }: { customers: CustomerRow[]; tiers?: { id: string; name: string }[]; canAdd?: boolean; canEdit?: boolean; canDelete?: boolean }) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -206,15 +206,21 @@ export function CustomersManager({ customers, tiers = [] }: { customers: Custome
                         <Star className="w-3.5 h-3.5" /> استبدال بونص
                       </button>
                     )}
-                    <button onClick={() => startEdit(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2545]">
-                      <Pencil className="w-3.5 h-3.5" /> تعديل البيانات
-                    </button>
-                    <button onClick={() => convertToKey(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold hover:bg-amber-100">
-                      <Building2 className="w-3.5 h-3.5" /> تحويل لكبار موردين
-                    </button>
-                    <button onClick={() => remove(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100">
-                      <Trash2 className="w-3.5 h-3.5" /> حذف
-                    </button>
+                    {canEdit && (
+                      <button onClick={() => startEdit(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2545]">
+                        <Pencil className="w-3.5 h-3.5" /> تعديل البيانات
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => convertToKey(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold hover:bg-amber-100">
+                        <Building2 className="w-3.5 h-3.5" /> تحويل لكبار موردين
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button onClick={() => remove(c)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100">
+                        <Trash2 className="w-3.5 h-3.5" /> حذف
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

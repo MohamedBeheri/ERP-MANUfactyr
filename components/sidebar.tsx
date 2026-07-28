@@ -9,10 +9,12 @@ import {
   Factory,
   Coffee,
   Warehouse,
+  ArrowLeftRight,
   ShoppingCart,
   ShoppingBag,
   Truck,
   Car,
+  Vault,
   Wallet,
   Store,
   PackageOpen,
@@ -38,6 +40,7 @@ const menuGroups: { title: string | null; items: { href: string; label: string; 
       { href: '/catalog', label: 'بنك الأصناف', Icon: Coffee, perm: 'catalog' },
       { href: '/purchases', label: 'المشتريات', Icon: ShoppingBag, perm: 'purchases' },
       { href: '/warehouse', label: 'المخزن', Icon: Warehouse, perm: 'warehouse' },
+      { href: '/warehouse/transfers', label: 'تحويلات المخازن', Icon: ArrowLeftRight, perm: 'warehouse' },
     ],
   },
   {
@@ -60,6 +63,7 @@ const menuGroups: { title: string | null; items: { href: string; label: string; 
   {
     title: 'الإدارة',
     items: [
+      { href: '/treasury', label: 'الخزنة', Icon: Vault, perm: 'treasury' },
       { href: '/finance', label: 'التقارير', Icon: Wallet, perm: 'finance' },
       { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, perm: 'governance' },
       { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },

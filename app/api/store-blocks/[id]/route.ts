@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'delete')
   if ('response' in auth) return auth.response
   try {
     const b = await req.json()
@@ -27,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'delete')
   if ('response' in auth) return auth.response
   try {
     await prisma.storeBlock.update({ where: { id: params.id }, data: { isActive: false } })

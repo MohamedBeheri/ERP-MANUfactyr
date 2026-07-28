@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LayoutDashboard } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 import { KeyAccountsManager } from '@/components/key-accounts-manager'
 

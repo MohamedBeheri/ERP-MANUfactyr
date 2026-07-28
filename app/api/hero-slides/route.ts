@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED_ROLES = ['ADMIN', 'SALES'] as const
 
 export async function GET() {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'view')
   if ('response' in auth) return auth.response
   const slides = await prisma.heroSlide.findMany({
     where: { isActive: true },
@@ -15,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('store', 'add')
   if ('response' in auth) return auth.response
 
   try {

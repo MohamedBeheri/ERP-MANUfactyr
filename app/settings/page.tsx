@@ -24,7 +24,7 @@ export default async function SettingsPage() {
       orderBy: { name: 'asc' },
       include: { _count: { select: { products: true } } },
     }),
-    prisma.product.findMany({ where: { isActive: true }, orderBy: [{ name: 'asc' }] }),
+    prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     prisma.stockStage.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -70,22 +70,7 @@ export default async function SettingsPage() {
           balance: Number(s.balance),
         }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name, productCount: c._count.products }))}
-        products={products.map((p) => ({
-          id: p.id,
-          name: p.name,
-          type: p.type,
-          categoryId: p.categoryId,
-          stageId: p.stageId,
-          costPrice: Number(p.costPrice),
-          sellPrice: Number(p.sellPrice),
-          oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
-          wholesalePrice: Number(p.wholesalePrice),
-          minKeyPrice: Number(p.minKeyPrice),
-          minStock: p.minStock,
-          quantity: p.quantity,
-          unit: p.unit,
-          imageUrl: p.imageUrl,
-        }))}
+        products={products}
         stockStages={stockStages.map((s) => ({
           id: s.id,
           name: s.name,

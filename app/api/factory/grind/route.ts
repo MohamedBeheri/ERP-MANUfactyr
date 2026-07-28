@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { adjustStock, getStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
 import { GRIND_LEVELS, ensureGroundVariant, nextBatchNo, flagWasteIfExceeded } from '@/lib/manufacturing'
 
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
 // المرحلة ٣ — الطحن: حبوب محمصة (توليفة أو أصل واحد) ← بن مطحون بنعومة محددة، بهدر محسوب.
 // لو المدخل "حبوب توليفة" → الناتج هو منتج التوليفة المطحونة نفسه (الجاهز للتعبئة).
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('factory', 'add')
   if ('response' in auth) return auth.response
   const { session } = auth
 

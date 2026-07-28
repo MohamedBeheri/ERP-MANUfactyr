@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { getDefaultWarehouseId } from '@/lib/warehouse'
 
-const ALLOWED_ROLES = ['ADMIN', 'WAREHOUSE'] as const
 
 // جرد مخزن معيّن: مقارنة الكمية الفعلية بالمسجلة في المخزن ده وتسوية الفرق
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED_ROLES])
+  const auth = await requirePermission('warehouse', 'edit')
   if ('response' in auth) return auth.response
   const { session } = auth
 

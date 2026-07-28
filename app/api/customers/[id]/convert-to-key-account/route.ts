@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALLOWED = ['ADMIN', 'SALES'] as const
 
 // تحويل عميل عادي إلى Key Account (كبار الموردين) — ينقل رصيده ويعطّل حسابه القديم
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('customers', 'edit')
   if ('response' in auth) return auth.response
 
   try {

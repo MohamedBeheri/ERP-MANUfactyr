@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 
-const ALL_ROLES = ['ADMIN', 'FACTORY', 'WAREHOUSE', 'SALES', 'ACCOUNTANT'] as const
-const WRITE_ROLES = ['ADMIN', 'WAREHOUSE'] as const
 
 export async function GET() {
-  const auth = await requireRole([...ALL_ROLES])
+  const auth = await requirePermission('catalog', 'view')
   if ('response' in auth) return auth.response
 
   try {
     const products = await prisma.product.findMany({
-      include: { category: true },
+      include: { category: true, stocks: true },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(products)
@@ -21,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...WRITE_ROLES])
+  const auth = await requirePermission('catalog', 'add')
   if ('response' in auth) return auth.response
 
   try {

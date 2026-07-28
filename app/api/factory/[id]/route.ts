@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { adjustStock, getDefaultWarehouseId } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
 
 // حذف/عكس أمر تصنيع: بيرجّع المدخلات ويشيل المخرجات من المخزون (للأدمن)
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(['ADMIN'])
+  const auth = await requirePermission('factory', 'delete')
   if ('response' in auth) return auth.response
   const { session } = auth
 

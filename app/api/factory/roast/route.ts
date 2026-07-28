@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { adjustStock, getStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
 import { ROAST_DEGREES, ensureRoastedVariant, nextBatchNo } from '@/lib/manufacturing'
 
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
 // المرحلة ١ — بدء التحميص (خطوة أولى): العامل بيسجّل أنه هيحمّص كذا كجم بن أخضر بدرجة كذا،
 // الأخضر يتخصم من المخزن فورًا، وتتفتح تشغيلة بحالة PENDING بدون ناتج/هدر لحد ما يرجع ويقفلها.
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('factory', 'add')
   if ('response' in auth) return auth.response
   const { session } = auth
 

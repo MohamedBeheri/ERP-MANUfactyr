@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { PurchaseForm } from '@/components/purchase-form'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,8 @@ export default async function PurchasesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
   await ensureStockStages()
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  const canAdd = canDoAction(perms, 'purchases', 'add')
 
   const [purchases, products, suppliers, warehouses, supplierBal] = await Promise.all([
     prisma.purchase.findMany({
@@ -127,11 +130,13 @@ export default async function PurchasesPage() {
         </div>
 
         <div className="space-y-4">
-          <PurchaseForm
-            products={products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, itemKind: p.itemKind }))}
-            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-            warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-          />
+          {canAdd && (
+            <PurchaseForm
+              products={products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, itemKind: p.itemKind }))}
+              suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+              warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+            />
+          )}
 
           {/* مستحقات الموردين */}
           <div className="bg-white p-5 rounded-xl shadow-sm">

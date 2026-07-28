@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { validateBlendPercents } from '@/lib/manufacturing'
-
-const ALLOWED = ['ADMIN', 'FACTORY'] as const
 
 // المرحلة المخزنية المناسبة لكل نوع صنف (عشان الجرد والإنتاج يفضلوا شغالين)
 async function stageForKind(kind: string): Promise<string | null> {
@@ -20,7 +18,7 @@ async function stageForKind(kind: string): Promise<string | null> {
 }
 
 export async function GET() {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('catalog', 'view')
   if ('response' in auth) return auth.response
   await ensureStockStages()
 
@@ -34,14 +32,19 @@ export async function GET() {
         blendComponents: { include: { component: { select: { id: true, name: true, itemKind: true } } } },
       },
     })
-    return NextResponse.json(
-      products.map((p) => ({
+    const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } })
+    const stages = await prisma.stockStage.findMany({ orderBy: { sortOrder: 'asc' } })
+    return NextResponse.json({
+      items: products.map((p) => ({
         id: p.id,
         name: p.name,
         itemKind: p.itemKind,
         unit: p.unit,
         costPrice: Number(p.costPrice),
         sellPrice: Number(p.sellPrice),
+        oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
+        wholesalePrice: Number(p.wholesalePrice),
+        minKeyPrice: Number(p.minKeyPrice),
         quantity: p.quantity,
         roastLossPercent: Number(p.roastLossPercent),
         tareWeight: Number(p.tareWeight),
@@ -51,6 +54,11 @@ export async function GET() {
         packagingName: p.packaging?.name || null,
         gramsPerPiece: Number(p.gramsPerPiece),
         piecesPerBox: p.piecesPerBox,
+        categoryId: p.categoryId,
+        stageId: p.stageId,
+        imageUrl: p.imageUrl,
+        minStock: p.minStock,
+        isActive: p.isActive,
         components: p.blendComponents.map((c) => ({
           componentId: c.componentId,
           componentName: c.component.name,
@@ -59,24 +67,25 @@ export async function GET() {
           roastDegree: c.roastDegree,
           perKilo: Number(c.perKilo),
         })),
-      }))
-    )
+      })),
+      categories: categories.map((c) => ({ id: c.id, name: c.name })),
+      stages: stages.map((s) => ({ id: s.id, name: s.name, sellable: s.sellable, purchasable: s.purchasable })),
+    })
   } catch {
     return NextResponse.json({ error: 'فشل جلب الأصناف' }, { status: 500 })
   }
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole([...ALLOWED])
+  const auth = await requirePermission('catalog', 'add')
   if ('response' in auth) return auth.response
 
   try {
     const b = await req.json()
     if (!b.name?.trim()) return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
     const kind = ['GREEN', 'ROASTED', 'SPICE', 'FLAVOR', 'BLEND', 'PACKAGING', 'FINISHED'].includes(b.itemKind) ? b.itemKind : 'FINISHED'
-    const stageId = await stageForKind(kind)
+    const stageId = b.stageId || await stageForKind(kind)
 
-    // وصفة التوليفة: مجموع نسب البن لازم = 100% — السيرفر يمنع الحفظ
     if (kind === 'BLEND' && Array.isArray(b.components)) {
       const clean = b.components.filter((c: any) => c.componentId)
       const invalid = validateBlendPercents(clean)
@@ -89,16 +98,21 @@ export async function POST(req: NextRequest) {
         type: kind === 'FINISHED' ? 'FINISHED' : 'RAW',
         itemKind: kind,
         stageId,
+        categoryId: b.categoryId || null,
         unit: b.unit || (kind === 'FINISHED' ? 'علبة' : kind === 'PACKAGING' ? 'قطعة' : 'كجم'),
         costPrice: Number(b.costPrice) || 0,
         sellPrice: Number(b.sellPrice) || 0,
+        oldPrice: b.oldPrice ? Number(b.oldPrice) : null,
         wholesalePrice: Number(b.wholesalePrice) || 0,
+        minKeyPrice: Number(b.minKeyPrice) || 0,
         roastLossPercent: Number(b.roastLossPercent) || 0,
         tareWeight: Number(b.tareWeight) || 0,
         blendId: b.blendId || null,
         packagingId: b.packagingId || null,
         gramsPerPiece: Number(b.gramsPerPiece) || 0,
         piecesPerBox: Number(b.piecesPerBox) || 1,
+        minStock: Number(b.minStock) || 0,
+        imageUrl: b.imageUrl || null,
         ...(kind === 'BLEND' && Array.isArray(b.components)
           ? {
               blendComponents: {
