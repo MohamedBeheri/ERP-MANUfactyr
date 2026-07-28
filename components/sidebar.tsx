@@ -148,6 +148,14 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
           </button>
         </div>
       </nav>
+      <div className="p-4 border-t border-white/10 text-center">
+        <p className="text-[10px] text-gray-500">
+          تصميم وتطوير بواسطة{' '}
+          <a href="https://kaffo.co" target="_blank" rel="noopener noreferrer" className="text-amber-500/70 hover:text-amber-400 transition-colors font-bold">
+            شركة كفو Kaffo.co
+          </a>
+        </p>
+      </div>
     </aside>
   )
 }
