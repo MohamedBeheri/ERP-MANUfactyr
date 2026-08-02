@@ -39,6 +39,7 @@ export const config = {
     '/finance/:path*',
     '/store-settings/:path*',
     '/online-orders/:path*',
+    '/cafe/:path*',
     '/governance/:path*',
     '/settings/:path*',
     '/print/:path*',

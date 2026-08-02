@@ -271,7 +271,24 @@ model Product {
   blendComponents BlendComponent[] @relation("BlendParent") // مكوّنات هذه التوليفة
   usedInBlends    BlendComponent[] @relation("BlendComponent") // التوليفات اللي بتستخدم الصنف ده
 
+  // الكافيه: توليفة استهلاك الخامات لكل وحدة مباعة (مشروب/ديزرت)
+  cafeRecipeAsProduct  CafeRecipeItem[] @relation("CafeRecipeProduct")
+  cafeRecipeAsMaterial CafeRecipeItem[] @relation("CafeRecipeMaterial")
+
   @@map("products")
+}
+
+// ============== الكافيه (تشغيل منفصل: خامات ديزرت/شوكولاتة/مشروبات + توليفات استهلاك) ==============
+model CafeRecipeItem {
+  id         String  @id @default(cuid())
+  productId  String // الصنف المباع (مشروب/ديزرت) — itemKind = CAFE_ITEM
+  materialId String // الخامة المستهلكة — itemKind = CAFE_MATERIAL
+  quantity   Decimal @db.Decimal(10, 3) // الكمية المستهلكة من الخامة لكل وحدة مباعة
+
+  product  Product @relation("CafeRecipeProduct", fields: [productId], references: [id], onDelete: Cascade)
+  material Product @relation("CafeRecipeMaterial", fields: [materialId], references: [id])
+
+  @@map("cafe_recipe_items")
 }
 
 // ============== BLEND COMPONENTS (مكوّنات التوليفة: بن أخضر بنسبة + عطارة بجرعة) ==============

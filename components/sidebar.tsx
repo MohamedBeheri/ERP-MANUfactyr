@@ -18,6 +18,7 @@ import {
   Wallet,
   Store,
   PackageOpen,
+  Cookie,
   Users,
   Building2,
   ShieldCheck,
@@ -52,6 +53,10 @@ const menuGroups: { title: string | null; items: { href: string; label: string; 
       { href: '/delegates', label: 'إدارة المناديب', Icon: Truck, perm: 'delegates' },
       { href: '/drivers', label: 'المناديب', Icon: Car, perm: 'drivers' },
     ],
+  },
+  {
+    title: 'الكافيه',
+    items: [{ href: '/cafe', label: 'إدارة الكافيه', Icon: Cookie, perm: 'cafe' }],
   },
   {
     title: 'الموقع الإلكتروني',

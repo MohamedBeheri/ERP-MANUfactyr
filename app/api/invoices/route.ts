@@ -45,11 +45,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // أصناف الكافيه (مشروبات/ديزرت) بيتحدد رصيدها من توليفة استهلاك الخامات، مش من رصيدها هي مباشرة
+    const cafeRecipes = await prisma.cafeRecipeItem.findMany({
+      where: { productId: { in: items.map((i: any) => i.productId) } },
+      include: { material: { select: { name: true, unit: true } } },
+    })
+    const cafeRecipeByProduct = new Map<string, typeof cafeRecipes>()
+    for (const r of cafeRecipes) {
+      const list = cafeRecipeByProduct.get(r.productId) || []
+      list.push(r)
+      cafeRecipeByProduct.set(r.productId, list)
+    }
+
     // التحقق من رصيد المخزن المختار قبل البيع
     for (const item of items) {
       const product = await prisma.product.findUnique({ where: { id: item.productId } })
       if (!product) {
         return NextResponse.json({ error: 'صنف غير موجود' }, { status: 400 })
+      }
+      const recipe = cafeRecipeByProduct.get(item.productId)
+      if (recipe && recipe.length > 0) {
+        for (const r of recipe) {
+          const matStock = await getStock(warehouseId, r.materialId)
+          const needed = Number(r.quantity) * item.quantity
+          if (matStock < needed) {
+            return NextResponse.json(
+              { error: `رصيد ${r.material.name} في المخزن ده غير كافي لتحضير ${product.name} (المتاح: ${matStock} ${r.material.unit})` },
+              { status: 400 }
+            )
+          }
+        }
+        continue
       }
       const stock = await getStock(warehouseId, item.productId)
       if (stock < item.quantity) {
@@ -118,6 +144,25 @@ export async function POST(req: NextRequest) {
         ...bonusLines.map((b) => ({ productId: b.productId, quantity: b.quantity, bonus: true })),
       ]
       for (const move of stockMoves) {
+        const recipe = cafeRecipeByProduct.get(move.productId)
+        if (recipe && recipe.length > 0) {
+          // صنف كافيه: بيتحضّر وقت البيع — بنستهلك خاماته بدل ما نخصم رصيده هو
+          for (const r of recipe) {
+            const needed = Number(r.quantity) * move.quantity
+            await adjustStock(tx, warehouseId, r.materialId, -needed)
+            await tx.warehouseOut.create({
+              data: {
+                productId: r.materialId,
+                warehouseId,
+                quantity: needed,
+                target: `استهلاك توليفة - فاتورة ${created.invoiceNo}`,
+                reason: 'استهلاك توليفة كافيه',
+                createdById: session.user.id,
+              },
+            })
+          }
+          continue
+        }
         await tx.product.update({
           where: { id: move.productId },
           data: { quantity: { decrement: move.quantity } },

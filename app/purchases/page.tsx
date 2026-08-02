@@ -27,7 +27,7 @@ export default async function PurchasesPage() {
     }),
     // كل الأصناف القابلة للشراء من بنك الأصناف (التوليفات والمنتجات النهائية بتتصنع مش بتتشترى)
     prisma.product.findMany({
-      where: { isActive: true, itemKind: { in: ['GREEN', 'ROASTED', 'SPICE', 'FLAVOR', 'PACKAGING'] } },
+      where: { isActive: true, itemKind: { in: ['GREEN', 'ROASTED', 'SPICE', 'FLAVOR', 'PACKAGING', 'CAFE_MATERIAL'] } },
       orderBy: [{ itemKind: 'asc' }, { name: 'asc' }],
     }),
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
