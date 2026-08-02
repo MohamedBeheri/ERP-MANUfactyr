@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
-import { WarehouseTabs } from '@/components/warehouse-tabs'
 
 interface Material {
   id: string; name: string; unit: string; costPrice: number; stock: number
@@ -31,7 +30,7 @@ interface Props {
 }
 
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
-const TABS = ['warehouse', 'materials', 'items', 'purchases'] as const
+const TABS = ['warehouse', 'items', 'purchases'] as const
 
 export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, movements, canAdd, canEdit, canDelete }: Props) {
   const router = useRouter()
@@ -41,8 +40,7 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
     <div className="space-y-4">
       <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         {[
-          { key: 'warehouse', label: 'مخزن الكافيه' },
-          { key: 'materials', label: `الخامات (${materials.length})` },
+          { key: 'warehouse', label: `مخزن الكافيه (${materials.length})` },
           { key: 'items', label: `المنتجات (${cafeItems.length})` },
           { key: 'purchases', label: `مشتريات الكافيه (${purchases.length})` },
         ].map((t) => (
@@ -59,27 +57,11 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
       </div>
 
       {tab === 'warehouse' && (
-        warehouses.length > 0 ? (
-          <div className="space-y-4">
-            <WarehouseTabs
-              warehouses={warehouses}
-              products={materials.map((m) => ({
-                id: m.id,
-                name: m.name,
-                unit: m.unit,
-                minStock: m.minStock ?? 0,
-                costPrice: m.costPrice,
-                category: m.category ?? null,
-                stocks: m.stocks ?? [],
-              }))}
-            />
-            <MovementsPanel movements={movements} />
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500 text-sm">جاري إنشاء مخزن الكافيه...</div>
-        )
+        <div className="space-y-4">
+          <MaterialsTab materials={materials} categories={categories} canAdd={canAdd} canDelete={canDelete} router={router} />
+          <MovementsPanel movements={movements} />
+        </div>
       )}
-      {tab === 'materials' && <MaterialsTab materials={materials} categories={categories} canAdd={canAdd} canDelete={canDelete} router={router} />}
       {tab === 'items' && (
         <ItemsTab cafeItems={cafeItems} materials={materials} categories={categories} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} router={router} />
       )}
