@@ -52,11 +52,8 @@ const menuGroups: { title: string | null; items: { href: string; label: string; 
       { href: '/key-accounts', label: 'كبار الموردين', Icon: Building2, perm: 'keyaccounts' },
       { href: '/delegates', label: 'إدارة المناديب', Icon: Truck, perm: 'delegates' },
       { href: '/drivers', label: 'المناديب', Icon: Car, perm: 'drivers' },
+      { href: '/cafe', label: 'الكافيه', Icon: Cookie, perm: 'cafe' },
     ],
-  },
-  {
-    title: 'الكافيه',
-    items: [{ href: '/cafe', label: 'إدارة الكافيه', Icon: Cookie, perm: 'cafe' }],
   },
   {
     title: 'الموقع الإلكتروني',

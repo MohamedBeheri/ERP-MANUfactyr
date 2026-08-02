@@ -54,7 +54,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
   ADMIN: PERMISSIONS.map((p) => p.key), // كل الأقسام بكل الأفعال
   FACTORY: ['factory', 'catalog', 'purchases', 'warehouse'],
   WAREHOUSE: ['warehouse', 'purchases'],
-  SALES: ['sales', 'customers', 'keyaccounts', 'delegates', 'drivers', 'store'],
+  SALES: ['sales', 'customers', 'keyaccounts', 'delegates', 'drivers', 'store', 'cafe'],
   ACCOUNTANT: ['finance', 'treasury', 'customers:view', 'sales:view'],
   DELEGATE: ['drivers'],
 }
