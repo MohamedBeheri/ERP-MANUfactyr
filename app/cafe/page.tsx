@@ -22,10 +22,11 @@ export default async function CafePage() {
 
   const { warehouseId, materialsStageId, itemsStageId } = await getCafeStageIds()
 
-  const [materials, cafeItems, categories, purchases] = await Promise.all([
+  const [cafeWarehouse, materials, cafeItems, categories, purchases] = await Promise.all([
+    prisma.warehouse.findUnique({ where: { id: warehouseId } }),
     prisma.product.findMany({
       where: { stageId: materialsStageId, isActive: true },
-      include: { stocks: { where: { warehouseId } } },
+      include: { stocks: true },
       orderBy: { name: 'asc' },
     }),
     prisma.product.findMany({
@@ -55,12 +56,15 @@ export default async function CafePage() {
       </div>
 
       <CafeManager
+        warehouses={cafeWarehouse ? [{ id: cafeWarehouse.id, name: cafeWarehouse.name, isDefault: true }] : []}
         materials={materials.map((m) => ({
           id: m.id,
           name: m.name,
           unit: m.unit,
           costPrice: Number(m.costPrice),
-          stock: m.stocks[0]?.quantity ?? 0,
+          minStock: m.minStock,
+          stock: m.stocks.find((s) => s.warehouseId === warehouseId)?.quantity ?? 0,
+          stocks: m.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: s.quantity })),
         }))}
         cafeItems={cafeItems.map((p) => ({
           id: p.id,

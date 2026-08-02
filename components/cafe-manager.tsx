@@ -3,8 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
+import { WarehouseTabs } from '@/components/warehouse-tabs'
 
-interface Material { id: string; name: string; unit: string; costPrice: number; stock: number }
+interface Material {
+  id: string; name: string; unit: string; costPrice: number; stock: number
+  minStock?: number
+  stocks?: { warehouseId: string; quantity: number }[]
+}
 interface RecipeLine { materialId: string; materialName: string; unit: string; quantity: number }
 interface CafeItem { id: string; name: string; unit: string; sellPrice: number; categoryId: string | null; recipe: RecipeLine[] }
 interface CafePurchase {
@@ -12,6 +17,7 @@ interface CafePurchase {
   items: { name: string; quantity: number; unit: string }[]
 }
 interface Props {
+  warehouses: { id: string; name: string; isDefault: boolean }[]
   materials: Material[]
   cafeItems: CafeItem[]
   categories: { id: string; name: string }[]
@@ -22,16 +28,17 @@ interface Props {
 }
 
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
-const TABS = ['materials', 'items', 'purchases'] as const
+const TABS = ['warehouse', 'materials', 'items', 'purchases'] as const
 
-export function CafeManager({ materials, cafeItems, categories, purchases, canAdd, canEdit, canDelete }: Props) {
+export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, canAdd, canEdit, canDelete }: Props) {
   const router = useRouter()
-  const [tab, setTab] = useState<(typeof TABS)[number]>('materials')
+  const [tab, setTab] = useState<(typeof TABS)[number]>('warehouse')
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         {[
+          { key: 'warehouse', label: 'مخزن الكافيه' },
           { key: 'materials', label: `الخامات (${materials.length})` },
           { key: 'items', label: `المنتجات (${cafeItems.length})` },
           { key: 'purchases', label: `مشتريات الكافيه (${purchases.length})` },
@@ -39,7 +46,7 @@ export function CafeManager({ materials, cafeItems, categories, purchases, canAd
           <button
             key={t.key}
             onClick={() => setTab(t.key as any)}
-            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
               tab === t.key ? 'border-[#e94560] text-[#e94560]' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -48,6 +55,23 @@ export function CafeManager({ materials, cafeItems, categories, purchases, canAd
         ))}
       </div>
 
+      {tab === 'warehouse' && (
+        warehouses.length > 0 ? (
+          <WarehouseTabs
+            warehouses={warehouses}
+            products={materials.map((m) => ({
+              id: m.id,
+              name: m.name,
+              unit: m.unit,
+              minStock: m.minStock ?? 0,
+              costPrice: m.costPrice,
+              stocks: m.stocks ?? [],
+            }))}
+          />
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500 text-sm">جاري إنشاء مخزن الكافيه...</div>
+        )
+      )}
       {tab === 'materials' && <MaterialsTab materials={materials} canAdd={canAdd} canDelete={canDelete} router={router} />}
       {tab === 'items' && (
         <ItemsTab cafeItems={cafeItems} materials={materials} categories={categories} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} router={router} />
