@@ -22,11 +22,11 @@ export default async function CafePage() {
 
   const { warehouseId, materialsStageId, itemsStageId } = await getCafeStageIds()
 
-  const [cafeWarehouse, materials, cafeItems, categories, purchases] = await Promise.all([
+  const [cafeWarehouse, materials, cafeItems, categories, purchases, movements] = await Promise.all([
     prisma.warehouse.findUnique({ where: { id: warehouseId } }),
     prisma.product.findMany({
       where: { stageId: materialsStageId, isActive: true },
-      include: { stocks: true },
+      include: { stocks: true, category: true },
       orderBy: { name: 'asc' },
     }),
     prisma.product.findMany({
@@ -40,6 +40,13 @@ export default async function CafePage() {
       include: { supplier: true, items: { include: { product: true } } },
       orderBy: { createdAt: 'desc' },
       take: 20,
+    }),
+    // آخر حركات الوارد على مخزن الكافيه — عشان يبان مصدر كل كمية (فاتورة شراء أو تحويل من مخزن تاني)
+    prisma.warehouseIn.findMany({
+      where: { warehouseId, product: { itemKind: 'CAFE_MATERIAL' } },
+      include: { product: { select: { name: true, unit: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
     }),
   ])
 
@@ -63,8 +70,17 @@ export default async function CafePage() {
           unit: m.unit,
           costPrice: Number(m.costPrice),
           minStock: m.minStock,
+          category: m.category?.name || null,
           stock: m.stocks.find((s) => s.warehouseId === warehouseId)?.quantity ?? 0,
           stocks: m.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: s.quantity })),
+        }))}
+        movements={movements.map((mv) => ({
+          id: mv.id,
+          productName: mv.product.name,
+          unit: mv.product.unit,
+          quantity: mv.quantity,
+          source: mv.source,
+          createdAt: mv.createdAt.toISOString(),
         }))}
         cafeItems={cafeItems.map((p) => ({
           id: p.id,

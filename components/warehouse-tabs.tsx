@@ -14,6 +14,7 @@ interface ProductLite {
   unit: string
   minStock: number
   costPrice: number
+  category?: string | null
   stocks: { warehouseId: string; quantity: number }[]
 }
 
@@ -30,6 +31,7 @@ export function WarehouseTabs({ warehouses, products }: { warehouses: WarehouseL
     .filter((p) => p.qty !== 0)
 
   const totalValue = rows.reduce((s, p) => s + p.qty * p.costPrice, 0)
+  const showCategory = products.some((p) => p.category)
 
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -55,6 +57,7 @@ export function WarehouseTabs({ warehouses, products }: { warehouses: WarehouseL
           <thead>
             <tr className="text-gray-500 text-right border-b border-gray-100 bg-gray-50/50">
               <th className="p-3 font-medium">الصنف</th>
+              {showCategory && <th className="p-3 font-medium">الفئة</th>}
               <th className="p-3 font-medium">الكمية</th>
               <th className="p-3 font-medium">الحد الأدنى</th>
               <th className="p-3 font-medium">تكلفة الوحدة</th>
@@ -65,6 +68,15 @@ export function WarehouseTabs({ warehouses, products }: { warehouses: WarehouseL
             {rows.map((p) => (
               <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                 <td className="p-3 font-semibold">{p.name}</td>
+                {showCategory && (
+                  <td className="p-3">
+                    {p.category ? (
+                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{p.category}</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">بدون فئة</span>
+                    )}
+                  </td>
+                )}
                 <td className="p-3">
                   <span className={`font-bold tabular-nums ${p.qty <= p.minStock ? 'text-red-600' : 'text-[#1a1a2e]'}`}>
                     {p.qty} {p.unit}
@@ -79,7 +91,7 @@ export function WarehouseTabs({ warehouses, products }: { warehouses: WarehouseL
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={5} className="p-6 text-center text-gray-500">المخزن ده فاضي دلوقتي.</td></tr>
+              <tr><td colSpan={showCategory ? 6 : 5} className="p-6 text-center text-gray-500">المخزن ده فاضي دلوقتي.</td></tr>
             )}
           </tbody>
         </table>

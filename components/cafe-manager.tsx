@@ -8,6 +8,7 @@ import { WarehouseTabs } from '@/components/warehouse-tabs'
 interface Material {
   id: string; name: string; unit: string; costPrice: number; stock: number
   minStock?: number
+  category?: string | null
   stocks?: { warehouseId: string; quantity: number }[]
 }
 interface RecipeLine { materialId: string; materialName: string; unit: string; quantity: number }
@@ -16,12 +17,14 @@ interface CafePurchase {
   id: string; invoiceNo: string; supplier: string; total: number; createdAt: string
   items: { name: string; quantity: number; unit: string }[]
 }
+interface Movement { id: string; productName: string; unit: string; quantity: number; source: string; createdAt: string }
 interface Props {
   warehouses: { id: string; name: string; isDefault: boolean }[]
   materials: Material[]
   cafeItems: CafeItem[]
   categories: { id: string; name: string }[]
   purchases: CafePurchase[]
+  movements: Movement[]
   canAdd: boolean
   canEdit: boolean
   canDelete: boolean
@@ -30,7 +33,7 @@ interface Props {
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 const TABS = ['warehouse', 'materials', 'items', 'purchases'] as const
 
-export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, canAdd, canEdit, canDelete }: Props) {
+export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, movements, canAdd, canEdit, canDelete }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<(typeof TABS)[number]>('warehouse')
 
@@ -57,22 +60,26 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
 
       {tab === 'warehouse' && (
         warehouses.length > 0 ? (
-          <WarehouseTabs
-            warehouses={warehouses}
-            products={materials.map((m) => ({
-              id: m.id,
-              name: m.name,
-              unit: m.unit,
-              minStock: m.minStock ?? 0,
-              costPrice: m.costPrice,
-              stocks: m.stocks ?? [],
-            }))}
-          />
+          <div className="space-y-4">
+            <WarehouseTabs
+              warehouses={warehouses}
+              products={materials.map((m) => ({
+                id: m.id,
+                name: m.name,
+                unit: m.unit,
+                minStock: m.minStock ?? 0,
+                costPrice: m.costPrice,
+                category: m.category ?? null,
+                stocks: m.stocks ?? [],
+              }))}
+            />
+            <MovementsPanel movements={movements} />
+          </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500 text-sm">جاري إنشاء مخزن الكافيه...</div>
         )
       )}
-      {tab === 'materials' && <MaterialsTab materials={materials} canAdd={canAdd} canDelete={canDelete} router={router} />}
+      {tab === 'materials' && <MaterialsTab materials={materials} categories={categories} canAdd={canAdd} canDelete={canDelete} router={router} />}
       {tab === 'items' && (
         <ItemsTab cafeItems={cafeItems} materials={materials} categories={categories} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} router={router} />
       )}
@@ -81,11 +88,12 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
   )
 }
 
-function MaterialsTab({ materials, canAdd, canDelete, router }: any) {
+function MaterialsTab({ materials, categories, canAdd, canDelete, router }: any) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [unit, setUnit] = useState('كجم')
   const [costPrice, setCostPrice] = useState('')
+  const [categoryId, setCategoryId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -96,12 +104,13 @@ function MaterialsTab({ materials, canAdd, canDelete, router }: any) {
     const res = await fetch('/api/cafe/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, kind: 'material', unit, costPrice }),
+      body: JSON.stringify({ name, kind: 'material', unit, costPrice, categoryId: categoryId || null }),
     })
     setLoading(false)
     if (!res.ok) return setError((await res.json()).error || 'فشل الحفظ')
     setName('')
     setCostPrice('')
+    setCategoryId('')
     setOpen(false)
     router.refresh()
   }
@@ -120,6 +129,7 @@ function MaterialsTab({ materials, canAdd, canDelete, router }: any) {
             <thead>
               <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
                 <th className="p-3 font-medium">الخامة</th>
+                <th className="p-3 font-medium">الفئة</th>
                 <th className="p-3 font-medium">الوحدة</th>
                 <th className="p-3 font-medium">التكلفة</th>
                 <th className="p-3 font-medium">الرصيد في مخزن الكافيه</th>
@@ -128,11 +138,18 @@ function MaterialsTab({ materials, canAdd, canDelete, router }: any) {
             </thead>
             <tbody>
               {materials.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-gray-500">مفيش خامات لسه — ضيف أول خامة (شوكولاتة، حليب، كريمة...).</td></tr>
+                <tr><td colSpan={6} className="p-6 text-center text-gray-500">مفيش خامات لسه — ضيف أول خامة (شوكولاتة، حليب، كريمة...).</td></tr>
               )}
               {materials.map((m: Material) => (
                 <tr key={m.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                   <td className="p-3 font-semibold">{m.name}</td>
+                  <td className="p-3">
+                    {m.category ? (
+                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{m.category}</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">بدون فئة</span>
+                    )}
+                  </td>
                   <td className="p-3 text-gray-500">{m.unit}</td>
                   <td className="p-3 tabular-nums">{m.costPrice.toLocaleString('ar-EG')} ج.م</td>
                   <td className="p-3">
@@ -164,6 +181,12 @@ function MaterialsTab({ materials, canAdd, canDelete, router }: any) {
             <div className="space-y-3 pt-2">
               {error && <p className="text-xs text-red-600">{error}</p>}
               <input className={inputCls} placeholder="اسم الخامة (شوكولاتة، حليب...)" value={name} onChange={(e) => setName(e.target.value)} />
+              <select className={inputCls} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">بدون فئة</option>
+                {categories.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
               <div className="grid grid-cols-2 gap-2">
                 <input className={inputCls} placeholder="الوحدة" value={unit} onChange={(e) => setUnit(e.target.value)} />
                 <input className={inputCls} placeholder="سعر التكلفة" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
@@ -175,6 +198,33 @@ function MaterialsTab({ materials, canAdd, canDelete, router }: any) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function MovementsPanel({ movements }: { movements: Movement[] }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="p-4 pb-2">
+        <h3 className="text-sm font-bold text-[#1a1a2e]">آخر حركات الوارد على مخزن الكافيه</h3>
+        <p className="text-xs text-gray-400">مصدر كل كمية — فاتورة شراء أو تحويل من مخزن تاني</p>
+      </div>
+      <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+        {movements.length === 0 && <p className="p-5 text-sm text-gray-500">مفيش حركات وارد لسه.</p>}
+        {movements.map((mv) => (
+          <div key={mv.id} className="p-3.5 px-4 flex justify-between items-start">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-green-700 tabular-nums">
+                +{mv.quantity} {mv.unit} — {mv.productName}
+              </p>
+              <p className="text-xs text-gray-400 truncate">{mv.source}</p>
+            </div>
+            <span className="text-xs text-gray-400 tabular-nums shrink-0">
+              {new Date(mv.createdAt).toLocaleDateString('ar-EG')}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

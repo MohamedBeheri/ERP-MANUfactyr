@@ -24,6 +24,11 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
       return NextResponse.json({ error: `الرصيد المتاح ${stock?.quantity ?? 0} — لا يكفي للتحويل` }, { status: 400 })
     }
 
+    const [fromWarehouse, toWarehouse] = await Promise.all([
+      prisma.warehouse.findUnique({ where: { id: transfer.fromWarehouseId } }),
+      prisma.warehouse.findUnique({ where: { id: transfer.toWarehouseId } }),
+    ])
+
     const updated = await prisma.$transaction(async (tx) => {
       await adjustStock(tx as any, transfer.fromWarehouseId, transfer.productId, -transfer.quantity)
       await adjustStock(tx as any, transfer.toWarehouseId, transfer.productId, transfer.quantity)
@@ -33,7 +38,7 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
           productId: transfer.productId,
           warehouseId: transfer.fromWarehouseId,
           quantity: transfer.quantity,
-          target: `تحويل → ${transfer.toWarehouseId}`,
+          target: `تحويل → ${toWarehouse?.name || transfer.toWarehouseId}`,
           reason: `تحويل مخزني #${transfer.transferNo}`,
           createdById: auth.session.user.id,
         },
@@ -43,7 +48,7 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
           productId: transfer.productId,
           warehouseId: transfer.toWarehouseId,
           quantity: transfer.quantity,
-          source: `تحويل ← ${transfer.fromWarehouseId}`,
+          source: `تحويل من مخزن ${fromWarehouse?.name || transfer.fromWarehouseId}`,
           createdById: auth.session.user.id,
         },
       })
