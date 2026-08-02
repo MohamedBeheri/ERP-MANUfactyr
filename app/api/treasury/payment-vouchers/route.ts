@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { applyTreasuryTxn } from '@/lib/treasuries'
 
 
 export async function GET(req: NextRequest) {
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
       category: { select: { id: true, name: true, code: true, activity: true } },
       liability: { select: { id: true, liabilityNo: true, creditor: true, type: true } },
       installment: { select: { id: true, installmentNo: true, amount: true } },
+      treasury: { select: { id: true, name: true, type: true } },
       createdBy: { select: { id: true, name: true } },
       approvedBy: { select: { id: true, name: true } },
     },
@@ -46,10 +48,26 @@ export async function POST(req: NextRequest) {
   const { session } = auth
 
   const body = await req.json()
-  const { description, amount, categoryId, liabilityId, installmentId, paymentMethod, checkNo, bankName, notes, activity: manualActivity } = body
+  const { description, amount, categoryId, liabilityId, installmentId, paymentMethod, checkNo, bankName, notes, activity: manualActivity, treasuryId } = body
 
   if (!description || !amount || amount <= 0) {
     return NextResponse.json({ error: 'الوصف والمبلغ مطلوبين' }, { status: 400 })
+  }
+
+  // الصرف من خزنة محددة: لازم تكون مفعّل عليها الصرف ورصيدها كافي
+  let treasury = null
+  if (treasuryId) {
+    treasury = await prisma.treasury.findUnique({ where: { id: treasuryId } })
+    if (!treasury) return NextResponse.json({ error: 'الخزنة غير موجودة' }, { status: 404 })
+    if (!treasury.allowExpenseDisbursement) {
+      return NextResponse.json({ error: `الخزنة "${treasury.name}" غير مسموح الصرف منها` }, { status: 400 })
+    }
+    if (Number(treasury.balance) < Number(amount)) {
+      return NextResponse.json(
+        { error: `رصيد ${treasury.name} غير كافي (المتاح: ${Number(treasury.balance).toLocaleString('ar-EG')} ج.م)` },
+        { status: 400 }
+      )
+    }
   }
 
   let activity: 'OPERATING' | 'INVESTING' | 'FINANCING' = manualActivity || 'OPERATING'
@@ -86,6 +104,7 @@ export async function POST(req: NextRequest) {
         liabilityId,
         installmentId,
         paymentMethod: paymentMethod || 'CASH',
+        treasuryId: treasury?.id || null,
         checkNo,
         bankName,
         notes,
@@ -98,6 +117,19 @@ export async function POST(req: NextRequest) {
         createdBy: { select: { id: true, name: true } },
       },
     })
+
+    // خصم فوري من رصيد الخزنة + قيد في دفتر الأستاذ
+    if (treasury) {
+      await applyTreasuryTxn(tx, {
+        treasuryId: treasury.id,
+        type: 'OUT',
+        amount: Number(amount),
+        refType: 'expense',
+        reference: voucherNo,
+        description: `سند صرف — ${description}`,
+        createdById: (session.user as any).id,
+      })
+    }
 
     await tx.cashFlow.create({
       data: {

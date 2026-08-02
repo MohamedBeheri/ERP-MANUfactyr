@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { usePermissions } from '@/hooks/use-permissions'
+import { TreasuriesHub } from '@/components/treasuries-hub'
 import {
   Vault, Plus, AlertTriangle, Clock,
   CreditCard, Landmark, Bell, BellOff, ChevronDown, ChevronUp,
@@ -11,7 +12,7 @@ import {
   Settings2, Pencil, Trash2, ToggleLeft, ToggleRight, FolderTree,
 } from 'lucide-react'
 
-type Tab = 'settlements' | 'vouchers' | 'collections' | 'liabilities' | 'cashflow' | 'notifications' | 'fin-settings'
+type Tab = 'treasuries' | 'settlements' | 'vouchers' | 'collections' | 'liabilities' | 'cashflow' | 'notifications' | 'fin-settings'
 
 const num = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 
@@ -253,6 +254,7 @@ export default function TreasuryPage() {
   const filteredLiabilities = filterStatus ? liabilities.filter((l: any) => l.status === filterStatus) : liabilities
 
   const tabs: { key: Tab; label: string; icon: any; count?: number }[] = [
+    { key: 'treasuries', label: 'الخزائن والتحصيلات', icon: Vault },
     { key: 'settlements', label: 'تسويات الخزنة', icon: Banknote },
     { key: 'vouchers', label: 'سندات الصرف', icon: Receipt },
     { key: 'collections', label: 'تحصيلات العملاء', icon: Users },
@@ -320,6 +322,11 @@ export default function TreasuryPage() {
         <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-gray-400">جاري التحميل...</div>
       ) : (
         <>
+          {/* ===== TREASURIES TAB ===== */}
+          {tab === 'treasuries' && (
+            <TreasuriesHub canAdd={can('treasury', 'add')} canEdit={can('treasury', 'edit')} />
+          )}
+
           {/* ===== SETTLEMENTS TAB ===== */}
           {tab === 'settlements' && (
             <div className="space-y-4">

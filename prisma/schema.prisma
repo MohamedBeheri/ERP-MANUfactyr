@@ -87,29 +87,31 @@ model User {
   updatedAt   DateTime   @updatedAt
 
   // Relations
-  auditLogs      AuditLog[]
-  purchases      Purchase[]
-  productions    Production[]
-  warehouseIns   WarehouseIn[]
-  warehouseOuts  WarehouseOut[]
-  invoices       Invoice[]
-  deliveryOrders DeliveryOrder[]
-  settlements    Settlement[]
-  priceQuotes    PriceQuote[]
-  keyAccountSupplies KeyAccountSupply[]
-  keyAccountPayments KeyAccountPayment[]
-  deliveryReturns    DeliveryReturn[]
-  supplierPayments   SupplierPayment[]
-  delegateProfile    Delegate? @relation("DelegateUser")
-  treasurySettlementsCreated  TreasurySettlement[] @relation("TreasurySettlementCreator")
-  treasurySettlementsAccepted TreasurySettlement[] @relation("TreasurySettlementAcceptor")
-  liabilitiesCreated         Liability[]          @relation("LiabilityCreator")
-  installmentsPaid           Installment[]        @relation("InstallmentPayer")
-  treasuryNotifications      TreasuryNotification[] @relation("TreasuryNotifications")
-  vouchersCreated            PaymentVoucher[]       @relation("VoucherCreator")
-  vouchersApproved           PaymentVoucher[]       @relation("VoucherApprover")
-  transfersCreated           StockTransfer[]        @relation("TransferCreator")
-  transfersApproved          StockTransfer[]        @relation("TransferApprover")
+  auditLogs                   AuditLog[]
+  purchases                   Purchase[]
+  productions                 Production[]
+  warehouseIns                WarehouseIn[]
+  warehouseOuts               WarehouseOut[]
+  invoices                    Invoice[]
+  deliveryOrders              DeliveryOrder[]
+  settlements                 Settlement[]
+  priceQuotes                 PriceQuote[]
+  keyAccountSupplies          KeyAccountSupply[]
+  keyAccountPayments          KeyAccountPayment[]
+  deliveryReturns             DeliveryReturn[]
+  supplierPayments            SupplierPayment[]
+  delegateProfile             Delegate?              @relation("DelegateUser")
+  treasurySettlementsCreated  TreasurySettlement[]   @relation("TreasurySettlementCreator")
+  treasurySettlementsAccepted TreasurySettlement[]   @relation("TreasurySettlementAcceptor")
+  liabilitiesCreated          Liability[]            @relation("LiabilityCreator")
+  installmentsPaid            Installment[]          @relation("InstallmentPayer")
+  treasuryNotifications       TreasuryNotification[] @relation("TreasuryNotifications")
+  vouchersCreated             PaymentVoucher[]       @relation("VoucherCreator")
+  vouchersApproved            PaymentVoucher[]       @relation("VoucherApprover")
+  transfersCreated            StockTransfer[]        @relation("TransferCreator")
+  transfersApproved           StockTransfer[]        @relation("TransferApprover")
+  treasuryTxns                TreasuryTransaction[]  @relation("TreasuryTxnCreator")
+  collectionsCreated          Collection[]           @relation("CollectionCreator")
 
   @@map("users")
 }
@@ -161,15 +163,15 @@ model StockStage {
 // كل عملية بتحدد: بتسحب من أنهي مرحلة مخزنية وبتنتج في أنهي مرحلة
 // مثال: "تحميص" تسحب من (بن أخضر) وتنتج في (بن محمّص) — "طحن وتعبئة" تسحب من (بن محمّص) وتنتج في (منتج نهائي)
 model ProductionOperation {
-  id             String  @id @default(cuid())
-  name           String  @unique
-  inputStageId   String?
-  outputStageId  String?
-  hasYieldLoss   Boolean @default(true) // فيها هدر (زي التحميص)
-  maxWastePercent Decimal @default(0) @db.Decimal(5, 2) // حد الهدر الأقصى المسموح % (0 = بدون حد) — يحدده الأدمن
-  sortOrder     Int      @default(0)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  id              String   @id @default(cuid())
+  name            String   @unique
+  inputStageId    String?
+  outputStageId   String?
+  hasYieldLoss    Boolean  @default(true) // فيها هدر (زي التحميص)
+  maxWastePercent Decimal  @default(0) @db.Decimal(5, 2) // حد الهدر الأقصى المسموح % (0 = بدون حد) — يحدده الأدمن
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
   inputStage  StockStage?  @relation("OpInputStage", fields: [inputStageId], references: [id])
   outputStage StockStage?  @relation("OpOutputStage", fields: [outputStageId], references: [id])
@@ -187,13 +189,13 @@ model Warehouse {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  stocks ProductStock[]
-  ins    WarehouseIn[]
-  outs   WarehouseOut[]
-  stages StockStage[]
+  stocks         ProductStock[]
+  ins            WarehouseIn[]
+  outs           WarehouseOut[]
+  stages         StockStage[]
   deliveryOrders DeliveryOrder[]
-  transfersOut StockTransfer[] @relation("TransferFrom")
-  transfersIn  StockTransfer[] @relation("TransferTo")
+  transfersOut   StockTransfer[] @relation("TransferFrom")
+  transfersIn    StockTransfer[] @relation("TransferTo")
 
   @@map("warehouses")
 }
@@ -226,50 +228,50 @@ model Product {
 
   // ===== تصنيف الصنف في هيكل المصنع =====
   // GREEN (بن أخضر) | SPICE (عطارة/توابل) | FLAVOR (أساس نكهة) | BLEND (توليفة) | PACKAGING (مادة تغليف) | FINISHED (منتج نهائي)
-  itemKind         String  @default("FINISHED")
-  roastLossPercent Decimal @default(0) @db.Decimal(5, 2) // نسبة خسران التحميص (للبن الأخضر)
-  tareWeight       Decimal @default(0) @db.Decimal(8, 3) // وزن الفارغ للقطعة بالجرام (لمواد التغليف)
+  itemKind         String   @default("FINISHED")
+  roastLossPercent Decimal  @default(0) @db.Decimal(5, 2) // نسبة خسران التحميص (للبن الأخضر)
+  tareWeight       Decimal  @default(0) @db.Decimal(8, 3) // وزن الفارغ للقطعة بالجرام (لمواد التغليف)
   // مواصفات المنتج النهائي المعبّأ
-  blendId       String? // التوليفة المستخدمة في التعبئة
-  gramsPerPiece Decimal @default(0) @db.Decimal(8, 2) // وزن القطعة بالجرام
-  piecesPerBox  Int     @default(1) // عدد القطع في العلبة/الوحدة
-  packagingId   String? // مادة التغليف الأساسية
-  minStock       Int         @default(0) // الحد الأدنى
-  quantity       Int         @default(0) // الكمية الإجمالية (كل المخازن)
-  unit           String      @default("كجم") // وحدة القياس
-  imageUrl       String? // صورة المنتج (رابط أو data URL)
-  isActive       Boolean     @default(true)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  blendId          String? // التوليفة المستخدمة في التعبئة
+  gramsPerPiece    Decimal  @default(0) @db.Decimal(8, 2) // وزن القطعة بالجرام
+  piecesPerBox     Int      @default(1) // عدد القطع في العلبة/الوحدة
+  packagingId      String? // مادة التغليف الأساسية
+  minStock         Int      @default(0) // الحد الأدنى
+  quantity         Int      @default(0) // الكمية الإجمالية (كل المخازن)
+  unit             String   @default("كجم") // وحدة القياس
+  imageUrl         String? // صورة المنتج (رابط أو data URL)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   // Relations
-  category         Category?         @relation(fields: [categoryId], references: [id])
-  stockStage       StockStage?       @relation(fields: [stageId], references: [id])
-  stocks           ProductStock[]
-  purchaseItems    PurchaseItem[]
-  productionItems  ProductionItem[]
-  productionInputs ProductionInput[] @relation("ProductionInputProduct")
-  recipeItems      RecipeItem[]      @relation("RecipeItemProduct")
-  productionsAsRaw Production[]      @relation("ProductionRawProduct")
-  invoiceItems     InvoiceItem[]
-  deliveryItems    DeliveryItem[]
-  warehouseIns     WarehouseIn[]
-  warehouseOuts    WarehouseOut[]
-  onlineOrderItems OnlineOrderItem[]
-  rewardRulesQualifying RewardRule[] @relation("RewardQualifyingProduct")
-  rewardRulesFree       RewardRule[] @relation("RewardFreeProduct")
+  category              Category?              @relation(fields: [categoryId], references: [id])
+  stockStage            StockStage?            @relation(fields: [stageId], references: [id])
+  stocks                ProductStock[]
+  purchaseItems         PurchaseItem[]
+  productionItems       ProductionItem[]
+  productionInputs      ProductionInput[]      @relation("ProductionInputProduct")
+  recipeItems           RecipeItem[]           @relation("RecipeItemProduct")
+  productionsAsRaw      Production[]           @relation("ProductionRawProduct")
+  invoiceItems          InvoiceItem[]
+  deliveryItems         DeliveryItem[]
+  warehouseIns          WarehouseIn[]
+  warehouseOuts         WarehouseOut[]
+  onlineOrderItems      OnlineOrderItem[]
+  rewardRulesQualifying RewardRule[]           @relation("RewardQualifyingProduct")
+  rewardRulesFree       RewardRule[]           @relation("RewardFreeProduct")
   priceQuoteItems       PriceQuoteItem[]
   keyAccountSupplyItems KeyAccountSupplyItem[]
   deliveryReturnItems   DeliveryReturnItem[]
   stockTransfers        StockTransfer[]
 
   // بنية المصنع: التوليفة والتغليف والمكوّنات
-  blend           Product?         @relation("ProductBlend", fields: [blendId], references: [id])
-  finishedFromBlend Product[]      @relation("ProductBlend")
-  packaging       Product?         @relation("ProductPackaging", fields: [packagingId], references: [id])
-  finishedFromPackaging Product[]  @relation("ProductPackaging")
-  blendComponents BlendComponent[] @relation("BlendParent") // مكوّنات هذه التوليفة
-  usedInBlends    BlendComponent[] @relation("BlendComponent") // التوليفات اللي بتستخدم الصنف ده
+  blend                 Product?         @relation("ProductBlend", fields: [blendId], references: [id])
+  finishedFromBlend     Product[]        @relation("ProductBlend")
+  packaging             Product?         @relation("ProductPackaging", fields: [packagingId], references: [id])
+  finishedFromPackaging Product[]        @relation("ProductPackaging")
+  blendComponents       BlendComponent[] @relation("BlendParent") // مكوّنات هذه التوليفة
+  usedInBlends          BlendComponent[] @relation("BlendComponent") // التوليفات اللي بتستخدم الصنف ده
 
   // الكافيه: توليفة استهلاك الخامات لكل وحدة مباعة (مشروب/ديزرت)
   cafeRecipeAsProduct  CafeRecipeItem[] @relation("CafeRecipeProduct")
@@ -385,31 +387,31 @@ model PurchaseItem {
 
 // ============== PRODUCTION (التصنيع) ==============
 model Production {
-  id           String      @id @default(cuid())
-  orderNo      String      @unique
-  lineType     String      @default("ROASTING") // ROASTING (خط التحميص من البن الأخضر) / PROCESSING (خط الخلط والطحن والتعبئة)
-  stage        String      @default("تحميص") // اسم المرحلة
-  batchNo      String? // رقم التشغيلة/اللوط (Lot/Batch)
-  roastLevel   String? // درجة التحميص: فاتح / وسط / غامق
-  grindType    String? // درجة الطحن: ناعم جداً / ناعم / متوسط / خشن
-  inputWeight  Int         @default(0) // إجمالي وزن المدخلات (جرام)
-  outputWeight Int         @default(0) // إجمالي وزن المخرجات (جرام)
-  wasteWeight  Int         @default(0) // الهدر (جرام)
-  wastePercent Decimal     @default(0) @db.Decimal(5, 2) // نسبة الهدر %
-  wasteExceeded Boolean    @default(false) // الهدر عدّى الحد المسموح للعملية — تشغيلة متعلّمة + إشعار للأدمن
-  expiryDate   DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
-  recipeId     String? // الوصفة المستخدمة (BOM)
-  operationId  String? // عملية التصنيع المستخدمة
-  channel      String   @default("المصنع") // جهة الإنتاج/الاستهلاك: المصنع / حلوان (الكافيه) / عبدالله (تحميص أجرة)
+  id            String      @id @default(cuid())
+  orderNo       String      @unique
+  lineType      String      @default("ROASTING") // ROASTING (خط التحميص من البن الأخضر) / PROCESSING (خط الخلط والطحن والتعبئة)
+  stage         String      @default("تحميص") // اسم المرحلة
+  batchNo       String? // رقم التشغيلة/اللوط (Lot/Batch)
+  roastLevel    String? // درجة التحميص: فاتح / وسط / غامق
+  grindType     String? // درجة الطحن: ناعم جداً / ناعم / متوسط / خشن
+  inputWeight   Int         @default(0) // إجمالي وزن المدخلات (جرام)
+  outputWeight  Int         @default(0) // إجمالي وزن المخرجات (جرام)
+  wasteWeight   Int         @default(0) // الهدر (جرام)
+  wastePercent  Decimal     @default(0) @db.Decimal(5, 2) // نسبة الهدر %
+  wasteExceeded Boolean     @default(false) // الهدر عدّى الحد المسموح للعملية — تشغيلة متعلّمة + إشعار للأدمن
+  expiryDate    DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
+  recipeId      String? // الوصفة المستخدمة (BOM)
+  operationId   String? // عملية التصنيع المستخدمة
+  channel       String      @default("المصنع") // جهة الإنتاج/الاستهلاك: المصنع / حلوان (الكافيه) / عبدالله (تحميص أجرة)
   // حقول قديمة للتوافق مع البيانات السابقة
-  rawProductId String?
-  rawUsed      Int         @default(0)
-  opCost       Decimal     @default(0) @db.Decimal(10, 2) // تكلفة التشغيل
-  notes        String?
-  status       OrderStatus @default(COMPLETED)
-  completedAt  DateTime? // وقت إقفال التشغيلة (لما العامل يرجع ويوزن الناتج)
-  createdAt    DateTime    @default(now())
-  createdById  String
+  rawProductId  String?
+  rawUsed       Int         @default(0)
+  opCost        Decimal     @default(0) @db.Decimal(10, 2) // تكلفة التشغيل
+  notes         String?
+  status        OrderStatus @default(COMPLETED)
+  completedAt   DateTime? // وقت إقفال التشغيلة (لما العامل يرجع ويوزن الناتج)
+  createdAt     DateTime    @default(now())
+  createdById   String
 
   // Relations
   rawProduct Product?             @relation("ProductionRawProduct", fields: [rawProductId], references: [id])
@@ -520,8 +522,8 @@ model WarehouseOut {
 
 // ============== STOCK TRANSFERS (تحويلات بين المخازن) ==============
 model StockTransfer {
-  id              String   @id @default(cuid())
-  transferNo      String   @unique @default(cuid())
+  id              String         @id @default(cuid())
+  transferNo      String         @unique @default(cuid())
   fromWarehouseId String
   toWarehouseId   String
   productId       String
@@ -529,7 +531,7 @@ model StockTransfer {
   reason          String // سبب التحويل
   notes           String?
   status          TransferStatus @default(PENDING)
-  createdAt       DateTime @default(now())
+  createdAt       DateTime       @default(now())
   executedAt      DateTime?
   createdById     String
   approvedById    String?
@@ -613,6 +615,7 @@ model Customer {
   invoices        Invoice[]
   onlineOrders    OnlineOrder[]
   deliveryReturns DeliveryReturn[]
+  collections     Collection[]
 
   @@map("customers")
 }
@@ -658,17 +661,17 @@ model KeyAccountBranch {
 
 // ============== PRICE QUOTES (بيان سعر / عرض سعر توريد) ==============
 model PriceQuote {
-  id             String   @id @default(cuid())
-  quoteNo        String   @unique
-  keyAccountId   String
-  status         String   @default("DRAFT") // DRAFT | APPROVED | CANCELLED
-  discountType   String   @default("NONE") // NONE | CASH (خصم نقدي فعلي مش بونص)
-  discountPercent Decimal @default(0) @db.Decimal(5, 2)
-  adminExpenses  Decimal  @default(0) @db.Decimal(12, 2) // مصاريف إدارية تُحمّل على البيان
-  notes          String?
-  validUntil     DateTime?
-  createdAt      DateTime @default(now())
-  createdById    String
+  id              String    @id @default(cuid())
+  quoteNo         String    @unique
+  keyAccountId    String
+  status          String    @default("DRAFT") // DRAFT | APPROVED | CANCELLED
+  discountType    String    @default("NONE") // NONE | CASH (خصم نقدي فعلي مش بونص)
+  discountPercent Decimal   @default(0) @db.Decimal(5, 2)
+  adminExpenses   Decimal   @default(0) @db.Decimal(12, 2) // مصاريف إدارية تُحمّل على البيان
+  notes           String?
+  validUntil      DateTime?
+  createdAt       DateTime  @default(now())
+  createdById     String
 
   keyAccount KeyAccount       @relation(fields: [keyAccountId], references: [id], onDelete: Cascade)
   creator    User             @relation(fields: [createdById], references: [id])
@@ -767,31 +770,31 @@ model SalesPoint {
 
 // ============== INVOICES (فواتير البيع) ==============
 model Invoice {
-  id              String        @id @default(cuid())
-  invoiceNo       String        @unique
-  customerId      String
-  totalAmount     Decimal       @db.Decimal(12, 2)
-  discount        Decimal       @default(0) @db.Decimal(5, 2) // نسبة الخصم
-  netAmount       Decimal       @db.Decimal(12, 2)
-  paidAmount      Decimal       @default(0) @db.Decimal(12, 2) // المبلغ المدفوع فعليًا (للدفع الجزئي)
-  type            PaymentType
-  paymentMethod   String        @default("نقدي") // نقدي فوري / آجل / نقدي جزئي
+  id               String        @id @default(cuid())
+  invoiceNo        String        @unique
+  customerId       String
+  totalAmount      Decimal       @db.Decimal(12, 2)
+  discount         Decimal       @default(0) @db.Decimal(5, 2) // نسبة الخصم
+  netAmount        Decimal       @db.Decimal(12, 2)
+  paidAmount       Decimal       @default(0) @db.Decimal(12, 2) // المبلغ المدفوع فعليًا (للدفع الجزئي)
+  type             PaymentType
+  paymentMethod    String        @default("نقدي") // نقدي فوري / آجل / نقدي جزئي
   collectionMethod String? // طريقة استلام المبلغ: نقدي / تحويل محفظة / تحويل انستا (للفوري والجزئي)
-  invoiceNotes    String? // ملاحظات المندوب على الفاتورة
-  pointId         String?
-  delegateId      String? // لو الفاتورة اتعملت أثناء جولة توزيع مندوب
-  deliveryOrderId String? // الجولة المرتبطة
-  status          InvoiceStatus @default(COMPLETED)
-  createdAt       DateTime      @default(now())
-  createdById     String
+  invoiceNotes     String? // ملاحظات المندوب على الفاتورة
+  pointId          String?
+  delegateId       String? // لو الفاتورة اتعملت أثناء جولة توزيع مندوب
+  deliveryOrderId  String? // الجولة المرتبطة
+  status           InvoiceStatus @default(COMPLETED)
+  createdAt        DateTime      @default(now())
+  createdById      String
 
   // Relations
-  customer      Customer       @relation(fields: [customerId], references: [id])
-  point         SalesPoint?    @relation(fields: [pointId], references: [id])
-  delegate      Delegate?      @relation(fields: [delegateId], references: [id])
-  deliveryOrder DeliveryOrder? @relation(fields: [deliveryOrderId], references: [id])
-  items         InvoiceItem[]
-  creator       User           @relation(fields: [createdById], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  point           SalesPoint?      @relation(fields: [pointId], references: [id])
+  delegate        Delegate?        @relation(fields: [delegateId], references: [id])
+  deliveryOrder   DeliveryOrder?   @relation(fields: [deliveryOrderId], references: [id])
+  items           InvoiceItem[]
+  creator         User             @relation(fields: [createdById], references: [id])
   deliveryReturns DeliveryReturn[]
 
   @@map("invoices")
@@ -808,9 +811,9 @@ model InvoiceItem {
   rewardRuleId String? // العرض اللي منح الهدية دي
 
   // Relations
-  invoice    Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product    Product     @relation(fields: [productId], references: [id])
-  rewardRule RewardRule? @relation(fields: [rewardRuleId], references: [id])
+  invoice     Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product     Product              @relation(fields: [productId], references: [id])
+  rewardRule  RewardRule?          @relation(fields: [rewardRuleId], references: [id])
   returnItems DeliveryReturnItem[]
 
   @@map("invoice_items")
@@ -849,13 +852,15 @@ model Delegate {
   createdAt      DateTime @default(now())
 
   // Relations
-  user           User?    @relation("DelegateUser", fields: [userId], references: [id])
-  vehicle        Vehicle? @relation(fields: [vehicleId], references: [id])
-  deliveryOrders DeliveryOrder[]
-  settlements    Settlement[]
-  invoices       Invoice[]
-  keyAccountSupplies KeyAccountSupply[]
+  user                User?                @relation("DelegateUser", fields: [userId], references: [id])
+  vehicle             Vehicle?             @relation(fields: [vehicleId], references: [id])
+  deliveryOrders      DeliveryOrder[]
+  settlements         Settlement[]
+  invoices            Invoice[]
+  keyAccountSupplies  KeyAccountSupply[]
   treasurySettlements TreasurySettlement[] @relation("TreasurySettlements")
+  cashTreasury        Treasury?
+  collections         Collection[]         @relation("DelegateCollections")
 
   @@map("delegates")
 }
@@ -873,15 +878,15 @@ model DeliveryOrder {
   createdById String
 
   // Relations
-  delegate       Delegate           @relation(fields: [delegateId], references: [id])
-  warehouse      Warehouse?         @relation(fields: [warehouseId], references: [id])
-  items          DeliveryItem[]
-  invoices       Invoice[]
-  settlement     Settlement?
+  delegate           Delegate            @relation(fields: [delegateId], references: [id])
+  warehouse          Warehouse?          @relation(fields: [warehouseId], references: [id])
+  items              DeliveryItem[]
+  invoices           Invoice[]
+  settlement         Settlement?
   treasurySettlement TreasurySettlement? @relation("TreasurySettlementOrder")
   keyAccountSupplies KeyAccountSupply[]
-  returns        DeliveryReturn[]
-  creator        User               @relation(fields: [createdById], references: [id])
+  returns            DeliveryReturn[]
+  creator            User                @relation(fields: [createdById], references: [id])
 
   @@map("delivery_orders")
 }
@@ -966,15 +971,15 @@ model Settlement {
 
 // ============== CASH FLOW (التدفق النقدي) ==============
 model CashFlow {
-  id          String            @id @default(cuid())
+  id          String           @id @default(cuid())
   description String
   type        String // "IN" or "OUT"
-  amount      Decimal           @db.Decimal(12, 2)
-  balance     Decimal           @db.Decimal(12, 2)
+  amount      Decimal          @db.Decimal(12, 2)
+  balance     Decimal          @db.Decimal(12, 2)
   reference   String? // رقم الفاتورة/الأمر
-  activity    CashFlowActivity  @default(OPERATING) // نوع النشاط في قائمة التدفقات
+  activity    CashFlowActivity @default(OPERATING) // نوع النشاط في قائمة التدفقات
   voucherId   String? // سند الصرف المرتبط
-  createdAt   DateTime          @default(now())
+  createdAt   DateTime         @default(now())
 
   voucher PaymentVoucher? @relation(fields: [voucherId], references: [id])
 
@@ -1005,26 +1010,26 @@ enum TreasurySettlementStatus {
 }
 
 model TreasurySettlement {
-  id              String                    @id @default(cuid())
-  settlementNo    String                    @unique // TRS-YYYYMMDD-001
+  id              String                   @id @default(cuid())
+  settlementNo    String                   @unique // TRS-YYYYMMDD-001
   delegateId      String
-  deliveryOrderId String? @unique // الجولة اللي التسوية دي ناتجة عنها
-  amount          Decimal                   @db.Decimal(12, 2) // المبلغ المسلّم
-  method          String                    @default("CASH") // CASH | CHECK | TRANSFER
+  deliveryOrderId String?                  @unique // الجولة اللي التسوية دي ناتجة عنها
+  amount          Decimal                  @db.Decimal(12, 2) // المبلغ المسلّم
+  method          String                   @default("CASH") // CASH | CHECK | TRANSFER
   checkNo         String? // رقم الشيك (لو الدفع بشيك)
   bankName        String? // البنك (لو شيك أو تحويل)
   notes           String?
-  status          TreasurySettlementStatus  @default(PENDING)
+  status          TreasurySettlementStatus @default(PENDING)
   rejectionReason String? // سبب الرفض (لو REJECTED)
   createdById     String // المندوب اللي قدّم التسوية
   acceptedById    String? // أمين الخزنة اللي قبل
   acceptedAt      DateTime?
-  createdAt       DateTime                  @default(now())
+  createdAt       DateTime                 @default(now())
 
   delegate      Delegate       @relation("TreasurySettlements", fields: [delegateId], references: [id])
   deliveryOrder DeliveryOrder? @relation("TreasurySettlementOrder", fields: [deliveryOrderId], references: [id])
-  createdBy  User     @relation("TreasurySettlementCreator", fields: [createdById], references: [id])
-  acceptedBy User?    @relation("TreasurySettlementAcceptor", fields: [acceptedById], references: [id])
+  createdBy     User           @relation("TreasurySettlementCreator", fields: [createdById], references: [id])
+  acceptedBy    User?          @relation("TreasurySettlementAcceptor", fields: [acceptedById], references: [id])
 
   @@map("treasury_settlements")
 }
@@ -1067,21 +1072,21 @@ enum InstallmentStatus {
 }
 
 model Liability {
-  id            String          @id @default(cuid())
-  liabilityNo   String          @unique // LIB-YYYYMMDD-001
-  type          LiabilityType
-  creditor      String // الجهة الدائنة (بنك / مورد / شخص)
-  totalAmount   Decimal         @db.Decimal(12, 2) // إجمالي المبلغ
-  paidAmount    Decimal         @default(0) @db.Decimal(12, 2) // المسدّد
-  remainingAmount Decimal       @db.Decimal(12, 2) // المتبقي (يتحدّث تلقائي)
-  interestRate  Decimal         @default(0) @db.Decimal(5, 2) // نسبة الفائدة %
-  startDate     DateTime // تاريخ بداية الالتزام
-  dueDate       DateTime? // تاريخ السداد النهائي
-  status        LiabilityStatus @default(ACTIVE)
-  notes         String?
-  createdById   String
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  liabilityNo     String          @unique // LIB-YYYYMMDD-001
+  type            LiabilityType
+  creditor        String // الجهة الدائنة (بنك / مورد / شخص)
+  totalAmount     Decimal         @db.Decimal(12, 2) // إجمالي المبلغ
+  paidAmount      Decimal         @default(0) @db.Decimal(12, 2) // المسدّد
+  remainingAmount Decimal         @db.Decimal(12, 2) // المتبقي (يتحدّث تلقائي)
+  interestRate    Decimal         @default(0) @db.Decimal(5, 2) // نسبة الفائدة %
+  startDate       DateTime // تاريخ بداية الالتزام
+  dueDate         DateTime? // تاريخ السداد النهائي
+  status          LiabilityStatus @default(ACTIVE)
+  notes           String?
+  createdById     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   createdBy       User             @relation("LiabilityCreator", fields: [createdById], references: [id])
   installments    Installment[]
@@ -1091,16 +1096,16 @@ model Liability {
 }
 
 model Installment {
-  id           String            @id @default(cuid())
-  liabilityId  String
+  id            String            @id @default(cuid())
+  liabilityId   String
   installmentNo Int // رقم القسط (1, 2, 3...)
-  amount       Decimal           @db.Decimal(12, 2) // المبلغ المطلوب
-  paidAmount   Decimal           @default(0) @db.Decimal(12, 2) // المدفوع فعلياً
-  dueDate      DateTime // تاريخ الاستحقاق
-  paidDate     DateTime? // تاريخ السداد الفعلي
-  status       InstallmentStatus @default(UNPAID)
-  notes        String?
-  paidById     String? // الشخص اللي سدّد
+  amount        Decimal           @db.Decimal(12, 2) // المبلغ المطلوب
+  paidAmount    Decimal           @default(0) @db.Decimal(12, 2) // المدفوع فعلياً
+  dueDate       DateTime // تاريخ الاستحقاق
+  paidDate      DateTime? // تاريخ السداد الفعلي
+  status        InstallmentStatus @default(UNPAID)
+  notes         String?
+  paidById      String? // الشخص اللي سدّد
 
   liability       Liability        @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
   paidBy          User?            @relation("InstallmentPayer", fields: [paidById], references: [id])
@@ -1122,6 +1127,7 @@ model PaymentVoucher {
   liabilityId   String? // الالتزام المرتبط (لو سداد قسط/قرض)
   installmentId String? // القسط المرتبط
   paymentMethod String               @default("CASH") // CASH | CHECK | TRANSFER
+  treasuryId    String? // الخزنة اللي اتصرف منها المبلغ
   checkNo       String?
   bankName      String?
   notes         String?
@@ -1130,27 +1136,116 @@ model PaymentVoucher {
   approvedAt    DateTime?
   createdAt     DateTime             @default(now())
 
+  treasury    Treasury?        @relation(fields: [treasuryId], references: [id])
   category    ExpenseCategory? @relation(fields: [categoryId], references: [id])
-  liability   Liability?    @relation(fields: [liabilityId], references: [id])
-  installment Installment?  @relation(fields: [installmentId], references: [id])
-  createdBy   User          @relation("VoucherCreator", fields: [createdById], references: [id])
-  approvedBy  User?         @relation("VoucherApprover", fields: [approvedById], references: [id])
+  liability   Liability?       @relation(fields: [liabilityId], references: [id])
+  installment Installment?     @relation(fields: [installmentId], references: [id])
+  createdBy   User             @relation("VoucherCreator", fields: [createdById], references: [id])
+  approvedBy  User?            @relation("VoucherApprover", fields: [approvedById], references: [id])
   cashFlows   CashFlow[]
 
   @@map("payment_vouchers")
 }
 
+// ============== TREASURIES & COLLECTIONS (الخزائن وسندات التحصيل) ==============
+enum TreasuryType {
+  SALESMAN_CASH // خزنة مندوب نقدية
+  MAIN_CASH // الخزنة العمومية
+  CLEARING_ACCOUNT // حساب وسيط تحت التسوية (إنستا باي)
+  BANK // حساب بنكي
+}
+
+enum PaymentMethodType {
+  CASH // نقدي
+  ELECTRONIC // إلكتروني (إنستا باي / محفظة)
+  BANK // شبكة / تحويل بنكي
+}
+
+model PaymentMethod {
+  id        String            @id @default(cuid())
+  name      String            @unique // نقدي / إنستا باي / شبكة
+  type      PaymentMethodType
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+
+  collections Collection[]
+
+  @@map("payment_methods")
+}
+
+model Treasury {
+  id                       String       @id @default(cuid())
+  name                     String       @unique
+  type                     TreasuryType
+  balance                  Decimal      @default(0) @db.Decimal(14, 2)
+  allowExpenseDisbursement Boolean      @default(false) // مسموح الصرف منها؟
+  delegateId               String?      @unique // خزنة مندوب — مربوطة بمندوب واحد
+  isActive                 Boolean      @default(true)
+  createdAt                DateTime     @default(now())
+
+  delegate     Delegate?             @relation(fields: [delegateId], references: [id])
+  transactions TreasuryTransaction[]
+  collections  Collection[]
+  vouchers     PaymentVoucher[]
+
+  @@map("treasuries")
+}
+
+// دفتر أستاذ الخزنة — كل حركة برصيدها بعد التنفيذ (كشف حساب)
+model TreasuryTransaction {
+  id          String   @id @default(cuid())
+  treasuryId  String
+  type        String // IN | OUT
+  amount      Decimal  @db.Decimal(14, 2)
+  balance     Decimal  @db.Decimal(14, 2) // الرصيد بعد الحركة
+  refType     String // collection | transfer | expense | settlement | instapay-settle
+  reference   String? // رقم السند / رقم العملية
+  description String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  treasury  Treasury @relation(fields: [treasuryId], references: [id])
+  createdBy User     @relation("TreasuryTxnCreator", fields: [createdById], references: [id])
+
+  @@map("treasury_transactions")
+}
+
+// سند تحصيل من عميل — التوجيه للخزنة حسب نوع وسيلة الدفع
+model Collection {
+  id                   String    @id @default(cuid())
+  collectionNo         String    @unique // COL-YYYYMMDD-001
+  customerId           String
+  delegateId           String?
+  amount               Decimal   @db.Decimal(12, 2)
+  paymentMethodId      String
+  transactionReference String? // إجباري لو إلكتروني
+  treasuryId           String // الخزنة اللي راح لها المبلغ
+  isSettled            Boolean   @default(false) // اتسوّت للبنك؟ (للإلكتروني)
+  settledAt            DateTime?
+  notes                String?
+  createdById          String
+  createdAt            DateTime  @default(now())
+
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  delegate      Delegate?     @relation("DelegateCollections", fields: [delegateId], references: [id])
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  treasury      Treasury      @relation(fields: [treasuryId], references: [id])
+  createdBy     User          @relation("CollectionCreator", fields: [createdById], references: [id])
+
+  @@map("collections")
+}
+
 // ============== EXPENSE CATEGORIES (بنود المصروفات) ==============
 model ExpenseCategory {
-  id          String           @id @default(cuid())
-  name        String // اسم البند (رواتب / إيجار / صيانة ...)
-  code        String?          @unique // كود اختصاري اختياري
-  activity    CashFlowActivity @default(OPERATING) // تصنيف النشاط
-  affectsPL   Boolean          @default(true) // يدخل قائمة الأرباح والخسائر؟
-  parentId    String? // بند أب (مجموعة)
-  isActive    Boolean          @default(true)
-  sortOrder   Int              @default(0)
-  createdAt   DateTime         @default(now())
+  id        String           @id @default(cuid())
+  name      String // اسم البند (رواتب / إيجار / صيانة ...)
+  code      String?          @unique // كود اختصاري اختياري
+  activity  CashFlowActivity @default(OPERATING) // تصنيف النشاط
+  affectsPL Boolean          @default(true) // يدخل قائمة الأرباح والخسائر؟
+  parentId  String? // بند أب (مجموعة)
+  isActive  Boolean          @default(true)
+  sortOrder Int              @default(0)
+  createdAt DateTime         @default(now())
 
   parent   ExpenseCategory?  @relation("SubCategories", fields: [parentId], references: [id])
   children ExpenseCategory[] @relation("SubCategories")
