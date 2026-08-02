@@ -289,14 +289,19 @@ function RecipeEditor({ productId, recipe, materials, canEdit, router }: any) {
       <p className="text-xs font-semibold text-gray-500 mb-2">مكوّنات التوليفة — الكمية المستهلكة لكل وحدة مباعة</p>
       {lines.map((l, i) => (
         <div key={i} className="flex items-center gap-2">
-          <select className={`${inputCls} flex-1`} value={l.materialId} onChange={(e) => updateLine(i, 'materialId', e.target.value)} disabled={!canEdit}>
+          <select
+            className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+            value={l.materialId}
+            onChange={(e) => updateLine(i, 'materialId', e.target.value)}
+            disabled={!canEdit}
+          >
             <option value="">اختار خامة</option>
             {materials.map((m: Material) => (
               <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
             ))}
           </select>
           <input
-            className={`${inputCls} w-28`}
+            className="w-28 shrink-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
             type="number"
             placeholder="الكمية"
             value={l.quantity}
