@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
   try {
     const order = await prisma.deliveryOrder.findUnique({
       where: { id: params.id },
-      include: { items: { include: { product: true } }, delegate: true },
+      include: { items: { include: { product: true } }, delegate: { include: { vehicle: true } } },
     })
     if (!order) return NextResponse.json({ error: 'أمر التحميل غير موجود' }, { status: 404 })
     if (order.status !== 'PENDING') return NextResponse.json({ error: 'الأمر ده مش معلّق (اتأكد أو اتلغى قبل كده)' }, { status: 400 })
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
             productId: it.productId,
             warehouseId,
             quantity: it.quantity,
-            target: `مندوب: ${order.delegate.name}`,
+            target: `مندوب: ${order.delegate.name}${order.delegate.vehicle?.plateNo ? ` — عربية ${order.delegate.vehicle.plateNo}` : order.delegate.carNumber ? ` — عربية ${order.delegate.carNumber}` : ''}`,
             reason: `استلام حمولة عربية - أمر ${order.orderNo}`,
             createdById: session.user.id,
           },
