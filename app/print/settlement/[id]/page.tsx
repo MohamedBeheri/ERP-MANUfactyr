@@ -45,7 +45,7 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
               i + 1,
               inv.customer.name,
               inv.invoiceNo,
-              inv.type === 'CASH' ? 'نقدي' : 'آجل',
+              inv.type !== 'CASH' ? 'آجل' : inv.collectionMethod === 'تحويل انستا' ? 'إنستا باي' : inv.collectionMethod === 'تحويل محفظة' ? 'محفظة' : 'نقدي',
               `${Number(inv.netAmount).toLocaleString('ar-EG')} ج.م`,
             ])}
           />
@@ -61,7 +61,7 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
               <div key={inv.id} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                 <div style={{ background: '#f9fafb', padding: '6px 12px', fontSize: 12, fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
                   <span>{i + 1}. {inv.customer.name} — {inv.invoiceNo}</span>
-                  <span>{inv.type === 'CASH' ? 'نقدي' : 'آجل'} · {Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</span>
+                  <span>{inv.type !== 'CASH' ? 'آجل' : inv.collectionMethod === 'تحويل انستا' ? 'إنستا باي' : inv.collectionMethod === 'تحويل محفظة' ? 'محفظة' : 'نقدي'} · {Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</span>
                 </div>
                 <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                   <thead>
@@ -91,7 +91,10 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
       <PrintTable
         headers={['البيان', 'القيمة']}
         rows={[
-          ['محصّل نقدي', `${Number(settlement.cashAmount).toLocaleString('ar-EG')} ج.م`],
+          ['محصّل كاش', `${(Number(settlement.cashOnlyAmount) + Number(settlement.instapayAmount) + Number(settlement.walletAmount) === 0 ? Number(settlement.cashAmount) : Number(settlement.cashOnlyAmount)).toLocaleString('ar-EG')} ج.م`],
+          ['محصّل إنستا باي', `${Number(settlement.instapayAmount).toLocaleString('ar-EG')} ج.م`],
+          ['محصّل محفظة', `${Number(settlement.walletAmount).toLocaleString('ar-EG')} ج.م`],
+          ['إجمالي المحصّل (كل الوسائل)', `${Number(settlement.cashAmount).toLocaleString('ar-EG')} ج.م`],
           ['آجل (مديونية عملاء)', `${Number(settlement.creditAmount).toLocaleString('ar-EG')} ج.م`],
           ['عمولة المندوب المستحقة', `${Number(settlement.commission).toLocaleString('ar-EG')} ج.م`],
         ]}

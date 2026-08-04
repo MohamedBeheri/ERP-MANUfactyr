@@ -117,6 +117,8 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
   const branchSummary = Array.from(supplyByBranch.values())
 
   const cashTotal = deliveryOrder.invoices.reduce((s, i) => s + Number(i.paidAmount), 0)
+  const instapayTotal = deliveryOrder.invoices.filter((i) => i.collectionMethod === 'تحويل انستا').reduce((s, i) => s + Number(i.paidAmount), 0)
+  const walletTotal = deliveryOrder.invoices.filter((i) => i.collectionMethod === 'تحويل محفظة').reduce((s, i) => s + Number(i.paidAmount), 0)
   const creditTotal = deliveryOrder.invoices.reduce((s, i) => s + (Number(i.netAmount) - Number(i.paidAmount)), 0)
   const returnsTotal = deliveryOrder.returns.reduce((s, r) => s + Number(r.totalValue), 0)
 
@@ -234,10 +236,18 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
               <MapPin className="w-5 h-5 text-[#e94560]" />
               <h3 className="text-base font-bold text-[#1a1a2e]">سجل التسليمات ({deliveryOrder.invoices.length})</h3>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-4">
               <div className="bg-green-50 p-3 rounded-lg">
-                <p className="text-xs text-gray-500">محصّل نقدي</p>
-                <p className="font-bold text-green-600 tabular-nums">{cashTotal.toLocaleString('ar-EG')} ج.م</p>
+                <p className="text-xs text-gray-500">محصّل كاش</p>
+                <p className="font-bold text-green-600 tabular-nums">{(cashTotal - instapayTotal - walletTotal).toLocaleString('ar-EG')} ج.م</p>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <p className="text-xs text-gray-500">إنستا باي</p>
+                <p className="font-bold text-purple-700 tabular-nums">{instapayTotal.toLocaleString('ar-EG')} ج.م</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-xs text-gray-500">محفظة</p>
+                <p className="font-bold text-blue-700 tabular-nums">{walletTotal.toLocaleString('ar-EG')} ج.م</p>
               </div>
               <div className="bg-yellow-50 p-3 rounded-lg">
                 <p className="text-xs text-gray-500">آجل</p>
@@ -269,7 +279,7 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-left">
                       <p className="font-semibold text-sm tabular-nums">{Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</p>
-                      <p className="text-xs text-gray-400">{inv.paymentMethod}</p>
+                      <p className="text-xs text-gray-400">{inv.paymentMethod}{inv.collectionMethod === 'تحويل انستا' ? ' — إنستا باي' : inv.collectionMethod === 'تحويل محفظة' ? ' — محفظة' : ''}</p>
                       {Number(inv.netAmount) - Number(inv.paidAmount) > 0 && inv.paymentMethod === 'نقدي جزئي' && (
                         <p className="text-[10px] text-yellow-700">باقي {(Number(inv.netAmount) - Number(inv.paidAmount)).toLocaleString('ar-EG')}</p>
                       )}
@@ -400,7 +410,19 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                 <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.returnedQty)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">نقدي</span>
+                <span className="text-gray-500">محصّل كاش</span>
+                <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.cashOnlyAmount).toLocaleString('ar-EG')} ج.م</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">إنستا باي</span>
+                <span className="font-semibold text-purple-700 tabular-nums">{Number(deliveryOrder.settlement.instapayAmount).toLocaleString('ar-EG')} ج.م</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">محفظة</span>
+                <span className="font-semibold text-blue-700 tabular-nums">{Number(deliveryOrder.settlement.walletAmount).toLocaleString('ar-EG')} ج.م</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">إجمالي المحصّل</span>
                 <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.cashAmount).toLocaleString('ar-EG')} ج.م</span>
               </div>
               <div className="flex justify-between text-sm">

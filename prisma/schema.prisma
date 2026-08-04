@@ -954,7 +954,10 @@ model Settlement {
   soldQty         Decimal  @default(0) @db.Decimal(12, 3) // المباع (بدون الهدايا)
   bonusQty        Decimal  @default(0) @db.Decimal(12, 3) // إجمالي الهدايا/البونص اللي اتوزّعت في الجولة
   returnedQty     Decimal  @default(0) @db.Decimal(12, 3) // المرتجع
-  cashAmount      Decimal  @default(0) @db.Decimal(12, 2) // النقدية
+  cashAmount      Decimal  @default(0) @db.Decimal(12, 2) // إجمالي المحصّل (كل الوسائل)
+  cashOnlyAmount  Decimal  @default(0) @db.Decimal(12, 2) // المحصّل كاش فعلي
+  instapayAmount  Decimal  @default(0) @db.Decimal(12, 2) // المحصّل تحويل إنستا باي
+  walletAmount    Decimal  @default(0) @db.Decimal(12, 2) // المحصّل تحويل محفظة
   creditAmount    Decimal  @default(0) @db.Decimal(12, 2) // الآجل
   commission      Decimal  @default(0) @db.Decimal(12, 2) // العمولة
   notes           String?
@@ -1014,7 +1017,10 @@ model TreasurySettlement {
   settlementNo    String                   @unique // TRS-YYYYMMDD-001
   delegateId      String
   deliveryOrderId String?                  @unique // الجولة اللي التسوية دي ناتجة عنها
-  amount          Decimal                  @db.Decimal(12, 2) // المبلغ المسلّم
+  amount          Decimal                  @db.Decimal(12, 2) // المبلغ المسلّم (الإجمالي)
+  cashOnlyAmount  Decimal                  @default(0) @db.Decimal(12, 2) // منه كاش فعلي
+  instapayAmount  Decimal                  @default(0) @db.Decimal(12, 2) // منه تحويلات إنستا باي
+  walletAmount    Decimal                  @default(0) @db.Decimal(12, 2) // منه تحويلات محفظة
   method          String                   @default("CASH") // CASH | CHECK | TRANSFER
   checkNo         String? // رقم الشيك (لو الدفع بشيك)
   bankName        String? // البنك (لو شيك أو تحويل)

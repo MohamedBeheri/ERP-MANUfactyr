@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { ensureTreasuries, applyTreasuryTxn, MAIN_CASH_NAME, CLEARING_NAME } from '@/lib/treasuries'
 
 
 export async function GET(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
@@ -37,16 +38,28 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
   }
 
   if (action === 'accept') {
-    const [updated] = await prisma.$transaction([
-      prisma.treasurySettlement.update({
+    await ensureTreasuries()
+    // تفصيل المبلغ على الوسائل — تسويات قديمة بدون تفصيل بتتعامل كلها كاش
+    let cashPart = Number(settlement.cashOnlyAmount)
+    const instaPart = Number(settlement.instapayAmount)
+    const walletPart = Number(settlement.walletAmount)
+    if (cashPart + instaPart + walletPart === 0) cashPart = Number(settlement.amount)
+
+    const [mainCash, clearing] = await Promise.all([
+      prisma.treasury.findUnique({ where: { name: MAIN_CASH_NAME } }),
+      prisma.treasury.findUnique({ where: { name: CLEARING_NAME } }),
+    ])
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.treasurySettlement.update({
         where: { id: params.id },
         data: {
           status: 'ACCEPTED',
           acceptedById: (session.user as any).id,
           acceptedAt: new Date(),
         },
-      }),
-      prisma.cashFlow.create({
+      })
+      await tx.cashFlow.create({
         data: {
           description: `تسوية خزنة ${settlement.settlementNo}`,
           type: 'IN',
@@ -55,8 +68,43 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
           reference: settlement.settlementNo,
           activity: 'OPERATING',
         },
-      }),
-    ])
+      })
+      // الكاش الفعلي يدخل الخزنة العمومية — الإلكتروني (إنستا/محفظة) يدخل الحساب الوسيط لحد ما يتطابق مع البنك
+      if (cashPart > 0 && mainCash) {
+        await applyTreasuryTxn(tx, {
+          treasuryId: mainCash.id,
+          type: 'IN',
+          amount: cashPart,
+          refType: 'settlement',
+          reference: settlement.settlementNo,
+          description: `تسوية ${settlement.settlementNo} — كاش محصّل`,
+          createdById: (session.user as any).id,
+        })
+      }
+      if (instaPart > 0 && clearing) {
+        await applyTreasuryTxn(tx, {
+          treasuryId: clearing.id,
+          type: 'IN',
+          amount: instaPart,
+          refType: 'settlement',
+          reference: settlement.settlementNo,
+          description: `تسوية ${settlement.settlementNo} — تحويلات إنستا باي`,
+          createdById: (session.user as any).id,
+        })
+      }
+      if (walletPart > 0 && clearing) {
+        await applyTreasuryTxn(tx, {
+          treasuryId: clearing.id,
+          type: 'IN',
+          amount: walletPart,
+          refType: 'settlement',
+          reference: settlement.settlementNo,
+          description: `تسوية ${settlement.settlementNo} — تحويلات محفظة`,
+          createdById: (session.user as any).id,
+        })
+      }
+      return u
+    })
     return NextResponse.json(updated)
   }
 

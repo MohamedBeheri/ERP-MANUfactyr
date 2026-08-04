@@ -30,7 +30,7 @@ export default async function DayReportPrintPage({ params: rawParams }: { params
       desc || '—',
       egp(Number(inv.netAmount)),
       egp(Number(inv.paidAmount)),
-      inv.paymentMethod,
+      inv.collectionMethod === 'تحويل انستا' ? `${inv.paymentMethod} — إنستا باي` : inv.collectionMethod === 'تحويل محفظة' ? `${inv.paymentMethod} — محفظة` : inv.paymentMethod,
       inv.invoiceNotes || '—',
     ]
   })
@@ -65,6 +65,9 @@ export default async function DayReportPrintPage({ params: rawParams }: { params
   ])
 
   const cash = order.invoices.reduce((s, i) => s + Number(i.paidAmount), 0)
+  const instapay = order.invoices.filter((i) => i.collectionMethod === 'تحويل انستا').reduce((s, i) => s + Number(i.paidAmount), 0)
+  const wallet = order.invoices.filter((i) => i.collectionMethod === 'تحويل محفظة').reduce((s, i) => s + Number(i.paidAmount), 0)
+  const cashOnly = cash - instapay - wallet
   const credit = order.invoices.reduce((s, i) => s + (Number(i.netAmount) - Number(i.paidAmount)), 0)
   const keyCredit = order.keyAccountSupplies.reduce((s, i) => s + Number(i.netAmount), 0)
   const returnsVal = order.returns.reduce((s, r) => s + Number(r.totalValue), 0)
@@ -123,13 +126,16 @@ export default async function DayReportPrintPage({ params: rawParams }: { params
         headers={['البيان', 'القيمة']}
         rows={[
           ['إجمالي مبيعات العملاء', egp(soldValue)],
-          ['المحصّل نقدي', egp(cash)],
+          ['المحصّل كاش', egp(cashOnly)],
+          ['المحصّل إنستا باي', egp(instapay)],
+          ['المحصّل محفظة', egp(wallet)],
+          ['إجمالي المحصّل (كل الوسائل)', egp(cash)],
           ['آجل على العملاء', egp(credit)],
           ['مطالبات كبار الموردين (آجل)', egp(keyCredit)],
           ['مرتجعات من العملاء', egp(returnsVal)],
           ['عدد قطع الهدايا (بونص)', String(bonusTotal)],
         ]}
-        totals={[{ label: 'الواجب توريده للخزينة (نقدي)', value: egp(cash) }]}
+        totals={[{ label: 'الواجب توريده: كاش للخزنة + إلكتروني للحساب الوسيط', value: egp(cash) }]}
       />
     </PrintDoc>
   )

@@ -85,6 +85,16 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const returnedQty = returns.reduce((s, r) => s + Number(r.quantity), 0)
     // النقدي = المدفوع فعليًا (يشمل الجزء المدفوع في البيع الجزئي)، الآجل = المتبقي على العملاء
     const cashAmount = deliveryOrder.invoices.reduce((s, inv) => s + Number(inv.paidAmount), 0)
+    // تفصيل المحصّل حسب وسيلة الاستلام المسجّلة على كل فاتورة تسليم
+    let instapayAmount = 0
+    let walletAmount = 0
+    for (const inv of deliveryOrder.invoices) {
+      const paid = Number(inv.paidAmount)
+      if (paid <= 0) continue
+      if (inv.collectionMethod === 'تحويل انستا') instapayAmount += paid
+      else if (inv.collectionMethod === 'تحويل محفظة') walletAmount += paid
+    }
+    const cashOnlyAmount = cashAmount - instapayAmount - walletAmount
     const invoiceCredit = deliveryOrder.invoices.reduce(
       (s, inv) => s + (Number(inv.netAmount) - Number(inv.paidAmount)),
       0
@@ -123,6 +133,9 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
         bonusQty,
         returnedQty,
         cashAmount,
+        cashOnlyAmount,
+        instapayAmount,
+        walletAmount,
         creditAmount,
         commission,
         notes,
@@ -155,8 +168,11 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           settlementNo: trsNo,
           delegateId: deliveryOrder.delegateId,
           amount: cashAmount,
+          cashOnlyAmount,
+          instapayAmount,
+          walletAmount,
           method: 'CASH',
-          notes: `تسوية جولة ${deliveryOrder.orderNo} — نقدي محصّل`,
+          notes: `تسوية جولة ${deliveryOrder.orderNo} — كاش ${cashOnlyAmount} · إنستا ${instapayAmount} · محفظة ${walletAmount}`,
           status: 'PENDING',
           createdById: session.user.id,
           deliveryOrderId: deliveryOrder.id,

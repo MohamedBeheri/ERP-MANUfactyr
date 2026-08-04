@@ -412,7 +412,16 @@ export default function TreasuryPage() {
                             <td className="px-4 py-3"><span className="font-semibold tabular-nums text-xs text-[#0f3460]">{s.settlementNo}</span></td>
                             <td className="px-4 py-3 text-xs text-gray-700">{s.delegate?.name}</td>
                             <td className="px-4 py-3 text-xs tabular-nums text-[#0f3460]">{s.deliveryOrder?.orderNo || '—'}</td>
-                            <td className="px-4 py-3 font-bold tabular-nums text-sm">{num(s.amount)} ج.م</td>
+                            <td className="px-4 py-3">
+                              <p className="font-bold tabular-nums text-sm">{num(s.amount)} ج.م</p>
+                              {(Number(s.instapayAmount) > 0 || Number(s.walletAmount) > 0) && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {Number(s.cashOnlyAmount) > 0 && <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">كاش {num(s.cashOnlyAmount)}</span>}
+                                  {Number(s.instapayAmount) > 0 && <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">إنستا {num(s.instapayAmount)}</span>}
+                                  {Number(s.walletAmount) > 0 && <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">محفظة {num(s.walletAmount)}</span>}
+                                </div>
+                              )}
+                            </td>
                             <td className="px-4 py-3 text-xs text-gray-600">{METHOD_LABELS[s.method] || s.method}</td>
                             <td className="px-4 py-3">
                               <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold ${st.bg} ${st.color}`}>{st.label}</span>
