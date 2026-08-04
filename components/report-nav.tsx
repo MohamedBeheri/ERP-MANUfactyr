@@ -6,7 +6,7 @@ import {
   BarChart3, ShoppingCart, TrendingUp, Package, Tags, Truck, RotateCcw,
   BookOpen, Landmark, CreditCard, Receipt, Clock, FileSpreadsheet,
   Users, Building2, Factory as FactoryIcon, ArrowDownUp, Scale, Boxes,
-  ArrowLeftRight, Warehouse,
+  ArrowLeftRight, Warehouse, Coffee, Vault,
 } from 'lucide-react'
 
 const GROUPS: { title: string; items: { href: string; label: string; icon: React.ElementType }[] }[] = [
@@ -22,6 +22,7 @@ const GROUPS: { title: string; items: { href: string; label: string; icon: React
       { href: '/finance/items', label: 'الأصناف', icon: Package },
       { href: '/finance/categories', label: 'الفئات', icon: Tags },
       { href: '/finance/delegates', label: 'أداء المناديب', icon: Truck },
+      { href: '/finance/cafe', label: 'الكافيه', icon: Coffee },
       { href: '/finance/returns', label: 'المرتجعات', icon: RotateCcw },
     ],
   },
@@ -30,6 +31,7 @@ const GROUPS: { title: string; items: { href: string; label: string; icon: React
     items: [
       { href: '/finance/journal', label: 'اليومية المالية', icon: BookOpen },
       { href: '/finance/treasury', label: 'حركة الخزينة', icon: Landmark },
+      { href: '/finance/treasuries', label: 'الخزائن والتحصيلات', icon: Vault },
       { href: '/finance/cashflow', label: 'التدفقات النقدية', icon: ArrowDownUp },
       { href: '/finance/payments', label: 'طرق الدفع', icon: CreditCard },
       { href: '/finance/vouchers', label: 'السندات', icon: Receipt },
