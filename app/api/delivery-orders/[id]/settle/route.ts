@@ -105,22 +105,42 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const totalSalesValue = cashAmount + creditAmount
     const commission = (totalSalesValue * Number(deliveryOrder.delegate.commissionRate)) / 100
 
-    const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
+    // التفريغ يرجع لنفس مخزن الجولة اللي اتحمّلت منه العربية (إلا لو اتحدد غيره)
+    const warehouseId = body.warehouseId || deliveryOrder.warehouseId || (await getDefaultWarehouseId())
 
-    for (const ret of returns) {
-      if (Number(ret.quantity) <= 0) continue
-      await prisma.product.update({
-        where: { id: ret.productId },
-        data: { quantity: { increment: Number(ret.quantity) } },
-      })
-      await adjustStock(prisma, warehouseId, ret.productId, Number(ret.quantity))
-      await prisma.warehouseIn.create({
+    // المرتجع والبواقي مش بيدخلوا المخزن فورًا — بيتعمل "أمر تفريغ" معلّق
+    // والمخزن هو اللي بيأكد الاستلام (زي ما أمر التحميل بيتأكد قبل الخصم)
+    const validReturns = returns.filter((ret) => Number(ret.quantity) > 0)
+    let unloadNo: string | null = null
+    if (validReturns.length > 0) {
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const unlCount = await prisma.unloadOrder.count({ where: { unloadNo: { startsWith: `UNL-${today}` } } })
+      unloadNo = `UNL-${today}-${String(unlCount + 1).padStart(3, '0')}`
+
+      // مرتجعات العملاء أثناء الجولة (رجعت على العربية) — للتمييز عن بواقي البيع
+      const customerReturnQty = new Map<string, number>()
+      for (const dr of deliveryOrder.returns) {
+        for (const it of dr.items) {
+          customerReturnQty.set(it.productId, (customerReturnQty.get(it.productId) || 0) + Number(it.quantity))
+        }
+      }
+
+      await prisma.unloadOrder.create({
         data: {
-          productId: ret.productId,
+          unloadNo,
+          delegateId: deliveryOrder.delegateId,
+          deliveryOrderId: deliveryOrder.id,
           warehouseId,
-          quantity: Number(ret.quantity),
-          source: `عودة من تسليم - أمر ${deliveryOrder.orderNo}`,
+          status: 'PENDING',
+          notes: `تفريغ جولة ${deliveryOrder.orderNo}`,
           createdById: session.user.id,
+          items: {
+            create: validReturns.map((ret) => ({
+              productId: ret.productId,
+              quantity: Number(ret.quantity),
+              kind: (customerReturnQty.get(ret.productId) || 0) > 0 ? 'RETURN' : 'LEFTOVER',
+            })),
+          },
         },
       })
     }

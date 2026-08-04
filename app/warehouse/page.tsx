@@ -9,6 +9,7 @@ import { ensureStockStages } from '@/lib/stock-stages'
 import { StocktakeForm } from '@/components/stocktake-form'
 import { ExportButtons } from '@/components/export-buttons'
 import { WarehouseTabs } from '@/components/warehouse-tabs'
+import { UnloadOrdersPanel } from '@/components/unload-orders-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +22,7 @@ export default async function WarehousePage() {
 
   await ensureStockStages() // يضمن وجود المخازن والمراحل وترحيل الأرصدة
 
-  const [products, warehouseIns, warehouseOuts, warehouses] = await Promise.all([
+  const [products, warehouseIns, warehouseOuts, warehouses, pendingUnloads] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
       include: { stocks: true },
@@ -38,6 +39,16 @@ export default async function WarehousePage() {
       take: 25,
     }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
+    prisma.unloadOrder.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        delegate: { include: { vehicle: true } },
+        deliveryOrder: { select: { orderNo: true } },
+        warehouse: { select: { name: true } },
+        items: { include: { product: { select: { name: true, unit: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
   ])
 
   const stockRows = products.map((p) => [
@@ -67,6 +78,26 @@ export default async function WarehousePage() {
           rows={stockRows}
         />
       </div>
+
+      {/* أوامر تفريغ العربيات المعلقة — لازم المخزن يأكد الاستلام */}
+      <UnloadOrdersPanel
+        canEdit={canEdit}
+        unloads={pendingUnloads.map((u) => ({
+          id: u.id,
+          unloadNo: u.unloadNo,
+          delegateName: u.delegate.name,
+          vehicle: u.delegate.vehicle?.plateNo || u.delegate.carNumber || null,
+          orderNo: u.deliveryOrder?.orderNo || null,
+          warehouseName: u.warehouse?.name || null,
+          createdAt: u.createdAt.toISOString(),
+          items: u.items.map((it) => ({
+            name: it.product.name,
+            unit: it.product.unit,
+            quantity: Number(it.quantity),
+            kind: it.kind,
+          })),
+        }))}
+      />
 
       {/* عرض المخزون لكل مخزن */}
       {warehouses.length > 1 && (
