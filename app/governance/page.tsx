@@ -19,7 +19,7 @@ export default async function GovernancePage() {
     }),
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true, phone: true, email: true, jobTitle: true, nationalId: true, address: true, hireDate: true, avatarUrl: true, notes: true },
+      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true, phone: true, email: true, jobTitle: true, nationalId: true, address: true, hireDate: true, avatarUrl: true, notes: true, commissionRate: true, monthlyTarget: true },
     }),
   ])
 
@@ -51,6 +51,8 @@ export default async function GovernancePage() {
             phone: u.phone, email: u.email, jobTitle: u.jobTitle,
             nationalId: u.nationalId, address: u.address,
             hireDate: u.hireDate ? u.hireDate.toISOString() : null,
+            commissionRate: Number(u.commissionRate),
+            monthlyTarget: Number(u.monthlyTarget),
             avatarUrl: u.avatarUrl, notes: u.notes,
           }))}
           currentUserId={session.user.id}

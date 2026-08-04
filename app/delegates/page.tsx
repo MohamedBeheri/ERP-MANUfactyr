@@ -8,6 +8,7 @@ import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { DeliveryOrderForm } from '@/components/delivery-order-form'
 import { DelegateManager } from '@/components/delegate-manager'
 import { ExportButtons } from '@/components/export-buttons'
+import { RoutePlanManager } from '@/components/route-plan-manager'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +35,7 @@ export default async function DelegatesPage() {
   const canEdit = canDoAction(perms, 'delegates', 'edit')
   const canDelete = canDoAction(perms, 'delegates', 'delete')
 
-  const [delegates, products, deliveryOrders, warehouses, vehicles, delegateUsers] = await Promise.all([
+  const [delegates, products, deliveryOrders, warehouses, vehicles, routeCustomers, delegateUsers] = await Promise.all([
     prisma.delegate.findMany({
       where: { isActive: true },
       orderBy: { createdAt: 'desc' },
@@ -57,6 +58,7 @@ export default async function DelegatesPage() {
       orderBy: { createdAt: 'desc' },
       include: { delegates: { where: { isActive: true }, select: { name: true } } },
     }),
+    prisma.customer.findMany({ where: { isActive: true }, select: { id: true, name: true, area: true }, orderBy: { name: 'asc' } }),
     prisma.user.findMany({
       where: { status: 'ACTIVE', role: { in: ['DELEGATE', 'SALES'] } },
       orderBy: { name: 'asc' },
@@ -148,7 +150,7 @@ export default async function DelegatesPage() {
         {/* فورم التحميل */}
         {canAdd && (
           <div className="space-y-4">
-            <DeliveryOrderForm delegates={delegates} products={products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, quantity: Number(p.quantity) }))} warehouses={warehouses} />
+            <DeliveryOrderForm delegates={delegates.map((d) => ({ id: d.id, name: d.name, carNumber: d.vehicle?.plateNo || d.carNumber }))} products={products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, quantity: Number(p.quantity) }))} warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))} />
           </div>
         )}
       </div>
@@ -215,6 +217,13 @@ export default async function DelegatesPage() {
           </table>
         </div>
       </div>
+
+      {/* خط السير الأسبوعي والتارجت */}
+      <RoutePlanManager
+        canEdit={canEdit}
+        delegates={delegates.map((d) => ({ id: d.id, name: d.name }))}
+        customers={routeCustomers.map((c) => ({ id: c.id, name: c.name, area: c.area }))}
+      />
 
       {/* إدارة الأسطول: المناديب والعربيات */}
       <div className="no-print">

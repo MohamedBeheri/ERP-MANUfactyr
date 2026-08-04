@@ -66,25 +66,27 @@ enum OnlineOrderStatus {
 
 // ============== USERS & AUTH ==============
 model User {
-  id          String     @id @default(cuid())
-  name        String
-  username    String     @unique
-  password    String // hashed with bcrypt
+  id             String     @id @default(cuid())
+  name           String
+  username       String     @unique
+  password       String // hashed with bcrypt
   // بيانات صاحب الحساب — عشان نربط الدخول بشخص
-  phone       String?
-  email       String?
-  jobTitle    String? // المسمى الوظيفي (كاشير/مندوب/محاسب/مدير إنتاج...)
-  nationalId  String? // الرقم القومي
-  address     String?
-  hireDate    DateTime? // تاريخ التعيين
-  avatarUrl   String? // صورة شخصية (data URL أو رابط)
-  notes       String?
-  role        Role       @default(SALES)
-  permissions String[]   @default([]) // مفاتيح صلاحيات: قسم أو قسم:فعل (view/add/edit/delete)
-  status      UserStatus @default(ACTIVE)
-  lastLogin   DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  phone          String?
+  email          String?
+  jobTitle       String? // المسمى الوظيفي (كاشير/مندوب/محاسب/مدير إنتاج...)
+  nationalId     String? // الرقم القومي
+  address        String?
+  hireDate       DateTime? // تاريخ التعيين
+  commissionRate Decimal    @default(0) @db.Decimal(5, 2) // عمولة الموظف % (لو ليه عمولة)
+  monthlyTarget  Decimal    @default(0) @db.Decimal(12, 2) // تارجت مبيعات شهري بالجنيه (0 = مفيش تارجت)
+  avatarUrl      String? // صورة شخصية (data URL أو رابط)
+  notes          String?
+  role           Role       @default(SALES)
+  permissions    String[]   @default([]) // مفاتيح صلاحيات: قسم أو قسم:فعل (view/add/edit/delete)
+  status         UserStatus @default(ACTIVE)
+  lastLogin      DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   // Relations
   auditLogs                   AuditLog[]
@@ -615,11 +617,12 @@ model Customer {
   createdAt      DateTime     @default(now())
 
   // Relations
-  tier            CustomerTier?    @relation(fields: [tierId], references: [id])
-  invoices        Invoice[]
-  onlineOrders    OnlineOrder[]
-  deliveryReturns DeliveryReturn[]
-  collections     Collection[]
+  tier             CustomerTier?    @relation(fields: [tierId], references: [id])
+  invoices         Invoice[]
+  onlineOrders     OnlineOrder[]
+  deliveryReturns  DeliveryReturn[]
+  collections      Collection[]
+  routePlanEntries RoutePlanEntry[]
 
   @@map("customers")
 }
@@ -840,20 +843,21 @@ model Vehicle {
 
 // ============== DELEGATES (المندوبين — موظفي التوزيع) ==============
 model Delegate {
-  id             String   @id @default(cuid())
-  name           String
-  phone          String?
-  userId         String?  @unique // حساب دخول المندوب على السستم (لصفحته الشخصية)
-  vehicleId      String? // العربية المسندة إليه
-  carNumber      String? // (قديم — بيتعوّض بالعربية المرتبطة)
-  area           String? // المنطقة
-  route          String? // خط السير
-  commissionRate Decimal  @default(5) @db.Decimal(5, 2) // نسبة العمولة
-  totalSales     Decimal  @default(0) @db.Decimal(12, 2)
-  commissionDue  Decimal  @default(0) @db.Decimal(12, 2)
-  commissionPaid Decimal  @default(0) @db.Decimal(12, 2)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
+  id                   String   @id @default(cuid())
+  name                 String
+  phone                String?
+  userId               String?  @unique // حساب دخول المندوب على السستم (لصفحته الشخصية)
+  vehicleId            String? // العربية المسندة إليه
+  carNumber            String? // (قديم — بيتعوّض بالعربية المرتبطة)
+  area                 String? // المنطقة
+  route                String? // خط السير
+  commissionRate       Decimal  @default(5) @db.Decimal(5, 2) // نسبة العمولة
+  weeklyCustomerTarget Decimal  @default(0) @db.Decimal(8, 0) // تارجت أسبوعي: عدد العملاء المطلوب تحقيقهم
+  totalSales           Decimal  @default(0) @db.Decimal(12, 2)
+  commissionDue        Decimal  @default(0) @db.Decimal(12, 2)
+  commissionPaid       Decimal  @default(0) @db.Decimal(12, 2)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
 
   // Relations
   user                User?                @relation("DelegateUser", fields: [userId], references: [id])
@@ -866,6 +870,7 @@ model Delegate {
   cashTreasury        Treasury?
   collections         Collection[]         @relation("DelegateCollections")
   unloadOrders        UnloadOrder[]
+  routePlan           RoutePlanEntry[]
 
   @@map("delegates")
 }
@@ -976,6 +981,22 @@ model Settlement {
   creator       User           @relation(fields: [createdById], references: [id])
 
   @@map("settlements")
+}
+
+// ============== ROUTE PLAN (خط السير الأسبوعي للمندوب) ==============
+// الأدمن بيوزّع عملاء المندوب على أيام الأسبوع (0=الأحد .. 6=السبت حسب getDay)
+model RoutePlanEntry {
+  id         String @id @default(cuid())
+  delegateId String
+  dayOfWeek  Int // 0=الأحد 1=الإثنين ... 5=الجمعة 6=السبت
+  customerId String
+  sortOrder  Int    @default(0)
+
+  delegate Delegate @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([delegateId, dayOfWeek, customerId])
+  @@map("route_plan_entries")
 }
 
 // ============== UNLOAD ORDERS (أوامر تفريغ العربية — بتأكيد المخزن) ==============

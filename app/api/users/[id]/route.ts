@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { parseNum } from '@/lib/numbers'
 
 export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('governance', 'edit')
@@ -44,6 +45,8 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         nationalId: b.nationalId !== undefined ? b.nationalId?.trim() || null : undefined,
         address: b.address !== undefined ? b.address?.trim() || null : undefined,
         hireDate: b.hireDate !== undefined ? (b.hireDate ? new Date(b.hireDate) : null) : undefined,
+        commissionRate: b.commissionRate !== undefined ? parseNum(b.commissionRate) : undefined,
+        monthlyTarget: b.monthlyTarget !== undefined ? parseNum(b.monthlyTarget) : undefined,
         avatarUrl: b.avatarUrl !== undefined ? b.avatarUrl || null : undefined,
         notes: b.notes !== undefined ? b.notes?.trim() || null : undefined,
       },

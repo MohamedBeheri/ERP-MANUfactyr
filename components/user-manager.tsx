@@ -19,6 +19,8 @@ export interface UserRow {
   nationalId?: string | null
   address?: string | null
   hireDate?: string | null
+  commissionRate?: number
+  monthlyTarget?: number
   avatarUrl?: string | null
   notes?: string | null
 }
@@ -70,6 +72,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
   const empty = {
     name: '', username: '', password: '', role: 'SALES',
     phone: '', email: '', jobTitle: '', nationalId: '', address: '', hireDate: '', notes: '',
+    commissionRate: '', monthlyTarget: '',
     matrix: permsToMatrix(ROLE_DEFAULTS['SALES'] || []),
   }
   const [form, setForm] = useState<any>(empty)
@@ -109,6 +112,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
       phone: u.phone || '', email: u.email || '', jobTitle: u.jobTitle || '',
       nationalId: u.nationalId || '', address: u.address || '',
       hireDate: u.hireDate ? u.hireDate.slice(0, 10) : '', notes: u.notes || '',
+      commissionRate: u.commissionRate ? String(u.commissionRate) : '', monthlyTarget: u.monthlyTarget ? String(u.monthlyTarget) : '',
       matrix: permsToMatrix(eff),
     })
     setOpen(true); setError('')
@@ -196,6 +200,14 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
               <div>
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> تاريخ التعيين</label>
                 <input type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1">عمولة الموظف % (لو ليه عمولة)</label>
+                <input type="text" inputMode="decimal" dir="ltr" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} className={inputCls} placeholder="مثلاً 2.5" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1">التارجت الشهري بالجنيه (0 = مفيش تارجت)</label>
+                <input type="text" inputMode="decimal" dir="ltr" value={form.monthlyTarget} onChange={(e) => setForm({ ...form, monthlyTarget: e.target.value })} className={inputCls} placeholder="مثلاً 150000" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3" /> العنوان</label>

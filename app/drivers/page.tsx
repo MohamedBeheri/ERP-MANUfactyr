@@ -110,6 +110,30 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
   moves.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
 
   const cashToday = activeOrder ? activeOrder.invoices.reduce((s, i) => s + Number(i.paidAmount), 0) : 0
+
+  // خط سير النهارده حسب الخطة الأسبوعية + تحقيق التارجت
+  const today = new Date().getDay()
+  const wkStart = new Date()
+  wkStart.setHours(0, 0, 0, 0)
+  wkStart.setDate(wkStart.getDate() - ((wkStart.getDay() + 1) % 7)) // آخر سبت
+  const [todayPlan, weekInvoices, visitedToday] = await Promise.all([
+    prisma.routePlanEntry.findMany({
+      where: { delegateId: delegate.id, dayOfWeek: today },
+      include: { customer: { select: { id: true, name: true, area: true, phone: true } } },
+      orderBy: { sortOrder: 'asc' },
+    }),
+    prisma.invoice.findMany({
+      where: { delegateId: delegate.id, createdAt: { gte: wkStart } },
+      select: { customerId: true },
+    }),
+    prisma.invoice.findMany({
+      where: { delegateId: delegate.id, createdAt: { gte: todayStart } },
+      select: { customerId: true },
+    }),
+  ])
+  const achievedWeek = new Set(weekInvoices.map((i) => i.customerId)).size
+  const visitedTodayIds = new Set(visitedToday.map((i) => i.customerId))
+  const weeklyTarget = Number(delegate.weeklyCustomerTarget)
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور'
   const tourHref = activeOrder ? `/delegates/${activeOrder.id}` : null
@@ -150,9 +174,35 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
               <span className="bg-white/10 px-3 py-1.5 rounded-lg text-white/60">مفيش جولة شغالة النهارده</span>
             )}
             {cashToday > 0 && <span className="bg-white/10 px-3 py-1.5 rounded-lg tabular-nums">محصّل اليوم: {egp(cashToday)}</span>}
+            {weeklyTarget > 0 && (
+              <span className={`px-3 py-1.5 rounded-lg tabular-nums ${achievedWeek >= weeklyTarget ? 'bg-green-500/20 text-green-300' : 'bg-white/10'}`}>
+                🎯 تارجت الأسبوع: {achievedWeek} / {weeklyTarget} عميل
+              </span>
+            )}
           </div>
         </div>
       </div>
+
+      {/* عملاء النهارده حسب خط السير الأسبوعي */}
+      {todayPlan.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-4 border-b border-gray-100">
+            <p className="font-bold text-[#1a1a2e] flex items-center gap-2"><MapPin className="w-5 h-5 text-[#e94560]" /> عملاء النهارده حسب خط السير ({todayPlan.length})</p>
+            <span className="text-xs text-gray-400">اللي عليه ✓ اتعمل له فاتورة النهارده</span>
+          </div>
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {todayPlan.map((e) => {
+              const done = visitedTodayIds.has(e.customerId)
+              return (
+                <div key={e.id} className={`rounded-xl border p-3 text-sm ${done ? 'border-green-200 bg-green-50' : 'border-gray-100'}`}>
+                  <p className={`font-semibold ${done ? 'text-green-800' : 'text-[#1a1a2e]'}`}>{done && '✓ '}{e.customer.name}</p>
+                  <p className="text-xs text-gray-400">{[e.customer.area, e.customer.phone].filter(Boolean).join(' · ') || '—'}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* أمر تحميل مستني تأكيد الاستلام (مطابقة) */}
       {pendingOrder && !activeOrder && (
