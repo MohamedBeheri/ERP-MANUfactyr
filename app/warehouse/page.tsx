@@ -1,15 +1,10 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowDownToLine, ArrowUpFromLine, PackageSearch } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
-import { StocktakeForm } from '@/components/stocktake-form'
-import { ExportButtons } from '@/components/export-buttons'
-import { WarehouseTabs } from '@/components/warehouse-tabs'
-import { UnloadOrdersPanel } from '@/components/unload-orders-panel'
+import { WarehouseHub } from '@/components/warehouse-hub'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,249 +17,124 @@ export default async function WarehousePage() {
 
   await ensureStockStages() // يضمن وجود المخازن والمراحل وترحيل الأرصدة
 
-  const [products, warehouseIns, warehouseOuts, warehouses, pendingUnloads] = await Promise.all([
+  const [products, warehouseIns, warehouseOuts, warehouses, loads, unloads] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
-      include: { stocks: true },
+      include: { stocks: true, category: true, stockStage: true },
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
     }),
     prisma.warehouseIn.findMany({
-      include: { product: true, creator: true, warehouse: true },
+      include: { product: true, warehouse: true },
       orderBy: { createdAt: 'desc' },
-      take: 25,
+      take: 60,
     }),
     prisma.warehouseOut.findMany({
-      include: { product: true, creator: true, warehouse: true },
+      include: { product: true, warehouse: true },
       orderBy: { createdAt: 'desc' },
-      take: 25,
+      take: 60,
     }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
+    prisma.deliveryOrder.findMany({
+      include: {
+        delegate: { include: { vehicle: true } },
+        warehouse: { select: { name: true } },
+        items: { include: { product: { select: { name: true, unit: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+    }),
     prisma.unloadOrder.findMany({
-      where: { status: 'PENDING' },
       include: {
         delegate: { include: { vehicle: true } },
         deliveryOrder: { select: { orderNo: true } },
         warehouse: { select: { name: true } },
         items: { include: { product: { select: { name: true, unit: true } } } },
+        confirmedBy: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 40,
     }),
   ])
 
-  const stockRows = products.map((p) => [
-    p.name,
-    p.type === 'RAW' ? 'خام' : 'منتج نهائي',
-    Number(p.quantity),
-    p.unit,
-    Number(p.minStock),
-    Number(p.costPrice).toFixed(2),
-    (Number(p.quantity) * Number(p.costPrice)).toFixed(2),
-  ])
+  const categories = Array.from(new Set(products.map((p) => p.category?.name).filter(Boolean))) as string[]
 
-  const totalStockValue = products.reduce((s, p) => s + Number(p.quantity) * Number(p.costPrice), 0)
+  const mapUnload = (u: (typeof unloads)[number]) => ({
+    id: u.id,
+    unloadNo: u.unloadNo,
+    delegateName: u.delegate.name,
+    vehicle: u.delegate.vehicle?.plateNo || u.delegate.carNumber || null,
+    orderNo: u.deliveryOrder?.orderNo || null,
+    warehouseName: u.warehouse?.name || null,
+    status: u.status,
+    createdAt: u.createdAt.toISOString(),
+    confirmedByName: u.confirmedBy?.name || null,
+    items: u.items.map((it) => ({
+      name: it.product.name,
+      unit: it.product.unit,
+      quantity: Number(it.quantity),
+      kind: it.kind,
+    })),
+  })
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1a1a2e]">المخزن</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            البضاعة بتدخل بأمر شراء (خامات) أو أمر تصنيع (منتجات) وبتخرج بفواتير بيع أو تحميل عربيات — والجرد بيسوّي الفروقات
-          </p>
-        </div>
-        <ExportButtons
-          fileName="جرد-المخزن"
-          headers={['الصنف', 'النوع', 'الكمية', 'الوحدة', 'الحد الأدنى', 'تكلفة الوحدة', 'قيمة المخزون']}
-          rows={stockRows}
-        />
+      <div>
+        <h1 className="text-2xl font-bold text-[#1a1a2e]">المخزن</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          أوامر التحميل والتفريغ بتأكيد استلام · خوارج ووارد الشركة · رصيد الأصناف ببحث وفلاتر — والجرد بيسوّي الفروقات
+        </p>
       </div>
 
-      {/* أوامر تفريغ العربيات المعلقة — لازم المخزن يأكد الاستلام */}
-      <UnloadOrdersPanel
+      <WarehouseHub
         canEdit={canEdit}
-        unloads={pendingUnloads.map((u) => ({
-          id: u.id,
-          unloadNo: u.unloadNo,
-          delegateName: u.delegate.name,
-          vehicle: u.delegate.vehicle?.plateNo || u.delegate.carNumber || null,
-          orderNo: u.deliveryOrder?.orderNo || null,
-          warehouseName: u.warehouse?.name || null,
-          createdAt: u.createdAt.toISOString(),
-          items: u.items.map((it) => ({
-            name: it.product.name,
-            unit: it.product.unit,
-            quantity: Number(it.quantity),
-            kind: it.kind,
-          })),
+        warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+        categories={categories}
+        stock={products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          unit: p.unit,
+          category: p.category?.name || null,
+          stageName: p.stockStage?.name || null,
+          minStock: Number(p.minStock),
+          costPrice: Number(p.costPrice),
+          totalQty: Number(p.quantity),
+          stocks: p.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: Number(s.quantity) })),
+        }))}
+        loads={loads.map((o) => ({
+          id: o.id,
+          orderNo: o.orderNo,
+          delegateName: o.delegate.name,
+          vehicle: o.delegate.vehicle?.plateNo || o.delegate.carNumber || null,
+          warehouseName: o.warehouse?.name || null,
+          status: o.status,
+          createdAt: o.createdAt.toISOString(),
+          items: o.items.map((it) => ({ name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity) })),
+        }))}
+        unloads={unloads.map(mapUnload)}
+        pendingUnloads={unloads.filter((u) => u.status === 'PENDING').map(mapUnload)}
+        ins={warehouseIns.map((e) => ({
+          id: e.id,
+          productName: e.product.name,
+          unit: e.product.unit,
+          quantity: Number(e.quantity),
+          label: `${e.source}${e.warehouse ? ` · ${e.warehouse.name}` : ''}`,
+          createdAt: e.createdAt.toISOString(),
+        }))}
+        outs={warehouseOuts.map((e) => ({
+          id: e.id,
+          productName: e.product.name,
+          unit: e.product.unit,
+          quantity: Number(e.quantity),
+          label: `${e.target} · ${e.reason}${e.warehouse ? ` · ${e.warehouse.name}` : ''}`,
+          createdAt: e.createdAt.toISOString(),
+        }))}
+        stocktakeProducts={products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          unit: p.unit,
+          stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, Number(s.quantity)])),
         }))}
       />
-
-      {/* عرض المخزون لكل مخزن */}
-      {warehouses.length > 1 && (
-        <WarehouseTabs
-          warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-          products={products.map((p) => ({
-            id: p.id,
-            name: p.name,
-            unit: p.unit,
-            minStock: Number(p.minStock),
-            costPrice: Number(p.costPrice),
-            stocks: p.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: Number(s.quantity) })),
-          }))}
-        />
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {/* جدول المخزون الإجمالي */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden print-area">
-            <div className="flex items-center justify-between p-5 pb-3">
-              <div className="flex items-center gap-2">
-                <PackageSearch className="w-5 h-5 text-[#0f3460]" />
-                <h3 className="text-base font-bold text-[#1a1a2e]">رصيد المخزون</h3>
-              </div>
-              <p className="text-sm text-gray-500">
-                قيمة المخزون: <span className="font-bold text-[#1a1a2e] tabular-nums">{totalStockValue.toLocaleString('ar-EG')} ج.م</span>
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
-                    <th className="p-3 font-medium">الصنف</th>
-                    <th className="p-3 font-medium">النوع</th>
-                    <th className="p-3 font-medium">الكمية</th>
-                    <th className="p-3 font-medium">الحد الأدنى</th>
-                    <th className="p-3 font-medium">تكلفة الوحدة</th>
-                    <th className="p-3 font-medium">قيمة الرصيد</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((p) => (
-                    <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                      <td className="p-3 font-semibold">
-                        {p.name}
-                        {warehouses.length > 1 && (
-                          <p className="text-[11px] text-gray-400 font-normal mt-0.5">
-                            {p.stocks
-                              .filter((s) => Number(s.quantity) > 0)
-                              .map((s) => `${warehouses.find((w) => w.id === s.warehouseId)?.name}: ${Number(s.quantity)}`)
-                              .join(' · ') || 'مفيش رصيد موزّع'}
-                          </p>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${p.type === 'RAW' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                          {p.type === 'RAW' ? 'خام' : 'منتج نهائي'}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span className={`font-bold tabular-nums ${Number(p.quantity) <= Number(p.minStock) ? 'text-red-600' : 'text-[#1a1a2e]'}`}>
-                          {Number(p.quantity)} {p.unit}
-                        </span>
-                        {Number(p.quantity) <= Number(p.minStock) && (
-                          <span className="mr-2 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-semibold">تحت الحد</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-500 tabular-nums">{Number(p.minStock)}</td>
-                      <td className="p-3 text-gray-500 tabular-nums">{Number(p.costPrice).toFixed(2)}</td>
-                      <td className="p-3 font-semibold tabular-nums">{(Number(p.quantity) * Number(p.costPrice)).toLocaleString('ar-EG')} ج.م</td>
-                    </tr>
-                  ))}
-                  {products.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-gray-500">مفيش أصناف — ضيفها من الإعدادات وابدأ بأمر شراء.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* حركات المخزن */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 no-print">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="flex items-center gap-2 p-5 pb-3">
-                <ArrowDownToLine className="w-5 h-5 text-green-600" />
-                <h3 className="text-base font-bold text-[#1a1a2e]">إذون الإضافة (وارد)</h3>
-              </div>
-              <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
-                {warehouseIns.length === 0 && <p className="p-5 text-sm text-gray-500">مفيش حركات وارد.</p>}
-                {warehouseIns.map((entry) => (
-                  <div key={entry.id} className="p-3.5 px-5 flex justify-between items-start">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-green-700 tabular-nums">
-                        +{Number(entry.quantity)} {entry.product.unit} — {entry.product.name}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate">{entry.source}</p>
-                    </div>
-                    <span className="text-xs text-gray-400 tabular-nums shrink-0">
-                      {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="flex items-center gap-2 p-5 pb-3">
-                <ArrowUpFromLine className="w-5 h-5 text-red-500" />
-                <h3 className="text-base font-bold text-[#1a1a2e]">إذون الصرف (صادر)</h3>
-              </div>
-              <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
-                {warehouseOuts.length === 0 && <p className="p-5 text-sm text-gray-500">مفيش حركات صادر.</p>}
-                {warehouseOuts.map((entry) => (
-                  <div key={entry.id} className="p-3.5 px-5 flex justify-between items-start">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-red-600 tabular-nums">
-                        -{Number(entry.quantity)} {entry.product.unit} — {entry.product.name}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate">{entry.target} · {entry.reason}</p>
-                    </div>
-                    <span className="text-xs text-gray-400 tabular-nums shrink-0">
-                      {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4 no-print">
-          {canEdit && (
-            <StocktakeForm
-              products={products.map((p) => ({
-                id: p.id,
-                name: p.name,
-                unit: p.unit,
-                stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, Number(s.quantity)])),
-              }))}
-              warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-            />
-          )}
-
-          <div className="bg-white p-5 rounded-xl shadow-sm">
-            <h3 className="text-sm font-bold text-[#1a1a2e] mb-3">إزاي البضاعة بتتحرك؟</h3>
-            <ol className="space-y-2.5 text-sm text-gray-600 list-none">
-              <li className="flex gap-2">
-                <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
-                <span>البن الأخضر بيدخل <Link href="/factory" className="text-[#0f3460] font-medium hover:underline">بأمر شراء</Link> من مورد</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
-                <span>أمر التصنيع بيصرف الخام وبيضيف المنتج النهائي</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
-                <span>الصرف بيتم بفاتورة بيع أو أمر تحميل عربية</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">4</span>
-                <span>الجرد الدوري بيسوّي أي فرق بين الفعلي والمسجّل</span>
-              </li>
-            </ol>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
