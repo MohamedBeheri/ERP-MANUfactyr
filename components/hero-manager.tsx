@@ -125,7 +125,7 @@ export function HeroManager({ slides }: { slides: HeroSlideRow[] }) {
 
           <div className="grid grid-cols-2 gap-3">
             <input placeholder="بادچ (اختياري)" value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} className={inputCls} />
-            <input placeholder="الترتيب" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
+            <input placeholder="الترتيب" type="text" inputMode="decimal" dir="ltr" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
             <input placeholder="العنوان الأول" value={form.title1} onChange={(e) => setForm({ ...form, title1: e.target.value })} className={inputCls} />
             <input placeholder="العنوان الثاني (مميّز)" value={form.title2} onChange={(e) => setForm({ ...form, title2: e.target.value })} className={inputCls} />
           </div>

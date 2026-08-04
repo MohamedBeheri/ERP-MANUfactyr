@@ -78,7 +78,7 @@ export function SettleForm({
                 {item.productName} (متبقي على العربية: {item.remaining} {item.unit})
               </span>
               <input
-                type="number"
+                type="text" inputMode="decimal" dir="ltr"
                 min="0"
                 max={item.remaining}
                 placeholder="0"

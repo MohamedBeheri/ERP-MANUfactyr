@@ -121,7 +121,7 @@ function DelegatesTab({ delegates, vehicles, users, canAdd, canEdit, canDelete }
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">نسبة العمولة %</label>
-          <input type="number" min="0" max="100" step="0.5" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} className={inputCls} />
+          <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} className={inputCls} />
         </div>
         <div className="flex gap-2">
           <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">{editId ? 'حفظ' : 'إضافة'}</button>
@@ -192,7 +192,7 @@ function VehiclesTab({ vehicles, canAdd, canEdit, canDelete }: { vehicles: Vehic
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
         <input value={form.plateNo} onChange={(e) => setForm({ ...form, plateNo: e.target.value })} placeholder="أرقام وحروف اللوحة * (مثال: س م ص ٢٢١٢)" className={inputCls} />
         <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="الموديل/النوع" className={inputCls} />
-        <input type="number" min="0" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} placeholder="السعة التقريبية (وحدة)" className={inputCls} />
+        <input type="text" inputMode="decimal" dir="ltr" min="0" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} placeholder="السعة التقريبية (وحدة)" className={inputCls} />
         <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="ملاحظات" className={inputCls} />
         <div className="flex gap-2">
           <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">{editId ? 'حفظ' : 'إضافة'}</button>

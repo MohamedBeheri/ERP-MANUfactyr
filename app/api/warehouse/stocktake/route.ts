@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
           where: { warehouseId_productId: { warehouseId, productId: item.productId } },
         })
         const recorded = stock?.quantity ?? 0
-        const counted = Math.max(0, Math.floor(item.countedQty))
-        const diff = counted - recorded
+        const counted = Math.max(0, Math.round(Number(item.countedQty) * 1000) / 1000)
+        const diff = counted - Number(recorded)
         if (diff === 0) continue
 
         // تحديث رصيد المخزن المحدد + الرصيد الإجمالي للصنف

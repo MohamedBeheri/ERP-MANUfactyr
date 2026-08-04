@@ -361,7 +361,7 @@ export default function TreasuryPage() {
                       <option value="">اختر المندوب</option>
                       {delegates.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
-                    <input type="number" min="0.01" step="0.01" placeholder="المبلغ" value={sForm.amount} onChange={(e) => setSForm({ ...sForm, amount: e.target.value })} className={inputCls} required />
+                    <input type="text" inputMode="decimal" dir="ltr" min="0.01" step="0.01" placeholder="المبلغ" value={sForm.amount} onChange={(e) => setSForm({ ...sForm, amount: e.target.value })} className={inputCls} required />
                     <select value={sForm.method} onChange={(e) => setSForm({ ...sForm, method: e.target.value })} className={inputCls}>
                       <option value="CASH">نقدي</option>
                       <option value="CHECK">شيك</option>
@@ -490,7 +490,7 @@ export default function TreasuryPage() {
                       })()}
                     </select>
                     <input placeholder="وصف السند" value={vForm.description} onChange={(e) => setVForm({ ...vForm, description: e.target.value })} className={inputCls} required />
-                    <input type="number" min="0.01" step="0.01" placeholder="المبلغ" value={vForm.amount} onChange={(e) => setVForm({ ...vForm, amount: e.target.value })} className={inputCls} required />
+                    <input type="text" inputMode="decimal" dir="ltr" min="0.01" step="0.01" placeholder="المبلغ" value={vForm.amount} onChange={(e) => setVForm({ ...vForm, amount: e.target.value })} className={inputCls} required />
                     <select value={vForm.activity} onChange={(e) => setVForm({ ...vForm, activity: e.target.value })} className={inputCls}>
                       <option value="OPERATING">تشغيلي — يدخل P&L</option>
                       <option value="INVESTING">استثماري — لا يدخل P&L</option>
@@ -727,10 +727,10 @@ export default function TreasuryPage() {
                       </optgroup>
                     </select>
                     <input placeholder="الجهة الدائنة" value={lForm.creditor} onChange={(e) => setLForm({ ...lForm, creditor: e.target.value })} className={inputCls} required />
-                    <input type="number" min="0.01" step="0.01" placeholder="إجمالي المبلغ" value={lForm.totalAmount} onChange={(e) => setLForm({ ...lForm, totalAmount: e.target.value })} className={inputCls} required />
+                    <input type="text" inputMode="decimal" dir="ltr" min="0.01" step="0.01" placeholder="إجمالي المبلغ" value={lForm.totalAmount} onChange={(e) => setLForm({ ...lForm, totalAmount: e.target.value })} className={inputCls} required />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <input type="number" min="0" step="0.01" placeholder="نسبة الفائدة %" value={lForm.interestRate} onChange={(e) => setLForm({ ...lForm, interestRate: e.target.value })} className={inputCls} />
+                    <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="نسبة الفائدة %" value={lForm.interestRate} onChange={(e) => setLForm({ ...lForm, interestRate: e.target.value })} className={inputCls} />
                     <div>
                       <label className="block text-[10px] text-gray-500 mb-1">تاريخ البداية</label>
                       <input type="date" value={lForm.startDate} onChange={(e) => setLForm({ ...lForm, startDate: e.target.value })} className={inputCls} />
@@ -739,7 +739,7 @@ export default function TreasuryPage() {
                       <label className="block text-[10px] text-gray-500 mb-1">تاريخ السداد النهائي</label>
                       <input type="date" value={lForm.dueDate} onChange={(e) => setLForm({ ...lForm, dueDate: e.target.value })} className={inputCls} />
                     </div>
-                    <input type="number" min="0" placeholder="عدد الأقساط (اختياري)" value={lForm.installmentsCount} onChange={(e) => setLForm({ ...lForm, installmentsCount: e.target.value })} className={inputCls} />
+                    <input type="text" inputMode="decimal" dir="ltr" min="0" placeholder="عدد الأقساط (اختياري)" value={lForm.installmentsCount} onChange={(e) => setLForm({ ...lForm, installmentsCount: e.target.value })} className={inputCls} />
                   </div>
 
                   {['REAL_ESTATE', 'INSURANCE'].includes(lForm.type) && (

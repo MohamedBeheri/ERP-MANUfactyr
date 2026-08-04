@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const b = await req.json()
-    const plannedKg = Math.round(Number(b.plannedKg))
+    const plannedKg = Math.round(Number(b.plannedKg) * 1000) / 1000
     const fineness = String(b.fineness || '')
     const channel = b.channel || 'المصنع'
 

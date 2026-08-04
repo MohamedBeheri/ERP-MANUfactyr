@@ -25,7 +25,7 @@ export async function DELETE(_req: NextRequest, { params: rawParams }: { params:
       for (const inp of prod.inputs) {
         const wh = inp.product.stageId ? await warehouseForStage(inp.product.stageId) : fallbackWh
         await tx.product.update({ where: { id: inp.productId }, data: { quantity: { increment: inp.quantity } } })
-        await adjustStock(tx, wh, inp.productId, inp.quantity)
+        await adjustStock(tx, wh, inp.productId, Number(inp.quantity))
       }
       // شيل المخرجات
       for (const item of prod.items) {

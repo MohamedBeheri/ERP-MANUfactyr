@@ -14,8 +14,8 @@ export default async function PriceQuotePrintPage({ params: rawParams }: { param
   })
   if (!q) notFound()
 
-  const withQty = q.items.some((it) => it.quantity > 0)
-  const subtotal = q.items.reduce((s, it) => s + Number(it.unitPrice) * (it.quantity || 0), 0)
+  const withQty = q.items.some((it) => Number(it.quantity) > 0)
+  const subtotal = q.items.reduce((s, it) => s + Number(it.unitPrice) * (Number(it.quantity) || 0), 0)
   const admin = Number(q.adminExpenses)
   const cashDisc = q.discountType === 'CASH' ? ((subtotal + admin) * Number(q.discountPercent)) / 100 : 0
   const net = subtotal + admin - cashDisc
@@ -30,9 +30,9 @@ export default async function PriceQuotePrintPage({ params: rawParams }: { param
           i + 1,
           it.product.name,
           it.product.unit,
-          it.quantity,
+          Number(it.quantity),
           `${Number(it.unitPrice).toLocaleString('ar-EG')} ج.م`,
-          `${(Number(it.unitPrice) * (it.quantity || 0)).toLocaleString('ar-EG')} ج.م`,
+          `${(Number(it.unitPrice) * (Number(it.quantity) || 0)).toLocaleString('ar-EG')} ج.م`,
         ]
       : [i + 1, it.product.name, it.product.unit, `${Number(it.unitPrice).toLocaleString('ar-EG')} ج.م`]
   )

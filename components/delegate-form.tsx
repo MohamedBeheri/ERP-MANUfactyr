@@ -86,7 +86,7 @@ export function DelegateForm() {
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
         />
         <input
-          type="number"
+          type="text" inputMode="decimal" dir="ltr"
           placeholder="نسبة العمولة %"
           value={commissionRate}
           onChange={(e) => setCommissionRate(e.target.value)}

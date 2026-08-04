@@ -52,9 +52,9 @@ export default async function FactoryPage() {
   const rawProducts = products.filter((p) => p.type === 'RAW')
 
   const roastingOrders = productions.filter((p) => p.lineType === 'ROASTING')
-  const totalInput = productions.reduce((s, p) => s + p.inputWeight, 0)
-  const totalOutput = productions.reduce((s, p) => s + p.outputWeight, 0)
-  const totalWaste = productions.reduce((s, p) => s + p.wasteWeight, 0)
+  const totalInput = productions.reduce((s, p) => s + Number(p.inputWeight), 0)
+  const totalOutput = productions.reduce((s, p) => s + Number(p.outputWeight), 0)
+  const totalWaste = productions.reduce((s, p) => s + Number(p.wasteWeight), 0)
   const avgRoastWaste =
     roastingOrders.length > 0
       ? roastingOrders.reduce((s, p) => s + Number(p.wastePercent), 0) / roastingOrders.length
@@ -177,8 +177,8 @@ export default async function FactoryPage() {
             {rawProducts.slice(0, 8).map((p) => (
               <div key={p.id} className="flex justify-between text-xs">
                 <span className="text-gray-600 truncate ml-2">{p.name}</span>
-                <span className={`font-bold tabular-nums shrink-0 ${p.quantity <= p.minStock ? 'text-red-600' : 'text-green-600'}`}>
-                  {p.quantity} {p.unit}
+                <span className={`font-bold tabular-nums shrink-0 ${Number(p.quantity) <= Number(p.minStock) ? 'text-red-600' : 'text-green-600'}`}>
+                  {Number(p.quantity)} {p.unit}
                 </span>
               </div>
             ))}
@@ -232,21 +232,21 @@ export default async function FactoryPage() {
                     <div className="flex flex-wrap gap-1 mb-1">
                       {prod.inputs.map((inp) => (
                         <span key={inp.id} className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded tabular-nums">
-                          {inp.product.name} {inp.quantity}{Number(inp.percentage) > 0 ? ` (${Number(inp.percentage)}%)` : ''}
+                          {inp.product.name} {Number(inp.quantity)}{Number(inp.percentage) > 0 ? ` (${Number(inp.percentage)}%)` : ''}
                         </span>
                       ))}
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {prod.items.map((item) => (
                         <span key={item.id} className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded tabular-nums">
-                          ← {item.product.name} +{item.quantity}
+                          ← {item.product.name} +{Number(item.quantity)}
                         </span>
                       ))}
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`tabular-nums font-semibold text-xs ${Number(prod.wastePercent) > 22 || (prod.lineType === 'ROASTING' && Number(prod.wastePercent) < 10 && prod.outputWeight > 0) ? 'text-red-600' : 'text-orange-600'}`}>
-                      {prod.wasteWeight} ({Number(prod.wastePercent).toFixed(1)}%)
+                    <span className={`tabular-nums font-semibold text-xs ${Number(prod.wastePercent) > 22 || (prod.lineType === 'ROASTING' && Number(prod.wastePercent) < 10 && Number(prod.outputWeight) > 0) ? 'text-red-600' : 'text-orange-600'}`}>
+                      {Number(prod.wasteWeight)} ({Number(prod.wastePercent).toFixed(1)}%)
                     </span>
                   </td>
                   <td className="px-4 py-3 no-print">

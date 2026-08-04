@@ -68,8 +68,8 @@ export default async function DelegatesPage() {
   const performance = delegates.map((d) => {
     const tours = d.deliveryOrders.length
     const activeTours = d.deliveryOrders.filter((o) => o.status === 'IN_PROGRESS').length
-    const soldQty = d.settlements.reduce((s, st) => s + st.soldQty, 0)
-    const returnedQty = d.settlements.reduce((s, st) => s + st.returnedQty, 0)
+    const soldQty = d.settlements.reduce((s, st) => s + Number(st.soldQty), 0)
+    const returnedQty = d.settlements.reduce((s, st) => s + Number(st.returnedQty), 0)
     const cash = d.settlements.reduce((s, st) => s + Number(st.cashAmount), 0)
     const credit = d.settlements.reduce((s, st) => s + Number(st.creditAmount), 0)
     const returnRate = soldQty + returnedQty > 0 ? (returnedQty / (soldQty + returnedQty)) * 100 : 0
@@ -84,8 +84,8 @@ export default async function DelegatesPage() {
     p.d.vehicle?.plateNo || p.d.carNumber || '—',
     p.d.route || '—',
     p.tours,
-    p.soldQty,
-    p.returnedQty,
+    Number(p.soldQty),
+    Number(p.returnedQty),
     `${p.returnRate.toFixed(1)}%`,
     p.cash.toFixed(2),
     p.credit.toFixed(2),
@@ -148,7 +148,7 @@ export default async function DelegatesPage() {
         {/* فورم التحميل */}
         {canAdd && (
           <div className="space-y-4">
-            <DeliveryOrderForm delegates={delegates} products={products} warehouses={warehouses} />
+            <DeliveryOrderForm delegates={delegates} products={products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, quantity: Number(p.quantity) }))} warehouses={warehouses} />
           </div>
         )}
       </div>

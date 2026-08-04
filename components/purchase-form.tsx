@@ -137,8 +137,8 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <input type="number" min="1" placeholder="الكمية" value={item.quantity} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, quantity: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-            <input type="number" min="0" step="0.01" placeholder="السعر" value={item.unitPrice} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, unitPrice: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <input type="text" inputMode="decimal" dir="ltr" min="1" placeholder="الكمية" value={item.quantity} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, quantity: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="السعر" value={item.unitPrice} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, unitPrice: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
           </div>
         ))}
         <button type="button" onClick={() => setItems([...items, { productId: '', quantity: '', unitPrice: '' }])} className="text-sm text-[#0f3460] font-medium">+ إضافة صنف</button>
@@ -153,7 +153,7 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
           ))}
         </div>
         {payMethod === 'نقدي جزئي' && (
-          <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="المبلغ المدفوع للمورد دلوقتي" className={inputCls} />
+          <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="المبلغ المدفوع للمورد دلوقتي" className={inputCls} />
         )}
         {total > 0 && (
           <div className="bg-gray-50 rounded-lg p-2.5 text-xs space-y-1">

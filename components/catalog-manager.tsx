@@ -197,14 +197,14 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
         {kind === 'GREEN' && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">نسبة خسران التحميص %</label>
-            <input type="number" min="0" max="100" step="0.1" value={form.roastLossPercent} onChange={(e) => setForm({ ...form, roastLossPercent: e.target.value })} className={inputCls} placeholder="16" />
+            <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.1" value={form.roastLossPercent} onChange={(e) => setForm({ ...form, roastLossPercent: e.target.value })} className={inputCls} placeholder="16" />
           </div>
         )}
 
         {kind === 'PACKAGING' && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">وزن الفارغ للقطعة (جرام)</label>
-            <input type="number" min="0" step="0.01" value={form.tareWeight} onChange={(e) => setForm({ ...form, tareWeight: e.target.value })} className={inputCls} placeholder="1.6" />
+            <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.tareWeight} onChange={(e) => setForm({ ...form, tareWeight: e.target.value })} className={inputCls} placeholder="1.6" />
           </div>
         )}
 
@@ -234,7 +234,7 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
                     </select>
                   )}
                   <div className="flex items-center gap-1 shrink-0">
-                    <input type="number" min="0" max="100" step="0.5" placeholder="0" value={c.percent || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, percent: Number(e.target.value) } : x))} className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums text-center" />
+                    <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" placeholder="0" value={c.percent || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, percent: Number(e.target.value) } : x))} className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums text-center" />
                     <span className="text-xs text-gray-400">%</span>
                   </div>
                   <button type="button" onClick={() => setComponents(components.filter((_, j) => j !== i))} className="shrink-0 text-red-500"><X className="w-4 h-4" /></button>
@@ -260,11 +260,11 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">وزن القطعة (جرام)</label>
-                <input type="number" min="0" step="0.1" value={form.gramsPerPiece} onChange={(e) => setForm({ ...form, gramsPerPiece: e.target.value })} className={inputCls} placeholder="250" />
+                <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.1" value={form.gramsPerPiece} onChange={(e) => setForm({ ...form, gramsPerPiece: e.target.value })} className={inputCls} placeholder="250" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">قطع/علبة</label>
-                <input type="number" min="1" value={form.piecesPerBox} onChange={(e) => setForm({ ...form, piecesPerBox: e.target.value })} className={inputCls} />
+                <input type="text" inputMode="decimal" dir="ltr" min="1" value={form.piecesPerBox} onChange={(e) => setForm({ ...form, piecesPerBox: e.target.value })} className={inputCls} />
               </div>
             </div>
             <div>
@@ -285,7 +285,7 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الشراء</label>
-              <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
@@ -303,23 +303,23 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">سعر التكلفة</label>
-              <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">سعر القطاعي</label>
-              <input type="number" min="0" step="0.01" value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">السعر قبل الخصم <span className="text-gray-400 font-normal">(شارة تخفيض)</span></label>
-              <input type="number" min="0" step="0.01" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} className={inputCls} placeholder="اختياري" />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} className={inputCls} placeholder="اختياري" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الجملة</label>
-              <input type="number" min="0" step="0.01" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">أقل سعر لكبار الموردين</label>
-              <input type="number" min="0" step="0.01" value={form.minKeyPrice} onChange={(e) => setForm({ ...form, minKeyPrice: e.target.value })} className={inputCls} placeholder="الحد الأدنى في بيان السعر" />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.minKeyPrice} onChange={(e) => setForm({ ...form, minKeyPrice: e.target.value })} className={inputCls} placeholder="الحد الأدنى في بيان السعر" />
             </div>
             {kind !== 'FINISHED' && (
               <div>
@@ -333,7 +333,7 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
         {/* الحد الأدنى للمخزون */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الأدنى للمخزون</label>
-          <input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inputCls} />
+          <input type="text" inputMode="decimal" dir="ltr" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inputCls} />
         </div>
 
         {/* صورة المنتج */}

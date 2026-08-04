@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     // إعادة التحقق من الرصيد وقت الاستلام (ممكن يكون اتغيّر)
     for (const it of order.items) {
       const stock = await getStock(warehouseId, it.productId)
-      if (stock < it.quantity) {
+      if (stock < Number(it.quantity)) {
         return NextResponse.json(
           { error: `رصيد ${it.product.name} في المخزن مبقاش كافي (المتاح: ${stock} / المطلوب: ${it.quantity})` },
           { status: 400 }
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           userId: session.user.id,
           action: 'تأكيد استلام',
           description: `تأكيد استلام حمولة العربية - أمر ${order.orderNo} (${order.delegate.name})`,
-          impact: `-${order.items.reduce((s, i) => s + i.quantity, 0)} من المخزن · العربية تحركت`,
+          impact: `-${order.items.reduce((s, i) => s + Number(i.quantity), 0)} من المخزن · العربية تحركت`,
         },
       })
     })

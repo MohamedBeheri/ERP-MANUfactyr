@@ -96,15 +96,15 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
   const cashSales = invoices.filter(i => i.type === 'CASH').reduce((s, i) => s + Number(i.netAmount), 0)
   const creditSales = invoices.filter(i => i.type === 'CREDIT').reduce((s, i) => s + Number(i.netAmount), 0)
   const kaSales = Number(kaPayAgg._sum.amount) || 0
-  const cogs = invoices.reduce((s, inv) => s + inv.items.reduce((a, it) => a + it.quantity * Number(it.product.costPrice), 0), 0)
+  const cogs = invoices.reduce((s, inv) => s + inv.items.reduce((a, it) => a + Number(it.quantity) * Number(it.product.costPrice), 0), 0)
   const grossProfit = totalSales - cogs
   const totalExpenses = paymentVouchers.reduce((s, v) => s + Number(v.amount), 0)
   const netProfit = grossProfit - totalExpenses
-  const producedQty = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + i.quantity, 0), 0)
+  const producedQty = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + Number(i.quantity), 0), 0)
   const purchaseTotal = Number(purchaseAgg._sum.totalAmount) || 0
   const purchasePaid = Number(purchaseAgg._sum.paidAmount) || 0
-  const lowStockProducts = allProducts.filter(p => p.quantity <= p.minStock)
-  const inventoryValue = allProducts.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0)
+  const lowStockProducts = allProducts.filter(p => Number(p.quantity) <= Number(p.minStock))
+  const inventoryValue = allProducts.reduce((s, p) => s + Number(p.quantity) * Number(p.costPrice), 0)
   const totalLiabilities = liabilities.reduce((s, l) => s + Number(l.remainingAmount), 0)
   const overdueCount = liabilities.filter(l => l.status === 'OVERDUE').length
   const keyClaimsTotal = Number(keyClaims._sum.balance) || 0
@@ -126,7 +126,7 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     productions.forEach(p => {
       const d = fillDay(`${new Date(p.createdAt).getHours()}:00`)
       d.prodOrders++
-      d.prodQty += p.items.reduce((a, i) => a + i.quantity, 0)
+      d.prodQty += p.items.reduce((a, i) => a + Number(i.quantity), 0)
     })
     cashFlows.forEach(cf => {
       const d = fillDay(`${new Date(cf.createdAt).getHours()}:00`)
@@ -143,7 +143,7 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     productions.forEach(p => {
       const d = fillDay(new Date(p.createdAt).toISOString().slice(0, 10))
       d.prodOrders++
-      d.prodQty += p.items.reduce((a, i) => a + i.quantity, 0)
+      d.prodQty += p.items.reduce((a, i) => a + Number(i.quantity), 0)
     })
     cashFlows.forEach(cf => {
       const d = fillDay(new Date(cf.createdAt).toISOString().slice(0, 10))
@@ -166,7 +166,7 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
   for (const inv of invoices) {
     for (const it of inv.items) {
       const prev = productAgg.get(it.productId) || { name: it.product.name, qty: 0, revenue: 0 }
-      prev.qty += it.quantity
+      prev.qty += Number(it.quantity)
       prev.revenue += Number(it.totalPrice)
       productAgg.set(it.productId, prev)
     }
@@ -340,9 +340,9 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
                     <span className="text-gray-700 text-xs">{p.name}</span>
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                        <div className={`h-full rounded-full ${p.quantity === 0 ? 'bg-red-500' : 'bg-amber-400'}`} style={{ width: `${Math.min(100, (p.quantity / Math.max(p.minStock, 1)) * 100)}%` }} />
+                        <div className={`h-full rounded-full ${Number(p.quantity) === 0 ? 'bg-red-500' : 'bg-amber-400'}`} style={{ width: `${Math.min(100, (Number(p.quantity) / Math.max(Number(p.minStock), 1)) * 100)}%` }} />
                       </div>
-                      <span className="font-bold text-red-600 tabular-nums text-xs whitespace-nowrap">{p.quantity}/{p.minStock}</span>
+                      <span className="font-bold text-red-600 tabular-nums text-xs whitespace-nowrap">{Number(p.quantity)}/{Number(p.minStock)}</span>
                     </div>
                   </div>
                 ))}

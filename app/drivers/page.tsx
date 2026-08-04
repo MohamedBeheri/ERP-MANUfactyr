@@ -67,10 +67,10 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
         if (!full) return []
         return full.items.map((it) => {
           const delivered =
-            full.invoices.flatMap((i) => i.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + x.quantity, 0) +
-            full.keyAccountSupplies.flatMap((sp) => sp.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + x.quantity, 0)
-          const returned = full.returns.flatMap((r) => r.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + x.quantity, 0)
-          return { name: it.product.name, unit: it.product.unit, loaded: it.quantity, delivered, remaining: it.quantity - delivered + returned }
+            full.invoices.flatMap((i) => i.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + Number(x.quantity), 0) +
+            full.keyAccountSupplies.flatMap((sp) => sp.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + Number(x.quantity), 0)
+          const returned = full.returns.flatMap((r) => r.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + Number(x.quantity), 0)
+          return { name: it.product.name, unit: it.product.unit, loaded: Number(it.quantity), delivered, remaining: Number(it.quantity) - delivered + returned }
         })
       })()
     : []
@@ -83,7 +83,7 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
       moves.push({
         time: inv.createdAt, kind: 'بيع',
         title: `بيع لـ ${inv.customer.name}`,
-        sub: inv.items.filter((x) => !x.isBonus).map((x) => `${x.product.name} ×${x.quantity}`).join('، '),
+        sub: inv.items.filter((x) => !x.isBonus).map((x) => `${x.product.name} ×${Number(x.quantity)}`).join('، '),
         amount: `${egp(Number(inv.netAmount))} · ${inv.paymentMethod}`,
         color: 'text-green-700 bg-green-50',
       })
@@ -92,7 +92,7 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
       moves.push({
         time: sp.createdAt, kind: 'توريد',
         title: `توريد لفرع ${sp.branch.name} (${sp.keyAccount.name})`,
-        sub: `${sp.items.reduce((s, x) => s + x.quantity, 0)} قطعة`,
+        sub: `${sp.items.reduce((s, x) => s + Number(x.quantity), 0)} قطعة`,
         amount: `${egp(Number(sp.netAmount))} · مطالبة`,
         color: 'text-amber-700 bg-amber-50',
       })
@@ -101,7 +101,7 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
       moves.push({
         time: r.createdAt, kind: 'مرتجع',
         title: `مرتجع من ${r.customer?.name || r.customerName || 'عميل'}`,
-        sub: `${r.items.reduce((s, x) => s + x.quantity, 0)} قطعة رجعت للعربية`,
+        sub: `${r.items.reduce((s, x) => s + Number(x.quantity), 0)} قطعة رجعت للعربية`,
         amount: `${egp(Number(r.totalValue))} · ${r.refundCash ? 'رد نقدي' : 'خصم آجل'}`,
         color: 'text-orange-700 bg-orange-50',
       })
@@ -172,7 +172,7 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
               {pendingOrder.items.map((it) => (
                 <div key={it.id} className="border border-gray-100 rounded-lg p-2.5 text-sm">
                   <p className="font-semibold truncate">{it.product.name}</p>
-                  <p className="text-xs text-gray-400 tabular-nums">{it.quantity} {it.product.unit}</p>
+                  <p className="text-xs text-gray-400 tabular-nums">{Number(it.quantity)} {it.product.unit}</p>
                 </div>
               ))}
             </div>
@@ -291,14 +291,14 @@ async function FleetOverview() {
 
   const vans = activeOrders.map((order) => {
     const deliveredByProduct = new Map<string, number>()
-    for (const inv of order.invoices) for (const item of inv.items) deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
-    for (const sup of order.keyAccountSupplies) for (const item of sup.items) deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
+    for (const inv of order.invoices) for (const item of inv.items) deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + Number(item.quantity))
+    for (const sup of order.keyAccountSupplies) for (const item of sup.items) deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + Number(item.quantity))
     const returnedByProduct = new Map<string, number>()
-    for (const r of order.returns) for (const item of r.items) returnedByProduct.set(item.productId, (returnedByProduct.get(item.productId) || 0) + item.quantity)
+    for (const r of order.returns) for (const item of r.items) returnedByProduct.set(item.productId, (returnedByProduct.get(item.productId) || 0) + Number(item.quantity))
     const cargo = order.items.map((item) => {
       const delivered = deliveredByProduct.get(item.productId) || 0
       const returned = returnedByProduct.get(item.productId) || 0
-      return { name: item.product.name, unit: item.product.unit, loaded: item.quantity, delivered, remaining: item.quantity - delivered + returned }
+      return { name: item.product.name, unit: item.product.unit, loaded: Number(item.quantity), delivered, remaining: Number(item.quantity) - delivered + returned }
     })
     const totalLoaded = cargo.reduce((s, c) => s + c.loaded, 0)
     const totalRemaining = cargo.reduce((s, c) => s + c.remaining, 0)
@@ -321,7 +321,7 @@ async function FleetOverview() {
           </div>
           <div className="divide-y divide-gray-50">
             {pendingOrders.map((o) => {
-              const totalUnits = o.items.reduce((s, i) => s + i.quantity, 0)
+              const totalUnits = o.items.reduce((s, i) => s + Number(i.quantity), 0)
               return (
                 <div key={o.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
                   <div className="min-w-0">
@@ -440,7 +440,7 @@ async function FleetOverview() {
                     <p className="text-xs text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')} · {timeOf(s.createdAt)}</p>
                   </div>
                 </div>
-                <span className="shrink-0 text-sm font-bold text-orange-600 tabular-nums">{s.returnedQty} وحدة مرتجعة</span>
+                <span className="shrink-0 text-sm font-bold text-orange-600 tabular-nums">{Number(s.returnedQty)} وحدة مرتجعة</span>
               </div>
             ))}
           </div>

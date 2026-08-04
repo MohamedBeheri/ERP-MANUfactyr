@@ -45,13 +45,13 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const deliveredByProduct = new Map<string, number>()
     for (const inv of deliveryOrder.invoices) {
       for (const item of inv.items) {
-        deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
+        deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + Number(item.quantity))
       }
     }
     // التوريدات لفروع كبار الموردين بتنزل من العربية زي التسليمات
     for (const sup of deliveryOrder.keyAccountSupplies) {
       for (const item of sup.items) {
-        deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + item.quantity)
+        deliveredByProduct.set(item.productId, (deliveredByProduct.get(item.productId) || 0) + Number(item.quantity))
       }
     }
 
@@ -59,15 +59,15 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const returnedToVan = new Map<string, number>()
     for (const r of deliveryOrder.returns) {
       for (const item of r.items) {
-        returnedToVan.set(item.productId, (returnedToVan.get(item.productId) || 0) + item.quantity)
+        returnedToVan.set(item.productId, (returnedToVan.get(item.productId) || 0) + Number(item.quantity))
       }
     }
 
     for (const ret of returns) {
-      const loaded = deliveryOrder.items.find((i) => i.productId === ret.productId)?.quantity || 0
+      const loaded = Number(deliveryOrder.items.find((i) => i.productId === ret.productId)?.quantity || 0)
       const delivered = deliveredByProduct.get(ret.productId) || 0
       const maxReturnable = loaded - delivered + (returnedToVan.get(ret.productId) || 0)
-      if (ret.quantity > maxReturnable) {
+      if (Number(ret.quantity) > maxReturnable) {
         return NextResponse.json(
           { error: `الكمية المرتجعة أكبر من المتبقي على العربية (أقصى حد: ${maxReturnable})` },
           { status: 400 }
@@ -79,10 +79,10 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const bonusQty = deliveryOrder.invoices
       .flatMap((inv) => inv.items)
       .filter((it) => it.isBonus)
-      .reduce((s, it) => s + it.quantity, 0)
+      .reduce((s, it) => s + Number(it.quantity), 0)
     const totalDelivered = Array.from(deliveredByProduct.values()).reduce((s, q) => s + q, 0)
     const soldQty = Math.max(0, totalDelivered - bonusQty)
-    const returnedQty = returns.reduce((s, r) => s + r.quantity, 0)
+    const returnedQty = returns.reduce((s, r) => s + Number(r.quantity), 0)
     // النقدي = المدفوع فعليًا (يشمل الجزء المدفوع في البيع الجزئي)، الآجل = المتبقي على العملاء
     const cashAmount = deliveryOrder.invoices.reduce((s, inv) => s + Number(inv.paidAmount), 0)
     const invoiceCredit = deliveryOrder.invoices.reduce(
@@ -98,17 +98,17 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
 
     for (const ret of returns) {
-      if (ret.quantity <= 0) continue
+      if (Number(ret.quantity) <= 0) continue
       await prisma.product.update({
         where: { id: ret.productId },
-        data: { quantity: { increment: ret.quantity } },
+        data: { quantity: { increment: Number(ret.quantity) } },
       })
-      await adjustStock(prisma, warehouseId, ret.productId, ret.quantity)
+      await adjustStock(prisma, warehouseId, ret.productId, Number(ret.quantity))
       await prisma.warehouseIn.create({
         data: {
           productId: ret.productId,
           warehouseId,
-          quantity: ret.quantity,
+          quantity: Number(ret.quantity),
           source: `عودة من تسليم - أمر ${deliveryOrder.orderNo}`,
           createdById: session.user.id,
         },

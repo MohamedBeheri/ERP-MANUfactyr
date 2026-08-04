@@ -54,7 +54,7 @@ export async function DELETE(_req: NextRequest, { params: rawParams }: { params:
 
   try {
     const product = await prisma.product.findUnique({ where: { id: params.id } })
-    if (product && product.quantity > 0) {
+    if (product && Number(product.quantity) > 0) {
       return NextResponse.json(
         { error: 'مينفعش حذف صنف لسه فيه رصيد — اصرفه أو سوّيه بالجرد الأول' },
         { status: 400 }

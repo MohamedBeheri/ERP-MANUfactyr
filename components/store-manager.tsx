@@ -171,11 +171,11 @@ export function StoreManager({ settings, warehouses, orders, storeUrl }: { setti
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">رسوم التوصيل</label>
-                <input type="number" min="0" step="0.01" value={form.deliveryFee} onChange={(e) => setForm({ ...form, deliveryFee: Number(e.target.value) })} className={inputCls} />
+                <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.deliveryFee} onChange={(e) => setForm({ ...form, deliveryFee: Number(e.target.value) })} className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الأدنى للطلب</label>
-                <input type="number" min="0" step="0.01" value={form.minOrder} onChange={(e) => setForm({ ...form, minOrder: Number(e.target.value) })} className={inputCls} />
+                <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.minOrder} onChange={(e) => setForm({ ...form, minOrder: Number(e.target.value) })} className={inputCls} />
               </div>
             </div>
           </div>
@@ -211,7 +211,7 @@ export function StoreManager({ settings, warehouses, orders, storeUrl }: { setti
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">زمن التحرك (ثواني)</label>
-              <input type="number" min="2" max="30" value={form.heroInterval} onChange={(e) => setForm({ ...form, heroInterval: Number(e.target.value) })} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="2" max="30" value={form.heroInterval} onChange={(e) => setForm({ ...form, heroInterval: Number(e.target.value) })} className={inputCls} />
               <p className="text-[11px] text-gray-400 mt-1">كل كام ثانية ينتقل لشريحة جديدة (2-30)</p>
             </div>
             <div>

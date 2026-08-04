@@ -44,7 +44,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
       if (!wasStockTaken && willTakeStock) {
         for (const it of order.items) {
           const stock = await getStock(warehouseId, it.productId)
-          if (stock < it.quantity) {
+          if (stock < Number(it.quantity)) {
             throw new Error(`رصيد ${it.productName} مش كافي في المخزن`)
           }
         }
@@ -99,7 +99,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
       if (wasStockTaken && status === 'CANCELLED') {
         for (const it of order.items) {
           await tx.product.update({ where: { id: it.productId }, data: { quantity: { increment: it.quantity } } })
-          await adjustStock(tx, warehouseId, it.productId, it.quantity)
+          await adjustStock(tx, warehouseId, it.productId, Number(it.quantity))
           await tx.warehouseIn.create({
             data: {
               productId: it.productId,
@@ -142,7 +142,7 @@ export async function DELETE(_req: NextRequest, { params: rawParams }: { params:
       if (stockTaken) {
         for (const it of order.items) {
           await tx.product.update({ where: { id: it.productId }, data: { quantity: { increment: it.quantity } } })
-          await adjustStock(tx, warehouseId, it.productId, it.quantity)
+          await adjustStock(tx, warehouseId, it.productId, Number(it.quantity))
           await tx.warehouseIn.create({
             data: {
               productId: it.productId,

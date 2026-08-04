@@ -19,7 +19,7 @@ export default async function StockWarehousesReport({ searchParams: rawSearchPar
   const stockMap = new Map<string, Map<string, number>>()
   allStocks.forEach(s => {
     if (!stockMap.has(s.warehouseId)) stockMap.set(s.warehouseId, new Map())
-    stockMap.get(s.warehouseId)!.set(s.productId, s.quantity)
+    stockMap.get(s.warehouseId)!.set(s.productId, Number(s.quantity))
   })
 
   const warehouseStats = warehouses.map(w => {
@@ -35,7 +35,7 @@ export default async function StockWarehousesReport({ searchParams: rawSearchPar
         const val = qty * Number(p.costPrice)
         totalItems += qty
         totalValue += val
-        const isLow = qty <= p.minStock && p.minStock > 0
+        const isLow = qty <= Number(p.minStock) && Number(p.minStock) > 0
         if (isLow) lowStockCount++
         productRows.push({ name: p.name, unit: p.unit, qty, value: val, isLow })
       }

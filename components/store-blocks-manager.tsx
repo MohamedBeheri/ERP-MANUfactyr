@@ -124,7 +124,7 @@ export function StoreBlocksManager({ blocks }: { blocks: BlockRow[] }) {
           {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <input placeholder={isReview ? 'اسم العميل' : 'العنوان'} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputCls} />
-            <input placeholder="الترتيب" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
+            <input placeholder="الترتيب" type="text" inputMode="decimal" dir="ltr" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
           </div>
           <textarea placeholder={isReview ? 'رأي العميل' : 'الوصف'} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} rows={2} className={`${inputCls} resize-none`} />
           {isReview ? (

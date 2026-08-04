@@ -22,10 +22,10 @@ export default async function ProductionReport({ searchParams: rawSearchParams }
   })
 
   const totalOrders = productions.length
-  const totalRawUsed = productions.reduce((s, p) => s + p.rawUsed, 0)
-  const totalProduced = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + i.quantity, 0), 0)
-  const inputCost = productions.reduce((s, p) => s + p.inputs.reduce((a, inp) => a + inp.quantity * Number(inp.product.costPrice), 0), 0)
-  const outputValue = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + i.quantity * Number(i.product.costPrice), 0), 0)
+  const totalRawUsed = productions.reduce((s, p) => s + Number(p.rawUsed), 0)
+  const totalProduced = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + Number(i.quantity), 0), 0)
+  const inputCost = productions.reduce((s, p) => s + p.inputs.reduce((a, inp) => a + Number(inp.quantity) * Number(inp.product.costPrice), 0), 0)
+  const outputValue = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + Number(i.quantity) * Number(i.product.costPrice), 0), 0)
   const yieldRate = totalRawUsed > 0 ? pct(totalProduced, totalRawUsed) : 0
 
   // تجميع حسب العملية/المرحلة
@@ -34,8 +34,8 @@ export default async function ProductionReport({ searchParams: rawSearchParams }
     const key = p.operation?.name || p.stage || '—'
     const prev = byOpMap.get(key) || { count: 0, rawUsed: 0, produced: 0 }
     prev.count++
-    prev.rawUsed += p.rawUsed
-    prev.produced += p.items.reduce((a, i) => a + i.quantity, 0)
+    prev.rawUsed += Number(p.rawUsed)
+    prev.produced += p.items.reduce((a, i) => a + Number(i.quantity), 0)
     byOpMap.set(key, prev)
   })
   const byOp = Array.from(byOpMap.entries())
@@ -46,8 +46,8 @@ export default async function ProductionReport({ searchParams: rawSearchParams }
     p.inputs.forEach(inp => {
       const key = inp.product.name
       const prev = rawMap.get(key) || { qty: 0, cost: 0, unit: inp.product.unit }
-      prev.qty += inp.quantity
-      prev.cost += inp.quantity * Number(inp.product.costPrice)
+      prev.qty += Number(inp.quantity)
+      prev.cost += Number(inp.quantity) * Number(inp.product.costPrice)
       rawMap.set(key, prev)
     })
   })
@@ -59,8 +59,8 @@ export default async function ProductionReport({ searchParams: rawSearchParams }
     p.items.forEach(i => {
       const key = i.product.name
       const prev = outputMap.get(key) || { qty: 0, value: 0, unit: i.product.unit }
-      prev.qty += i.quantity
-      prev.value += i.quantity * Number(i.product.costPrice)
+      prev.qty += Number(i.quantity)
+      prev.value += Number(i.quantity) * Number(i.product.costPrice)
       outputMap.set(key, prev)
     })
   })
@@ -76,17 +76,17 @@ export default async function ProductionReport({ searchParams: rawSearchParams }
     <span key="o" className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-50 text-orange-600">{p.operation?.name || p.stage}</span>,
     <span key="i" className="text-xs text-gray-600">
       {p.inputs.length > 0
-        ? p.inputs.map(inp => `${inp.product.name} ${inp.quantity} ${inp.product.unit}`).join(' + ')
-        : p.rawProduct ? `${p.rawProduct.name} ${p.rawUsed} ${p.rawProduct.unit}` : `${p.rawUsed} كجم`
+        ? p.inputs.map(inp => `${inp.product.name} ${Number(inp.quantity)} ${inp.product.unit}`).join(' + ')
+        : p.rawProduct ? `${p.rawProduct.name} ${Number(p.rawUsed)} ${p.rawProduct.unit}` : `${Number(p.rawUsed)} كجم`
       }
     </span>,
-    <span key="out" className="text-xs text-green-700 font-semibold">{p.items.map(i => `${i.product.name} ×${i.quantity}`).join('، ')}</span>,
+    <span key="out" className="text-xs text-green-700 font-semibold">{p.items.map(i => `${i.product.name} ×${Number(i.quantity)}`).join('، ')}</span>,
     <span key="u" className="text-xs text-gray-400">{p.creator?.name || '—'}</span>,
   ])
   const exportRows = productions.map(p => [
     p.orderNo, dateShort(p.createdAt), p.operation?.name || p.stage,
-    p.inputs.length > 0 ? p.inputs.map(inp => `${inp.product.name} ${inp.quantity}`).join(' + ') : `${p.rawUsed}`,
-    p.items.map(i => `${i.product.name} ×${i.quantity}`).join(', '),
+    p.inputs.length > 0 ? p.inputs.map(inp => `${inp.product.name} ${Number(inp.quantity)}`).join(' + ') : `${Number(p.rawUsed)}`,
+    p.items.map(i => `${i.product.name} ×${Number(i.quantity)}`).join(', '),
     p.creator?.name || '—',
   ])
 
@@ -110,7 +110,7 @@ export default async function ProductionReport({ searchParams: rawSearchParams }
               <p className="text-xs text-gray-500">{op}</p>
               <p className="text-lg font-bold tabular-nums text-[#1a1a2e]">{data.count} أمر</p>
               <div className="mt-1 flex items-center gap-3 text-[11px] text-gray-500">
-                <span>خام: {fmt(data.rawUsed)}</span>
+                <span>خام: {fmt(Number(data.rawUsed))}</span>
                 <span>ناتج: {fmt(data.produced)}</span>
               </div>
             </div>

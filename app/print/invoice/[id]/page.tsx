@@ -21,8 +21,8 @@ export default async function InvoicePrintPage({ params: rawParams }: { params: 
   const remaining = Math.max(0, net - paid)
   const paidItems = inv.items.filter((it) => !it.isBonus)
   const bonusItems = inv.items.filter((it) => it.isBonus)
-  const soldQty = paidItems.reduce((s, it) => s + it.quantity, 0)
-  const bonusQty = bonusItems.reduce((s, it) => s + it.quantity, 0)
+  const soldQty = paidItems.reduce((s, it) => s + Number(it.quantity), 0)
+  const bonusQty = bonusItems.reduce((s, it) => s + Number(it.quantity), 0)
   // بونص نقاط الفئة المكتسب على الفاتورة دي (نفس حساب السيرفر)
   const bonusPct = inv.customer.tier ? Number(inv.customer.tier.bonusPercent) : 0
   const pointsEarned = bonusPct > 0 ? +((net * bonusPct) / 100).toFixed(2) : 0
@@ -50,7 +50,7 @@ export default async function InvoicePrintPage({ params: rawParams }: { params: 
         rows={inv.items.map((item, i) => [
           i + 1,
           item.isBonus ? `🎁 ${item.product.name} (هدية)` : item.product.name,
-          `${item.quantity} ${item.product.unit}`,
+          `${Number(item.quantity)} ${item.product.unit}`,
           item.isBonus ? 'هدية' : egp(Number(item.unitPrice)),
           item.isBonus ? '—' : egp(Number(item.totalPrice)),
         ])}
@@ -72,7 +72,7 @@ export default async function InvoicePrintPage({ params: rawParams }: { params: 
         {hasRewards ? (
           <ul style={{ margin: '6px 0 0', paddingInlineStart: 18 }}>
             {bonusItems.map((b) => (
-              <li key={b.id}>هدية مجانية: {b.quantity} {b.product.unit} {b.product.name}</li>
+              <li key={b.id}>هدية مجانية: {Number(b.quantity)} {b.product.unit} {b.product.name}</li>
             ))}
             {pointsEarned > 0 && (
               <li>بونص نقاط مكتسب: {pointsEarned.toLocaleString('ar-EG')} نقطة (فئة {inv.customer.tier?.name})</li>

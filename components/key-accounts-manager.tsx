@@ -327,8 +327,8 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
                     <option value="">اختار الصنف</option>
                     {products.map((pr) => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
                   </select>
-                  <input type="number" min="0" placeholder="كمية" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} className="w-16 shrink-0 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums" />
-                  <input type="number" min="0" step="0.01" placeholder="سعر" value={r.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} className={`w-20 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${low ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
+                  <input type="text" inputMode="decimal" dir="ltr" min="0" placeholder="كمية" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} className="w-16 shrink-0 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums" />
+                  <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="سعر" value={r.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} className={`w-20 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${low ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
                   {rows.length > 1 && <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} className="shrink-0 text-red-500"><X className="w-4 h-4" /></button>}
                 </div>
                 {p && p.minKeyPrice > 0 && (
@@ -351,7 +351,7 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1">نسبة الخصم %</label>
-              <input type="number" min="0" max="100" step="0.5" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} disabled={discountType === 'NONE'} className={`${inputCls} disabled:bg-gray-100`} placeholder="25" />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} disabled={discountType === 'NONE'} className={`${inputCls} disabled:bg-gray-100`} placeholder="25" />
             </div>
           </div>
           <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className={inputCls} />

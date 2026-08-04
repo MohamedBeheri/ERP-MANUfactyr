@@ -30,8 +30,8 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
     ])
 
     const updated = await prisma.$transaction(async (tx) => {
-      await adjustStock(tx as any, transfer.fromWarehouseId, transfer.productId, -transfer.quantity)
-      await adjustStock(tx as any, transfer.toWarehouseId, transfer.productId, transfer.quantity)
+      await adjustStock(tx as any, transfer.fromWarehouseId, transfer.productId, -Number(transfer.quantity))
+      await adjustStock(tx as any, transfer.toWarehouseId, transfer.productId, Number(transfer.quantity))
 
       await tx.warehouseOut.create({
         data: {

@@ -41,7 +41,7 @@ export default async function SupplyPrintPage({ params: rawParams }: { params: P
           i + 1,
           it.product.name,
           it.product.unit,
-          it.quantity,
+          Number(it.quantity),
           egp(Number(it.unitPrice)),
           egp(Number(it.totalPrice)),
         ])}

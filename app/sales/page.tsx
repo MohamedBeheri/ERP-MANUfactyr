@@ -71,7 +71,7 @@ export default async function SalesPage() {
           unit: p.unit,
           sellPrice: Number(p.sellPrice),
           wholesalePrice: Number(p.wholesalePrice),
-          quantity: p.quantity,
+          quantity: Number(p.quantity),
           categoryId: p.categoryId,
           imageUrl: p.imageUrl,
         }))}
@@ -121,7 +121,7 @@ export default async function SalesPage() {
                   <td className="p-3 font-semibold tabular-nums">{inv.invoiceNo}</td>
                   <td className="p-3">{inv.customer.name}</td>
                   <td className="p-3 text-gray-500 text-xs">
-                    {inv.items.map((i) => `${i.product.name} ×${i.quantity}`).join('، ')}
+                    {inv.items.map((i) => `${i.product.name} ×${Number(i.quantity)}`).join('، ')}
                   </td>
                   <td className="p-3 font-bold tabular-nums">{Number(inv.netAmount).toLocaleString('ar-EG')} ج.م</td>
                   <td className="p-3">

@@ -84,10 +84,10 @@ export function InvoiceForm({ customers, products }: Props) {
               <option value="">الصنف</option>
               {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.quantity})</option>)}
             </select>
-            <input type="number" min="1" placeholder="كمية" value={item.quantity}
+            <input type="text" inputMode="decimal" dir="ltr" min="1" placeholder="كمية" value={item.quantity}
               onChange={(e) => updateItem(i, 'quantity', e.target.value)}
               className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]" />
-            <input type="number" min="0" step="0.01" placeholder="سعر" value={item.unitPrice}
+            <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="سعر" value={item.unitPrice}
               onChange={(e) => updateItem(i, 'unitPrice', e.target.value)}
               className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]" />
           </div>
@@ -96,7 +96,7 @@ export function InvoiceForm({ customers, products }: Props) {
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-1">نسبة الخصم %</label>
-        <input type="number" min="0" max="100" value={discount} onChange={(e) => setDiscount(e.target.value)}
+        <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" value={discount} onChange={(e) => setDiscount(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]" />
       </div>
       <div className="flex gap-2">

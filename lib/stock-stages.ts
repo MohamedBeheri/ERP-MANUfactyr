@@ -79,7 +79,7 @@ export async function ensureStockStages() {
       if (!whId) continue
       // امسح أي أرصدة قديمة للصنف ده في مخازن تانية وحط رصيد واحد في مخزن مرحلته
       await tx.productStock.deleteMany({ where: { productId: p.id } })
-      if (p.quantity !== 0) {
+      if (Number(p.quantity) !== 0) {
         await tx.productStock.create({ data: { productId: p.id, warehouseId: whId, quantity: p.quantity } })
       }
     }

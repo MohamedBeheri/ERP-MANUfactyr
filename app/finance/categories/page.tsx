@@ -23,12 +23,12 @@ export default async function CategoriesReport({ searchParams: rawSearchParams }
   ])
 
   const map = new Map<string, Agg>()
-  const add = (it: { quantity: number; totalPrice: unknown; product: { costPrice: unknown; category: { name: string } | null } }) => {
+  const add = (it: { quantity: unknown; totalPrice: unknown; product: { costPrice: unknown; category: { name: string } | null } }) => {
     const name = it.product.category?.name || 'بدون فئة'
     const cur = map.get(name) || { name, qty: 0, revenue: 0, cost: 0 }
-    cur.qty += it.quantity
+    cur.qty += Number(it.quantity)
     cur.revenue += Number(it.totalPrice)
-    cur.cost += it.quantity * Number(it.product.costPrice)
+    cur.cost += Number(it.quantity) * Number(it.product.costPrice)
     map.set(name, cur)
   }
   invItems.forEach(add)

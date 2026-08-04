@@ -58,33 +58,33 @@ export default async function StockMovementReport({ searchParams: rawSearchParam
     ])
 
     ins.forEach(r => movements.push({
-      date: r.createdAt, type: 'وارد', qty: r.quantity,
+      date: r.createdAt, type: 'وارد', qty: Number(r.quantity),
       warehouse: r.warehouse?.name || '—', reference: r.source, user: r.creator.name,
     }))
     outs.forEach(r => movements.push({
-      date: r.createdAt, type: 'صادر', qty: -r.quantity,
+      date: r.createdAt, type: 'صادر', qty: -Number(r.quantity),
       warehouse: r.warehouse?.name || '—', reference: r.reason + (r.target ? ` — ${r.target}` : ''), user: r.creator.name,
     }))
     transfers.forEach(r => {
       movements.push({
-        date: r.createdAt, type: 'تحويل صادر', qty: -r.quantity,
+        date: r.createdAt, type: 'تحويل صادر', qty: -Number(r.quantity),
         warehouse: r.fromWarehouse.name, reference: `تحويل #${r.transferNo} → ${r.toWarehouse.name}`, user: r.creator.name,
       })
       movements.push({
-        date: r.createdAt, type: 'تحويل وارد', qty: r.quantity,
+        date: r.createdAt, type: 'تحويل وارد', qty: Number(r.quantity),
         warehouse: r.toWarehouse.name, reference: `تحويل #${r.transferNo} ← ${r.fromWarehouse.name}`, user: r.creator.name,
       })
     })
     invoiceItems.forEach(r => movements.push({
-      date: r.invoice.createdAt, type: 'بيع', qty: -r.quantity,
+      date: r.invoice.createdAt, type: 'بيع', qty: -Number(r.quantity),
       warehouse: '—', reference: `فاتورة #${r.invoice.invoiceNo}`, user: r.invoice.creator.name,
     }))
     prodInputs.forEach(r => movements.push({
-      date: r.production.createdAt, type: 'خامات إنتاج', qty: -r.quantity,
+      date: r.production.createdAt, type: 'خامات إنتاج', qty: -Number(r.quantity),
       warehouse: '—', reference: `تصنيع #${r.production.batchNo || ''}`, user: r.production.creator.name,
     }))
     prodItems.forEach(r => movements.push({
-      date: r.production.createdAt, type: 'ناتج إنتاج', qty: r.quantity,
+      date: r.production.createdAt, type: 'ناتج إنتاج', qty: Number(r.quantity),
       warehouse: '—', reference: `تصنيع #${r.production.batchNo || ''}`, user: r.production.creator.name,
     }))
 
@@ -124,7 +124,7 @@ export default async function StockMovementReport({ searchParams: rawSearchParam
 
   return (
     <ReportShell
-      title="حركة صنف" subtitle={selectedProduct ? `${selectedProduct.name} — الرصيد الحالي: ${selectedProduct.quantity} ${selectedProduct.unit}` : 'اختر صنفًا لعرض حركاته'}
+      title="حركة صنف" subtitle={selectedProduct ? `${selectedProduct.name} — الرصيد الحالي: ${Number(selectedProduct.quantity)} ${selectedProduct.unit}` : 'اختر صنفًا لعرض حركاته'}
       basePath="/finance/stock-movement" from={fromStr} to={toStr}
       exportName={`حركة-${selectedProduct?.name || 'صنف'}-${fromStr}_${toStr}`}
       exportHeaders={columns.map(c => c.header)} exportRows={exportRows}
@@ -143,7 +143,7 @@ export default async function StockMovementReport({ searchParams: rawSearchParam
             <select name="productId" defaultValue={productId}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-[#0f3460] outline-none">
               <option value="">— اختر صنف —</option>
-              {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.quantity} {p.unit})</option>)}
+              {products.map(p => <option key={p.id} value={p.id}>{p.name} ({Number(p.quantity)} {p.unit})</option>)}
             </select>
           </div>
           <input type="hidden" name="from" value={fromStr} />

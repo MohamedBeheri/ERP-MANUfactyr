@@ -28,7 +28,7 @@ export default async function PurchasePrintPage({ params: rawParams }: { params:
         rows={pur.items.map((item, i) => [
           i + 1,
           item.product.name,
-          item.quantity,
+          Number(item.quantity),
           item.product.unit,
           `${Number(item.unitPrice).toLocaleString('ar-EG')} ج.م`,
           `${Number(item.totalPrice).toLocaleString('ar-EG')} ج.م`,

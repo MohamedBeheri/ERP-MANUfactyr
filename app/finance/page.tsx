@@ -163,8 +163,8 @@ export default async function ReportsPage({ searchParams: rawSearchParams }: { s
   const netSales = +(invNet + supplyNet - salesReturns).toFixed(2)
   const totalRevenue = +netSales.toFixed(2)
 
-  const cogsInvoices = invItemsCogs.reduce((s, i) => s + i.quantity * Number(i.product.costPrice), 0)
-  const cogsSupplies = supplyItemsCogs.reduce((s, i) => s + i.quantity * Number(i.product.costPrice), 0)
+  const cogsInvoices = invItemsCogs.reduce((s, i) => s + Number(i.quantity) * Number(i.product.costPrice), 0)
+  const cogsSupplies = supplyItemsCogs.reduce((s, i) => s + Number(i.quantity) * Number(i.product.costPrice), 0)
   const totalCogs = +(cogsInvoices + cogsSupplies).toFixed(2)
   const grossProfit = +(totalRevenue - totalCogs).toFixed(2)
 
@@ -200,16 +200,16 @@ export default async function ReportsPage({ searchParams: rawSearchParams }: { s
   const totalReceivable = receivableCustomers + receivableKA
 
   // ===== المخزون =====
-  const stockValue = products.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0)
+  const stockValue = products.reduce((s, p) => s + Number(p.quantity) * Number(p.costPrice), 0)
   const rawProducts = products.filter(p => p.type === 'RAW')
   const finishedProducts = products.filter(p => p.type !== 'RAW')
-  const lowStockCount = products.filter(p => p.quantity <= p.minStock && p.quantity > 0).length
-  const outOfStockCount = products.filter(p => p.quantity <= 0).length
+  const lowStockCount = products.filter(p => Number(p.quantity) <= Number(p.minStock) && Number(p.quantity) > 0).length
+  const outOfStockCount = products.filter(p => Number(p.quantity) <= 0).length
 
   // ===== التصنيع =====
-  const totalProduced = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + i.quantity, 0), 0)
-  const totalRawUsed = productions.reduce((s, p) => s + p.rawUsed, 0)
-  const productionCost = productionInputs.reduce((s, inp) => s + inp.quantity * Number(inp.product.costPrice), 0)
+  const totalProduced = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + Number(i.quantity), 0), 0)
+  const totalRawUsed = productions.reduce((s, p) => s + Number(p.rawUsed), 0)
+  const productionCost = productionInputs.reduce((s, inp) => s + Number(inp.quantity) * Number(inp.product.costPrice), 0)
   const yieldRate = totalRawUsed > 0 ? pct(totalProduced, totalRawUsed) : 0
 
   // ===== المناديب =====
@@ -217,7 +217,7 @@ export default async function ReportsPage({ searchParams: rawSearchParams }: { s
   const delegateCredit = delegates.reduce((s, d) => s + d.settlements.reduce((a, st) => a + Number(st.creditAmount), 0), 0)
   const delegateCommission = delegates.reduce((s, d) => s + d.settlements.reduce((a, st) => a + Number(st.commission), 0), 0)
   const delegateSales = delegates.reduce((s, d) => s + d.invoices.reduce((a, inv) => a + Number(inv.netAmount), 0), 0)
-  const delegateReturns = delegates.reduce((s, d) => s + d.settlements.reduce((a, st) => a + st.returnedQty, 0), 0)
+  const delegateReturns = delegates.reduce((s, d) => s + d.settlements.reduce((a, st) => a + Number(st.returnedQty), 0), 0)
 
   // ===== التدفقات النقدية =====
   const cfIn = cashFlows.filter(c => c.type === 'IN').reduce((s, c) => s + Number(c.amount), 0)
@@ -437,8 +437,8 @@ export default async function ReportsPage({ searchParams: rawSearchParams }: { s
           <SectionHeader icon={Package} title="المخزون" badge="لحظي" iconColor="text-purple-600" />
           <div className="space-y-2.5">
             <div className="flex items-center justify-between"><span className="text-sm text-gray-500">قيمة المخزون بالتكلفة</span><span className="text-sm font-bold tabular-nums text-[#0f3460]">{money(stockValue)}</span></div>
-            <div className="flex items-center justify-between"><span className="text-sm text-gray-500">خامات ({rawProducts.length} صنف)</span><span className="text-sm font-bold tabular-nums">{money(rawProducts.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0))}</span></div>
-            <div className="flex items-center justify-between"><span className="text-sm text-gray-500">منتجات نهائية ({finishedProducts.length} صنف)</span><span className="text-sm font-bold tabular-nums">{money(finishedProducts.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0))}</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm text-gray-500">خامات ({rawProducts.length} صنف)</span><span className="text-sm font-bold tabular-nums">{money(rawProducts.reduce((s, p) => s + Number(p.quantity) * Number(p.costPrice), 0))}</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm text-gray-500">منتجات نهائية ({finishedProducts.length} صنف)</span><span className="text-sm font-bold tabular-nums">{money(finishedProducts.reduce((s, p) => s + Number(p.quantity) * Number(p.costPrice), 0))}</span></div>
             <div className="flex items-center gap-3 mt-2">
               {lowStockCount > 0 && <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-700 font-semibold"><AlertTriangle className="w-3 h-3" />{lowStockCount} تحت الحد</span>}
               {outOfStockCount > 0 && <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600 font-semibold"><AlertTriangle className="w-3 h-3" />{outOfStockCount} نفذ</span>}
@@ -465,7 +465,7 @@ export default async function ReportsPage({ searchParams: rawSearchParams }: { s
                 {productions.slice(0, 5).map(p => (
                   <div key={p.id} className="flex items-center justify-between py-1 text-xs">
                     <span className="text-gray-600">{p.orderNo} — {p.operation?.name || p.stage}</span>
-                    <span className="tabular-nums text-gray-500">{p.items.map(i => `${i.product.name} ×${i.quantity}`).join('، ')}</span>
+                    <span className="tabular-nums text-gray-500">{p.items.map(i => `${i.product.name} ×${Number(i.quantity)}`).join('، ')}</span>
                   </div>
                 ))}
               </div>
@@ -560,8 +560,8 @@ export default async function ReportsPage({ searchParams: rawSearchParams }: { s
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {warehouses.map(w => {
-            const whValue = w.stocks.reduce((s, st) => s + st.quantity * Number(st.product.costPrice), 0)
-            const itemCount = w.stocks.filter(s => s.quantity > 0).length
+            const whValue = w.stocks.reduce((s, st) => s + Number(st.quantity) * Number(st.product.costPrice), 0)
+            const itemCount = w.stocks.filter(s => Number(s.quantity) > 0).length
             return (
               <div key={w.id} className="border border-gray-100 rounded-lg p-4">
                 <p className="font-bold text-sm flex items-center gap-2">

@@ -273,7 +273,7 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الائتماني (للجملة)</label>
-              <input type="number" min="0" value={form.creditLimit} onChange={(e) => setForm({ ...form, creditLimit: e.target.value })} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" value={form.creditLimit} onChange={(e) => setForm({ ...form, creditLimit: e.target.value })} className={inputCls} />
             </div>
             <button onClick={saveEdit} disabled={saving} className="w-full bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] disabled:opacity-50 text-sm">
               {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}

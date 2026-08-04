@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const b = await req.json()
-    const outputKg = Math.round(Number(b.outputKg) || 0)
+    const outputKg = Math.round((Number(b.outputKg) || 0) * 1000) / 1000
     if (!b.blendId || outputKg <= 0) return NextResponse.json({ error: 'اختار التوليفة والكمية الناتجة' }, { status: 400 })
 
     const blend = await prisma.product.findUnique({

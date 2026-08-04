@@ -23,11 +23,11 @@ export default async function ItemsReport({ searchParams: rawSearchParams }: { s
   ])
 
   const map = new Map<string, Agg>()
-  const add = (it: { productId: string; quantity: number; totalPrice: unknown; product: { name: string; unit: string; costPrice: unknown } }) => {
+  const add = (it: { productId: string; quantity: unknown; totalPrice: unknown; product: { name: string; unit: string; costPrice: unknown } }) => {
     const cur = map.get(it.productId) || { name: it.product.name, unit: it.product.unit, qty: 0, revenue: 0, cost: 0 }
-    cur.qty += it.quantity
+    cur.qty += Number(it.quantity)
     cur.revenue += Number(it.totalPrice)
-    cur.cost += it.quantity * Number(it.product.costPrice)
+    cur.cost += Number(it.quantity) * Number(it.product.costPrice)
     map.set(it.productId, cur)
   }
   invItems.forEach(add)

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
 
   try {
     const b = await req.json()
-    const actualBags = Math.round(Number(b.actualBags))
+    const actualBags = Math.round(Number(b.actualBags) * 1000) / 1000
     if (!(actualBags > 0)) return NextResponse.json({ error: 'اكتب عدد الأكياس/العبوات الفعلية' }, { status: 400 })
 
     const production = await prisma.production.findUnique({
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const finProduct = finItem.product
     const gramsPerPiece = Number(finProduct.gramsPerPiece) || 0
     const tareWeight = Number(finProduct.packaging?.tareWeight || 0)
-    const pullGrams = production.inputWeight * 1000
+    const pullGrams = Number(production.inputWeight) * 1000
 
     // حساب الهدر التلقائي
     const coffeeUsedGrams = actualBags * gramsPerPiece
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const wasteGrams = pullGrams - coffeeUsedGrams - tareUsedGrams
     const wasteKg = Math.max(0, wasteGrams / 1000)
     const outputKg = coffeeUsedGrams / 1000
-    const wastePct = production.inputWeight > 0 ? +((wasteKg / production.inputWeight) * 100).toFixed(2) : 0
+    const wastePct = Number(production.inputWeight) > 0 ? +((wasteKg / Number(production.inputWeight)) * 100).toFixed(2) : 0
 
     const finWh = await warehouseForStage(finProduct.stageId)
 

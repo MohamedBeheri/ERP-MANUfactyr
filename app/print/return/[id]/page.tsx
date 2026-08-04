@@ -42,7 +42,7 @@ export default async function ReturnPrintPage({ params: rawParams }: { params: P
             rows={r.invoice.items.map((it, i) => [
               i + 1,
               it.isBonus ? `🎁 ${it.product.name} (هدية)` : it.product.name,
-              `${it.quantity} ${it.product.unit}`,
+              `${Number(it.quantity)} ${it.product.unit}`,
               it.isBonus ? 'هدية' : egp(Number(it.unitPrice)),
               it.isBonus ? '—' : egp(Number(it.totalPrice)),
             ])}
@@ -57,7 +57,7 @@ export default async function ReturnPrintPage({ params: rawParams }: { params: P
           i + 1,
           it.isBonus ? `🎁 ${it.product.name} (هدية)` : it.product.name,
           it.product.unit,
-          it.quantity,
+          Number(it.quantity),
           it.isBonus ? 'هدية' : egp(Number(it.unitPrice)),
           it.isBonus ? '—' : egp(Number(it.totalPrice)),
         ])}

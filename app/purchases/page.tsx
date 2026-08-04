@@ -92,7 +92,7 @@ export default async function PurchasesPage() {
                       <div className="flex flex-wrap gap-1">
                         {pur.items.map((item) => (
                           <span key={item.id} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
-                            {item.product.name} {item.quantity} {item.product.unit}
+                            {item.product.name} {Number(item.quantity)} {item.product.unit}
                           </span>
                         ))}
                       </div>

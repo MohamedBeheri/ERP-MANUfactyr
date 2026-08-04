@@ -154,7 +154,7 @@ export default function StockTransfersPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">الكمية</label>
-                <input type="number" min={1} max={availableStock ?? undefined} value={quantity} onChange={e => setQuantity(e.target.value)} required
+                <input type="text" inputMode="decimal" dir="ltr" min={1} max={availableStock ?? undefined} value={quantity} onChange={e => setQuantity(e.target.value)} required
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-[#0f3460] outline-none" placeholder="0" />
               </div>
               <div>

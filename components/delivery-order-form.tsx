@@ -132,7 +132,7 @@ export function DeliveryOrderForm({
               ))}
             </select>
             <input
-              type="number"
+              type="text" inputMode="decimal" dir="ltr"
               min="1"
               placeholder="الكمية"
               value={row.quantity}

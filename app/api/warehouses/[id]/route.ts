@@ -38,7 +38,7 @@ export async function DELETE(_req: NextRequest, { params: rawParams }: { params:
       where: { warehouseId: params.id },
       _sum: { quantity: true },
     })
-    if ((stockCount._sum.quantity || 0) > 0) {
+    if (Number(stockCount._sum.quantity || 0) > 0) {
       return NextResponse.json(
         { error: 'مينفعش حذف مخزن لسه فيه بضاعة — انقل الرصيد الأول' },
         { status: 400 }

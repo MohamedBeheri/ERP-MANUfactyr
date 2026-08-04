@@ -81,15 +81,15 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
     const invDelivered = deliveryOrder.invoices
       .flatMap((inv) => inv.items)
       .filter((invItem) => invItem.productId === item.productId)
-      .reduce((sum, invItem) => sum + invItem.quantity, 0)
+      .reduce((sum, invItem) => sum + Number(invItem.quantity), 0)
     const supDelivered = deliveryOrder.keyAccountSupplies
       .flatMap((sp) => sp.items)
       .filter((it) => it.productId === item.productId)
-      .reduce((sum, it) => sum + it.quantity, 0)
+      .reduce((sum, it) => sum + Number(it.quantity), 0)
     const returnedToVan = deliveryOrder.returns
       .flatMap((r) => r.items)
       .filter((it) => it.productId === item.productId)
-      .reduce((sum, it) => sum + it.quantity, 0)
+      .reduce((sum, it) => sum + Number(it.quantity), 0)
     const delivered = invDelivered + supDelivered
 
     return {
@@ -99,9 +99,9 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
       sellPrice: Number(item.product.sellPrice),
       wholesalePrice: Number(item.product.wholesalePrice),
       minKeyPrice: Number(item.product.minKeyPrice),
-      loaded: item.quantity,
+      loaded: Number(item.quantity),
       delivered,
-      remaining: item.quantity - delivered + returnedToVan,
+      remaining: Number(item.quantity) - delivered + returnedToVan,
     }
   })
 
@@ -110,7 +110,7 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
   for (const sp of deliveryOrder.keyAccountSupplies) {
     const key = sp.branchId
     const prev = supplyByBranch.get(key) || { branch: sp.branch.name, account: sp.keyAccount.name, qty: 0, net: 0 }
-    prev.qty += sp.items.reduce((s, it) => s + it.quantity, 0)
+    prev.qty += sp.items.reduce((s, it) => s + Number(it.quantity), 0)
     prev.net += Number(sp.netAmount)
     supplyByBranch.set(key, prev)
   }
@@ -261,7 +261,7 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                     <p className="text-xs text-gray-400 tabular-nums">{inv.invoiceNo}</p>
                     {bonusItems.map((b) => (
                       <p key={b.id} className="text-[11px] text-amber-700 flex items-center gap-1 mt-0.5">
-                        🎁 هدية: {b.quantity} {b.product.unit} {b.product.name}
+                        🎁 هدية: {Number(b.quantity)} {b.product.unit} {b.product.name}
                       </p>
                     ))}
                     {inv.invoiceNotes && <p className="text-[11px] text-gray-500 mt-0.5">📝 {inv.invoiceNotes}</p>}
@@ -338,7 +338,7 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                     <div className="min-w-0">
                       <p className="font-semibold text-sm truncate">{r.customer?.name || r.customerName || 'عميل'}</p>
                       <p className="text-[11px] text-gray-400">
-                        {r.returnNo} · {r.items.map((it) => `${it.product.name} ×${it.quantity}`).join('، ')} · {r.refundCash ? 'رد نقدي' : 'خصم آجل'}
+                        {r.returnNo} · {r.items.map((it) => `${it.product.name} ×${Number(it.quantity)}`).join('، ')} · {r.refundCash ? 'رد نقدي' : 'خصم آجل'}
                       </p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
@@ -387,17 +387,17 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">المباع</span>
-                <span className="font-semibold tabular-nums">{deliveryOrder.settlement.soldQty}</span>
+                <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.soldQty)}</span>
               </div>
-              {deliveryOrder.settlement.bonusQty > 0 && (
+              {Number(deliveryOrder.settlement.bonusQty) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">🎁 هدايا/بونص</span>
-                  <span className="font-semibold text-amber-700 tabular-nums">{deliveryOrder.settlement.bonusQty}</span>
+                  <span className="font-semibold text-amber-700 tabular-nums">{Number(deliveryOrder.settlement.bonusQty)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">المرتجع</span>
-                <span className="font-semibold tabular-nums">{deliveryOrder.settlement.returnedQty}</span>
+                <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.returnedQty)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">نقدي</span>

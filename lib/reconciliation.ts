@@ -58,7 +58,7 @@ export async function computeReconciliation(from: Date, to: Date, channel?: stri
       for (const inp of p.inputs) {
         if (inp.product.itemKind === 'GREEN') {
           const g = greens.get(inp.productId) || { name: inp.product.name, kg: 0, roastLoss: Number(inp.product.roastLossPercent) }
-          g.kg += inp.quantity
+          g.kg += Number(inp.quantity)
           greens.set(inp.productId, g)
         }
       }
@@ -66,9 +66,9 @@ export async function computeReconciliation(from: Date, to: Date, channel?: stri
       if (p.status === 'COMPLETED') {
         for (const it of p.items) {
           const r = roasted.get(it.productId) || { name: it.product.name, kg: 0, wasteKg: 0, inputKg: 0 }
-          r.kg += it.quantity
-          r.wasteKg += p.wasteWeight
-          r.inputKg += p.inputWeight
+          r.kg += Number(it.quantity)
+          r.wasteKg += Number(p.wasteWeight)
+          r.inputKg += Number(p.inputWeight)
           roasted.set(it.productId, r)
         }
       }
@@ -81,16 +81,16 @@ export async function computeReconciliation(from: Date, to: Date, channel?: stri
         const k = inp.product.itemKind
         if (k === 'SPICE' || k === 'FLAVOR') {
           const s = spices.get(inp.productId) || { name: inp.product.name, kg: 0 }
-          s.kg += inp.quantity
+          s.kg += Number(inp.quantity)
           spices.set(inp.productId, s)
         }
       }
       // مخرجات التوليف
       for (const it of p.items) {
         const bl = blends.get(it.productId) || { name: it.product.name, output: 0, waste: 0, input: 0 }
-        bl.output += it.quantity
-        bl.waste += p.wasteWeight
-        bl.input += p.inputWeight
+        bl.output += Number(it.quantity)
+        bl.waste += Number(p.wasteWeight)
+        bl.input += Number(p.inputWeight)
         blends.set(it.productId, bl)
       }
     }
@@ -100,16 +100,16 @@ export async function computeReconciliation(from: Date, to: Date, channel?: stri
       for (const inp of p.inputs) {
         if (inp.product.itemKind === 'PACKAGING') {
           const pk = packaging.get(inp.productId) || { name: inp.product.name, pieces: 0 }
-          pk.pieces += inp.quantity
+          pk.pieces += Number(inp.quantity)
           packaging.set(inp.productId, pk)
         }
       }
       for (const it of p.items) {
         const f = finished.get(it.productId) || { name: it.product.name, bags: 0, coffeeKg: 0, wasteKg: 0, inputKg: 0 }
-        f.bags += it.quantity
-        f.coffeeKg += p.inputWeight
-        f.wasteKg += p.wasteWeight
-        f.inputKg += p.inputWeight
+        f.bags += Number(it.quantity)
+        f.coffeeKg += Number(p.inputWeight)
+        f.wasteKg += Number(p.wasteWeight)
+        f.inputKg += Number(p.inputWeight)
         finished.set(it.productId, f)
       }
     }

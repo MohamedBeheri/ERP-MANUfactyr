@@ -33,7 +33,7 @@ export async function GET(_req: NextRequest, { params: rawParams }: { params: Pr
         isBonus: it.isBonus,
         unitPrice: Number(it.unitPrice),
         sold: it.quantity,
-        returned: it.returnItems.reduce((s, r) => s + r.quantity, 0),
+        returned: it.returnItems.reduce((s, r) => s + Number(r.quantity), 0),
         rewardRuleId: it.rewardRuleId,
         rule: it.rewardRule
           ? { qualifyingProductId: it.rewardRule.productId, buyQuantity: it.rewardRule.buyQuantity, freeQuantity: it.rewardRule.freeQuantity, repeat: it.rewardRule.repeat }

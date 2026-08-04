@@ -139,8 +139,8 @@ export function KeyAccountSupplyForm({
                   <option value="">اختار الصنف</option>
                   {available.map((p) => <option key={p.productId} value={p.productId}>{p.productName} (متبقي {p.remaining})</option>)}
                 </select>
-                <input type="number" min="1" placeholder="كمية" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} className={`w-16 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${over ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
-                <input type="number" min="0" step="0.01" placeholder="سعر" value={r.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} className={`w-20 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${low ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
+                <input type="text" inputMode="decimal" dir="ltr" min="1" placeholder="كمية" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} className={`w-16 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${over ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
+                <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="سعر" value={r.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} className={`w-20 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${low ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
                 {rows.length > 1 && <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} className="shrink-0 text-red-500"><X className="w-4 h-4" /></button>}
               </div>
               {r.productId && (low || over) && (
@@ -160,7 +160,7 @@ export function KeyAccountSupplyForm({
           <option value="NONE">بدون خصم</option>
           <option value="CASH">خصم نقدي (مصر فلوس)</option>
         </select>
-        <input type="number" min="0" max="100" step="0.5" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} disabled={discountType === 'NONE'} className={`${inputCls} disabled:bg-gray-100`} placeholder="نسبة %" />
+        <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} disabled={discountType === 'NONE'} className={`${inputCls} disabled:bg-gray-100`} placeholder="نسبة %" />
       </div>
       <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className={inputCls} />
 

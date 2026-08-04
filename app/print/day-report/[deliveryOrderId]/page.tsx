@@ -23,7 +23,7 @@ export default async function DayReportPrintPage({ params: rawParams }: { params
   // بنود الفواتير: المدفوع + الأصناف المباعة (بدون البونص)
   const invoiceRows = order.invoices.map((inv, i) => {
     const paidItems = inv.items.filter((it) => !it.isBonus)
-    const desc = paidItems.map((it) => `${it.product.name} ×${it.quantity}`).join('، ')
+    const desc = paidItems.map((it) => `${it.product.name} ×${Number(it.quantity)}`).join('، ')
     return [
       i + 1,
       inv.customer.name,
@@ -40,7 +40,7 @@ export default async function DayReportPrintPage({ params: rawParams }: { params
   for (const inv of order.invoices) {
     for (const it of inv.items.filter((x) => x.isBonus)) {
       const prev = bonusMap.get(it.productId) || { name: it.product.name, unit: it.product.unit, qty: 0 }
-      prev.qty += it.quantity
+      prev.qty += Number(it.quantity)
       bonusMap.set(it.productId, prev)
     }
   }
@@ -51,7 +51,7 @@ export default async function DayReportPrintPage({ params: rawParams }: { params
   const returnRows = order.returns.map((r, i) => [
     i + 1,
     r.customer?.name || r.customerName || '—',
-    r.items.map((it) => `${it.product.name} ×${it.quantity}`).join('، '),
+    r.items.map((it) => `${it.product.name} ×${Number(it.quantity)}`).join('، '),
     egp(Number(r.totalValue)),
     r.refundCash ? 'رد نقدي' : 'خصم آجل',
   ])
@@ -60,7 +60,7 @@ export default async function DayReportPrintPage({ params: rawParams }: { params
   const supplyRows = order.keyAccountSupplies.map((s, i) => [
     i + 1,
     `${s.keyAccount.name} — ${s.branch.name}`,
-    s.items.reduce((a, it) => a + it.quantity, 0),
+    s.items.reduce((a, it) => a + Number(it.quantity), 0),
     egp(Number(s.netAmount)),
   ])
 

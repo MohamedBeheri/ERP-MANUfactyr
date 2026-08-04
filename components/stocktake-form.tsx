@@ -132,7 +132,7 @@ export function StocktakeForm({ products, warehouses }: { products: ProductRow[]
                 </span>
               )}
               <input
-                type="number"
+                type="text" inputMode="decimal" dir="ltr"
                 min="0"
                 placeholder="الفعلي"
                 value={counted || ''}

@@ -53,16 +53,16 @@ export default async function ProducePage() {
 
   const [roastAgg, gbAgg, packAgg] = kpiAgg
   const kpi = {
-    greenIn: roastAgg._sum.inputWeight || 0,
-    roastedOut: roastAgg._sum.outputWeight || 0,
-    roastWaste: roastAgg._sum.wasteWeight || 0,
+    greenIn: Number(roastAgg._sum.inputWeight) || 0,
+    roastedOut: Number(roastAgg._sum.outputWeight) || 0,
+    roastWaste: Number(roastAgg._sum.wasteWeight) || 0,
     roastCount: roastAgg._count,
-    grindIn: gbAgg._sum.inputWeight || 0,
-    grindOut: gbAgg._sum.outputWeight || 0,
-    grindWaste: gbAgg._sum.wasteWeight || 0,
-    packCoffee: packAgg._sum.inputWeight || 0, // كجم بن استُهلك في التعبئة
-    packUnits: packAgg._sum.outputWeight || 0, // عدد العبوات
-    packWaste: packAgg._sum.wasteWeight || 0,
+    grindIn: Number(gbAgg._sum.inputWeight) || 0,
+    grindOut: Number(gbAgg._sum.outputWeight) || 0,
+    grindWaste: Number(gbAgg._sum.wasteWeight) || 0,
+    packCoffee: Number(packAgg._sum.inputWeight) || 0, // كجم بن استُهلك في التعبئة
+    packUnits: Number(packAgg._sum.outputWeight) || 0, // عدد العبوات
+    packWaste: Number(packAgg._sum.wasteWeight) || 0,
   }
 
   const stageOf = (orderNo: string) =>
@@ -81,11 +81,11 @@ export default async function ProducePage() {
       </div>
 
       <FactoryProduction
-        greens={greens.map((g) => ({ id: g.id, name: g.name, quantity: g.quantity, roastLoss: Number(g.roastLossPercent) }))}
+        greens={greens.map((g) => ({ id: g.id, name: g.name, quantity: Number(g.quantity), roastLoss: Number(g.roastLossPercent) }))}
         blends={blends.map((b) => ({
           id: b.id,
           name: b.name,
-          quantity: b.quantity,
+          quantity: Number(b.quantity),
           components: b.blendComponents.map((c) => ({
             name: c.component.name,
             kind: c.component.itemKind,
@@ -106,9 +106,9 @@ export default async function ProducePage() {
           packagingName: f.packaging?.name || null,
         }))}
         availableIngredients={[
-          ...roastedAll.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, kind: 'ROASTED' as const })),
-          ...flavorAll.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, kind: 'FLAVOR' as const })),
-          ...spiceAll.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, kind: 'SPICE' as const })),
+          ...roastedAll.map((p) => ({ id: p.id, name: p.name, quantity: Number(p.quantity), kind: 'ROASTED' as const })),
+          ...flavorAll.map((p) => ({ id: p.id, name: p.name, quantity: Number(p.quantity), kind: 'FLAVOR' as const })),
+          ...spiceAll.map((p) => ({ id: p.id, name: p.name, quantity: Number(p.quantity), kind: 'SPICE' as const })),
         ]}
         productions={productions.map((p) => ({
           id: p.id,
@@ -118,10 +118,10 @@ export default async function ProducePage() {
           stageDetail: p.stage,
           roastLevel: p.roastLevel,
           grindType: p.grindType,
-          output: p.items.map((i) => `${i.product.name} ×${i.quantity}`).join('، '),
-          inputWeight: p.inputWeight,
-          outputWeight: p.outputWeight,
-          wasteWeight: p.wasteWeight,
+          output: p.items.map((i) => `${i.product.name} ×${Number(i.quantity)}`).join('، '),
+          inputWeight: Number(p.inputWeight),
+          outputWeight: Number(p.outputWeight),
+          wasteWeight: Number(p.wasteWeight),
           wastePercent: Number(p.wastePercent),
           wasteExceeded: p.wasteExceeded,
           channel: p.channel,

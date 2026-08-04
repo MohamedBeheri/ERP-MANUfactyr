@@ -29,8 +29,8 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
       meta={[
         { label: 'المندوب', value: settlement.delegate.name },
         { label: 'رقم العربية', value: settlement.delegate.carNumber || '—' },
-        { label: 'المباع', value: `${settlement.soldQty} وحدة` },
-        { label: 'المرتجع', value: `${settlement.returnedQty} وحدة` },
+        { label: 'المباع', value: `${Number(settlement.soldQty)} وحدة` },
+        { label: 'المرتجع', value: `${Number(settlement.returnedQty)} وحدة` },
         { label: 'تمت بواسطة', value: settlement.creator.name },
       ]}
       footerNote={settlement.notes ? `ملاحظات: ${settlement.notes}` : undefined}
@@ -76,7 +76,7 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
                     {inv.items.map((it) => (
                       <tr key={it.id} style={{ borderTop: '1px solid #f3f4f6' }}>
                         <td style={{ padding: '4px 12px' }}>{it.isBonus ? `🎁 ${it.product.name} (هدية)` : it.product.name}</td>
-                        <td style={{ padding: '4px 12px' }}>{it.quantity} {it.product.unit}</td>
+                        <td style={{ padding: '4px 12px' }}>{Number(it.quantity)} {it.product.unit}</td>
                         <td style={{ padding: '4px 12px' }}>{it.isBonus ? 'هدية' : `${Number(it.unitPrice).toLocaleString('ar-EG')} ج.م`}</td>
                         <td style={{ padding: '4px 12px' }}>{it.isBonus ? '—' : `${Number(it.totalPrice).toLocaleString('ar-EG')} ج.م`}</td>
                       </tr>

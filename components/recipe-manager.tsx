@@ -151,7 +151,7 @@ export function RecipeManager({ recipes, products, canAdd = true, canEdit = true
                   {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <input
-                  type="number" min="0" max="100" step="0.5" placeholder="%"
+                  type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" placeholder="%"
                   value={it.percentage}
                   onChange={(e) => setForm({ ...form, items: form.items.map((x: any, j: number) => (j === i ? { ...x, percentage: e.target.value } : x)) })}
                   className="w-20 shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
@@ -171,7 +171,7 @@ export function RecipeManager({ recipes, products, canAdd = true, canEdit = true
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">نسبة الهدر المتوقعة %</label>
-              <input type="number" min="0" max="100" step="0.5" value={form.expectedWaste} onChange={(e) => setForm({ ...form, expectedWaste: e.target.value })} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" value={form.expectedWaste} onChange={(e) => setForm({ ...form, expectedWaste: e.target.value })} className={inputCls} />
             </div>
             <input placeholder="ملاحظات" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={`${inputCls} self-end`} />
           </div>

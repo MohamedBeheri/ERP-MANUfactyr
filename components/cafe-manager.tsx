@@ -171,7 +171,7 @@ function MaterialsTab({ materials, categories, canAdd, canDelete, router }: any)
               </select>
               <div className="grid grid-cols-2 gap-2">
                 <input className={inputCls} placeholder="الوحدة" value={unit} onChange={(e) => setUnit(e.target.value)} />
-                <input className={inputCls} placeholder="سعر التكلفة" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
+                <input className={inputCls} placeholder="سعر التكلفة" type="text" inputMode="decimal" dir="ltr" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
               </div>
               <button onClick={submit} disabled={loading} className="w-full bg-[#e94560] text-white py-2 rounded-lg text-sm font-bold disabled:opacity-50">
                 {loading ? 'جارٍ الحفظ...' : 'حفظ الخامة'}
@@ -298,7 +298,7 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
               </select>
               <div className="grid grid-cols-2 gap-2">
                 <input className={inputCls} placeholder="الوحدة" value={unit} onChange={(e) => setUnit(e.target.value)} />
-                <input className={inputCls} placeholder="سعر البيع" type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
+                <input className={inputCls} placeholder="سعر البيع" type="text" inputMode="decimal" dir="ltr" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
               </div>
               <button onClick={submit} disabled={loading} className="w-full bg-[#e94560] text-white py-2 rounded-lg text-sm font-bold disabled:opacity-50">
                 {loading ? 'جارٍ الحفظ...' : 'حفظ المنتج'}
@@ -358,7 +358,7 @@ function RecipeEditor({ productId, recipe, materials, canEdit, router }: any) {
           </select>
           <input
             className="w-28 shrink-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
-            type="number"
+            type="text" inputMode="decimal" dir="ltr"
             placeholder="الكمية"
             value={l.quantity}
             onChange={(e) => updateLine(i, 'quantity', e.target.value)}

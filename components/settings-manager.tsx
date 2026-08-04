@@ -287,7 +287,7 @@ function SuppliersTab({ suppliers }: { suppliers: Supplier[] }) {
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">التقييم (1-5)</label>
-            <input type="number" min="1" max="5" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })} className={inputCls} />
+            <input type="text" inputMode="decimal" dir="ltr" min="1" max="5" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })} className={inputCls} />
           </div>
         </div>
         <div className="flex gap-2">
@@ -390,7 +390,7 @@ function StockStagesTab({ stages, warehouses }: { stages: StockStageRow[]; wareh
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">الترتيب</label>
-          <input type="number" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
+          <input type="text" inputMode="decimal" dir="ltr" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
           <input type="checkbox" checked={form.purchasable} onChange={(e) => setForm({ ...form, purchasable: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
@@ -506,7 +506,7 @@ function OperationsTab({ operations, stages }: { operations: OperationRow[]; sta
         </label>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">حد الهدر الأقصى المسموح % (لو التشغيلة عدّته: إشعار للأدمن وتتعلّم بالأحمر — سيبه فاضي = بدون حد)</label>
-          <input type="number" min="0" max="100" step="0.5" value={form.maxWastePercent} onChange={(e) => setForm({ ...form, maxWastePercent: e.target.value })} placeholder="مثال: 12" className={inputCls} />
+          <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" value={form.maxWastePercent} onChange={(e) => setForm({ ...form, maxWastePercent: e.target.value })} placeholder="مثال: 12" className={inputCls} />
         </div>
         <div className="flex gap-2">
           <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
@@ -601,16 +601,16 @@ function TiersTab({ tiers }: { tiers: TierRow[] }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">خصم إضافي %</label>
-            <input type="number" min="0" max="100" step="0.5" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} className={inputCls} />
+            <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} className={inputCls} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">نسبة البونص %</label>
-            <input type="number" min="0" max="100" step="0.5" value={form.bonusPercent} onChange={(e) => setForm({ ...form, bonusPercent: e.target.value })} className={inputCls} />
+            <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.5" value={form.bonusPercent} onChange={(e) => setForm({ ...form, bonusPercent: e.target.value })} className={inputCls} />
           </div>
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">الترتيب</label>
-          <input type="number" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
+          <input type="text" inputMode="decimal" dir="ltr" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
         </div>
         <div className="flex gap-2">
           <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
@@ -748,11 +748,11 @@ function RewardsTab({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">كمية الشراء المطلوبة</label>
-            <input type="number" min="1" value={form.buyQuantity} onChange={(e) => setForm({ ...form, buyQuantity: e.target.value })} className={inputCls} placeholder="180" />
+            <input type="text" inputMode="decimal" dir="ltr" min="1" value={form.buyQuantity} onChange={(e) => setForm({ ...form, buyQuantity: e.target.value })} className={inputCls} placeholder="180" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">حجم الشرينك (للعرض)</label>
-            <input type="number" min="1" value={form.bundleSize} onChange={(e) => setForm({ ...form, bundleSize: e.target.value })} className={inputCls} placeholder="60" />
+            <input type="text" inputMode="decimal" dir="ltr" min="1" value={form.bundleSize} onChange={(e) => setForm({ ...form, bundleSize: e.target.value })} className={inputCls} placeholder="60" />
           </div>
         </div>
         {bundlesHint() && <p className="text-[11px] text-[#0f3460] font-medium -mt-1">{bundlesHint()}</p>}
@@ -769,7 +769,7 @@ function RewardsTab({
 
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">كمية الهدية</label>
-          <input type="number" min="1" value={form.freeQuantity} onChange={(e) => setForm({ ...form, freeQuantity: e.target.value })} className={inputCls} placeholder="18" />
+          <input type="text" inputMode="decimal" dir="ltr" min="1" value={form.freeQuantity} onChange={(e) => setForm({ ...form, freeQuantity: e.target.value })} className={inputCls} placeholder="18" />
         </div>
 
         <div>

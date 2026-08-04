@@ -69,16 +69,16 @@ export default async function CafePage() {
           name: m.name,
           unit: m.unit,
           costPrice: Number(m.costPrice),
-          minStock: m.minStock,
+          minStock: Number(m.minStock),
           category: m.category?.name || null,
-          stock: m.stocks.find((s) => s.warehouseId === warehouseId)?.quantity ?? 0,
-          stocks: m.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: s.quantity })),
+          stock: Number(m.stocks.find((s) => s.warehouseId === warehouseId)?.quantity ?? 0),
+          stocks: m.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: Number(s.quantity) })),
         }))}
         movements={movements.map((mv) => ({
           id: mv.id,
           productName: mv.product.name,
           unit: mv.product.unit,
-          quantity: mv.quantity,
+          quantity: Number(mv.quantity),
           source: mv.source,
           createdAt: mv.createdAt.toISOString(),
         }))}
@@ -104,7 +104,7 @@ export default async function CafePage() {
           createdAt: p.createdAt.toISOString(),
           items: p.items
             .filter((i) => i.product.itemKind === 'CAFE_MATERIAL')
-            .map((i) => ({ name: i.product.name, quantity: i.quantity, unit: i.product.unit })),
+            .map((i) => ({ name: i.product.name, quantity: Number(i.quantity), unit: i.product.unit })),
         }))}
         canAdd={canAdd}
         canEdit={canEdit}

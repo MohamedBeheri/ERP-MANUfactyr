@@ -6,7 +6,7 @@ import { customerUnitPrice } from '@/lib/tiers'
 
 
 // تسليم لعميل أثناء جولة التوزيع. البضاعة خرجت من المخزن أصلاً وقت التحميل،
-// فهنا بس بننشئ فاتورة مرتبطة بالجولة من غير ما نلمس Product.quantity تاني.
+// فهنا بس بننشئ فاتورة مرتبطة بالجولة من غير ما نلمس Number(Product.quantity) تاني.
 // السعر بيتحسب على السيرفر حسب فئة/نوع العميل — المندوب ما بيحطش سعر بإيده.
 export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('delegates', 'add')
@@ -51,20 +51,20 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
 
     // المتبقي على العربية = المحمّل − المسلّم + المرتجع للعربية
     const remainingOf = (productId: string) => {
-      const loaded = deliveryOrder.items.find((i) => i.productId === productId)?.quantity || 0
+      const loaded = Number(deliveryOrder.items.find((i) => i.productId === productId)?.quantity || 0)
       const delivered = deliveryOrder.invoices
         .flatMap((inv) => inv.items)
         .filter((it) => it.productId === productId)
-        .reduce((s, it) => s + it.quantity, 0)
+        .reduce((s, it) => s + Number(it.quantity), 0)
       const returnedToVan = deliveryOrder.returns
         .flatMap((r) => r.items)
         .filter((it) => it.productId === productId)
-        .reduce((s, it) => s + it.quantity, 0)
+        .reduce((s, it) => s + Number(it.quantity), 0)
       return loaded - delivered + returnedToVan
     }
 
     for (const item of items) {
-      if (item.quantity > remainingOf(item.productId)) {
+      if (Number(item.quantity) > remainingOf(item.productId)) {
         return NextResponse.json(
           { error: `الكمية المطلوبة أكبر من المتبقي على العربية (متبقي: ${remainingOf(item.productId)})` },
           { status: 400 }
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
       unitPrice: priceMap.get(it.productId) ?? 0,
     }))
 
-    const totalAmount = pricedItems.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0)
+    const totalAmount = pricedItems.reduce((sum, it) => sum + Number(it.quantity) * it.unitPrice, 0)
     const netAmount = +totalAmount.toFixed(2) // الخصم داخل السعر أصلاً (حسب الفئة)
 
     // المدفوع فعليًا حسب طريقة الدفع
@@ -110,11 +110,11 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const rawBonuses = await computeBonuses(prisma, buyer.tierId ?? null, pricedItems)
     const bonusLines = rawBonuses
       .map((b) => {
-        const paidThisInvoice = pricedItems.filter((it) => it.productId === b.productId).reduce((s, it) => s + it.quantity, 0)
+        const paidThisInvoice = pricedItems.filter((it) => it.productId === b.productId).reduce((s, it) => s + Number(it.quantity), 0)
         const available = remainingOf(b.productId) - paidThisInvoice
-        return { ...b, quantity: Math.max(0, Math.min(b.quantity, available)) }
+        return { ...b, quantity: Math.max(0, Math.min(Number(b.quantity), available)) }
       })
-      .filter((b) => b.quantity > 0)
+      .filter((b) => Number(b.quantity) > 0)
 
     // ===== بونص نقاط الفئة (نسبة من صافي الفاتورة) =====
     const bonusEarned = buyer.tier ? +((netAmount * Number(buyer.tier.bonusPercent)) / 100).toFixed(2) : 0
@@ -138,13 +138,13 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           create: [
             ...pricedItems.map((item) => ({
               productId: item.productId,
-              quantity: item.quantity,
+              quantity: Number(item.quantity),
               unitPrice: item.unitPrice,
-              totalPrice: item.quantity * item.unitPrice,
+              totalPrice: Number(item.quantity) * item.unitPrice,
             })),
             ...bonusLines.map((b) => ({
               productId: b.productId,
-              quantity: b.quantity,
+              quantity: Number(b.quantity),
               unitPrice: 0,
               totalPrice: 0,
               isBonus: true,
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
       },
     })
 
-    const bonusTotal = bonusLines.reduce((s, b) => s + b.quantity, 0)
+    const bonusTotal = bonusLines.reduce((s, b) => s + Number(b.quantity), 0)
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,

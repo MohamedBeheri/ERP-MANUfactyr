@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
 
   try {
     const b = await req.json()
-    const outputKg = Math.round(Number(b.outputKg))
+    const outputKg = Math.round(Number(b.outputKg) * 1000) / 1000
     if (!(outputKg > 0)) return NextResponse.json({ error: 'اكتب الوزن الفعلي للمطحون الخارج' }, { status: 400 })
 
     const production = await prisma.production.findUnique({
@@ -25,15 +25,15 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     })
     if (!production) return NextResponse.json({ error: 'التشغيلة غير موجودة' }, { status: 404 })
     if (production.status !== 'PENDING') return NextResponse.json({ error: 'التشغيلة دي مقفولة بالفعل أو ملغية' }, { status: 400 })
-    if (outputKg > production.inputWeight) {
+    if (outputKg > Number(production.inputWeight)) {
       return NextResponse.json({ error: `الوزن الخارج (${outputKg}) مينفعش يزيد عن الداخل (${production.inputWeight})` }, { status: 400 })
     }
 
     const blendItem = production.items[0]
     if (!blendItem) return NextResponse.json({ error: 'التشغيلة مفيهاش صنف ناتج' }, { status: 400 })
 
-    const wasteKg = production.inputWeight - outputKg
-    const wastePct = production.inputWeight > 0 ? +((wasteKg / production.inputWeight) * 100).toFixed(2) : 0
+    const wasteKg = Number(production.inputWeight) - outputKg
+    const wastePct = Number(production.inputWeight) > 0 ? +((wasteKg / Number(production.inputWeight)) * 100).toFixed(2) : 0
     const blendWh = await warehouseForStage(blendItem.product.stageId)
 
     await prisma.$transaction(async (tx) => {

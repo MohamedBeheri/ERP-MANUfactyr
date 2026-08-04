@@ -325,7 +325,7 @@ function CollectForm({ customers, delegates, methods, onDone, onError }: any) {
           <option value="">وسيلة الدفع *</option>
           {methods.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        <input className={inputCls} type="number" placeholder="المبلغ *" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <input className={inputCls} type="text" inputMode="decimal" dir="ltr" placeholder="المبلغ *" value={amount} onChange={(e) => setAmount(e.target.value)} />
         {isElectronic && (
           <input className={inputCls} placeholder="الرقم المرجعي للعملية (إجباري) *" value={ref} onChange={(e) => setRef(e.target.value)} dir="ltr" />
         )}
@@ -375,7 +375,7 @@ function TransferForm({ treasuries, onDone, onError }: any) {
           <option value="">إلى خزنة *</option>
           {treasuries.filter((t: any) => t.id !== sourceId).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-        <input className={inputCls} type="number" placeholder="المبلغ *" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <input className={inputCls} type="text" inputMode="decimal" dir="ltr" placeholder="المبلغ *" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <input className={inputCls} placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       <button onClick={submit} disabled={busy || !sourceId || !targetId || !amount} className="bg-[#0f3460] text-white px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40">
@@ -429,7 +429,7 @@ function DisburseForm({ treasury, categories, onClose, onDone, onError }: any) {
         ) : (
           <>
             <input className={inputCls} placeholder="وصف المصروف *" value={description} onChange={(e) => setDescription(e.target.value)} />
-            <input className={inputCls} type="number" placeholder="المبلغ *" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input className={inputCls} type="text" inputMode="decimal" dir="ltr" placeholder="المبلغ *" value={amount} onChange={(e) => setAmount(e.target.value)} />
             <select className={inputCls} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
               <option value="">بند المصروف (شجرة الحسابات)</option>
               {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}

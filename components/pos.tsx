@@ -378,7 +378,7 @@ export function Pos({
                 <p className="text-sm font-semibold truncate">{c.name}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <input
-                    type="number"
+                    type="text" inputMode="decimal" dir="ltr"
                     min="0"
                     step="0.01"
                     value={c.unitPrice}
@@ -489,7 +489,7 @@ export function Pos({
           <div>
             <label className="text-sm font-semibold text-gray-700 block mb-1">الخصم %</label>
             <input
-              type="number"
+              type="text" inputMode="decimal" dir="ltr"
               min="0"
               max="100"
               value={discount}

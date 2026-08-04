@@ -46,11 +46,11 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
 
     // المتبقي على العربية = المحمّل − (مسلّم في فواتير + موّرد لفروع)
     for (const it of items) {
-      const loaded = order.items.find((x) => x.productId === it.productId)?.quantity || 0
-      const invDelivered = order.invoices.flatMap((iv) => iv.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + x.quantity, 0)
-      const supDelivered = order.keyAccountSupplies.flatMap((sp) => sp.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + x.quantity, 0)
+      const loaded = Number(order.items.find((x) => x.productId === it.productId)?.quantity || 0)
+      const invDelivered = order.invoices.flatMap((iv) => iv.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + Number(x.quantity), 0)
+      const supDelivered = order.keyAccountSupplies.flatMap((sp) => sp.items).filter((x) => x.productId === it.productId).reduce((s, x) => s + Number(x.quantity), 0)
       const remaining = loaded - invDelivered - supDelivered
-      if (it.quantity > remaining) {
+      if (Number(it.quantity) > remaining) {
         const p = await prisma.product.findUnique({ where: { id: it.productId } })
         return NextResponse.json({ error: `الكمية أكبر من المتبقي على العربية لـ ${p?.name || 'الصنف'} (متبقي: ${remaining})` }, { status: 400 })
       }
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
       }
     }
 
-    const totalAmount = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
+    const totalAmount = items.reduce((s, i) => s + Number(i.quantity) * i.unitPrice, 0)
     const dPercent = discountType === 'CASH' ? Number(discountPercent) || 0 : 0
     const netAmount = totalAmount - (totalAmount * dPercent) / 100
 
@@ -85,9 +85,9 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           items: {
             create: items.map((i) => ({
               productId: i.productId,
-              quantity: i.quantity,
+              quantity: Number(i.quantity),
               unitPrice: i.unitPrice,
-              totalPrice: i.quantity * i.unitPrice,
+              totalPrice: Number(i.quantity) * i.unitPrice,
             })),
           },
         },

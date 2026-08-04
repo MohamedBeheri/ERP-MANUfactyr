@@ -43,14 +43,14 @@ export default async function WarehousePage() {
   const stockRows = products.map((p) => [
     p.name,
     p.type === 'RAW' ? 'خام' : 'منتج نهائي',
-    p.quantity,
+    Number(p.quantity),
     p.unit,
-    p.minStock,
+    Number(p.minStock),
     Number(p.costPrice).toFixed(2),
-    (p.quantity * Number(p.costPrice)).toFixed(2),
+    (Number(p.quantity) * Number(p.costPrice)).toFixed(2),
   ])
 
-  const totalStockValue = products.reduce((s, p) => s + p.quantity * Number(p.costPrice), 0)
+  const totalStockValue = products.reduce((s, p) => s + Number(p.quantity) * Number(p.costPrice), 0)
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -76,9 +76,9 @@ export default async function WarehousePage() {
             id: p.id,
             name: p.name,
             unit: p.unit,
-            minStock: p.minStock,
+            minStock: Number(p.minStock),
             costPrice: Number(p.costPrice),
-            stocks: p.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: s.quantity })),
+            stocks: p.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: Number(s.quantity) })),
           }))}
         />
       )}
@@ -116,8 +116,8 @@ export default async function WarehousePage() {
                         {warehouses.length > 1 && (
                           <p className="text-[11px] text-gray-400 font-normal mt-0.5">
                             {p.stocks
-                              .filter((s) => s.quantity > 0)
-                              .map((s) => `${warehouses.find((w) => w.id === s.warehouseId)?.name}: ${s.quantity}`)
+                              .filter((s) => Number(s.quantity) > 0)
+                              .map((s) => `${warehouses.find((w) => w.id === s.warehouseId)?.name}: ${Number(s.quantity)}`)
                               .join(' · ') || 'مفيش رصيد موزّع'}
                           </p>
                         )}
@@ -128,16 +128,16 @@ export default async function WarehousePage() {
                         </span>
                       </td>
                       <td className="p-3">
-                        <span className={`font-bold tabular-nums ${p.quantity <= p.minStock ? 'text-red-600' : 'text-[#1a1a2e]'}`}>
-                          {p.quantity} {p.unit}
+                        <span className={`font-bold tabular-nums ${Number(p.quantity) <= Number(p.minStock) ? 'text-red-600' : 'text-[#1a1a2e]'}`}>
+                          {Number(p.quantity)} {p.unit}
                         </span>
-                        {p.quantity <= p.minStock && (
+                        {Number(p.quantity) <= Number(p.minStock) && (
                           <span className="mr-2 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-semibold">تحت الحد</span>
                         )}
                       </td>
-                      <td className="p-3 text-gray-500 tabular-nums">{p.minStock}</td>
+                      <td className="p-3 text-gray-500 tabular-nums">{Number(p.minStock)}</td>
                       <td className="p-3 text-gray-500 tabular-nums">{Number(p.costPrice).toFixed(2)}</td>
-                      <td className="p-3 font-semibold tabular-nums">{(p.quantity * Number(p.costPrice)).toLocaleString('ar-EG')} ج.م</td>
+                      <td className="p-3 font-semibold tabular-nums">{(Number(p.quantity) * Number(p.costPrice)).toLocaleString('ar-EG')} ج.م</td>
                     </tr>
                   ))}
                   {products.length === 0 && (
@@ -161,7 +161,7 @@ export default async function WarehousePage() {
                   <div key={entry.id} className="p-3.5 px-5 flex justify-between items-start">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-green-700 tabular-nums">
-                        +{entry.quantity} {entry.product.unit} — {entry.product.name}
+                        +{Number(entry.quantity)} {entry.product.unit} — {entry.product.name}
                       </p>
                       <p className="text-xs text-gray-400 truncate">{entry.source}</p>
                     </div>
@@ -184,7 +184,7 @@ export default async function WarehousePage() {
                   <div key={entry.id} className="p-3.5 px-5 flex justify-between items-start">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-red-600 tabular-nums">
-                        -{entry.quantity} {entry.product.unit} — {entry.product.name}
+                        -{Number(entry.quantity)} {entry.product.unit} — {entry.product.name}
                       </p>
                       <p className="text-xs text-gray-400 truncate">{entry.target} · {entry.reason}</p>
                     </div>
@@ -205,7 +205,7 @@ export default async function WarehousePage() {
                 id: p.id,
                 name: p.name,
                 unit: p.unit,
-                stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, s.quantity])),
+                stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, Number(s.quantity)])),
               }))}
               warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
             />

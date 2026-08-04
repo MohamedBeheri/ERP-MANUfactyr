@@ -346,7 +346,7 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <input
-          type="number" min="1" step="1" max={isPack ? undefined : p.inputWeight}
+          type="text" inputMode="decimal" dir="ltr" min="1" step="1" max={isPack ? undefined : p.inputWeight}
           value={out} onChange={(e) => setOut(e.target.value)}
           placeholder={isPack ? 'عدد الأكياس الفعلية' : 'وزن الناتج الفعلي (كجم)'}
           className="flex-1 min-w-[160px] px-3 py-2.5 border border-amber-300 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -428,7 +428,7 @@ function RoastForm({ greens, onDone }: { greens: GreenT[]; onDone: () => void })
 
       <div className="space-y-1.5">
         <label className="text-sm font-semibold text-gray-700">وزن الأخضر الداخل (كجم)</label>
-        <input type="number" min="1" step="1" value={inKg} onChange={(e) => setInKg(e.target.value)} placeholder="اكتب الوزن" className={inputCls} />
+        <input type="text" inputMode="decimal" dir="ltr" min="1" step="1" value={inKg} onChange={(e) => setInKg(e.target.value)} placeholder="اكتب الوزن" className={inputCls} />
       </div>
 
       <div className="space-y-1.5">
@@ -602,7 +602,7 @@ function GrindAndBlendForm({ blends, availableIngredients, onDone }: { blends: B
                     </optgroup>
                   </select>
                   <div className="relative w-24 shrink-0">
-                    <input type="number" min="0" max="100" step="0.1" value={c.percent} onChange={(e) => updateComp(i, 'percent', e.target.value)} placeholder="%" className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums bg-white" />
+                    <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.1" value={c.percent} onChange={(e) => updateComp(i, 'percent', e.target.value)} placeholder="%" className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums bg-white" />
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
                   </div>
                   {ing && outN > 0 && <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">{fmt((outN * (Number(c.percent) || 0)) / 100)} كجم</span>}
@@ -630,7 +630,7 @@ function GrindAndBlendForm({ blends, availableIngredients, onDone }: { blends: B
 
       <div className="space-y-1.5">
         <label className="text-sm font-semibold text-gray-700">الكمية المخطط طحنها (كجم)</label>
-        <input type="number" min="1" step="1" value={planned} onChange={(e) => setPlanned(e.target.value)} placeholder="اكتب الكمية" className={inputCls} />
+        <input type="text" inputMode="decimal" dir="ltr" min="1" step="1" value={planned} onChange={(e) => setPlanned(e.target.value)} placeholder="اكتب الكمية" className={inputCls} />
       </div>
 
       <div className="space-y-1.5">
@@ -710,7 +710,7 @@ function PackForm({ blends, finished, onDone }: {
           {sourcesWithStock.map((b) => <option key={b.id} value={b.id}>{b.name} (متاح {b.quantity} كجم)</option>)}
           {sourcesWithStock.length === 0 && <option disabled>مفيش مطحون متاح — لازم تعمل طحن وتوليف الأول</option>}
         </select>
-        <input type="number" min="0.1" step="0.1" value={pullKg} onChange={(e) => setPullKg(e.target.value)} placeholder="الكمية المسحوبة (كجم)" className={inputCls} />
+        <input type="text" inputMode="decimal" dir="ltr" min="0.1" step="0.1" value={pullKg} onChange={(e) => setPullKg(e.target.value)} placeholder="الكمية المسحوبة (كجم)" className={inputCls} />
         {source && pullN > 0 && pullN <= source.quantity && (
           <p className="text-xs text-green-600">✓ متاح {source.quantity} كجم — هيتبقى {fmt(source.quantity - pullN)} كجم</p>
         )}

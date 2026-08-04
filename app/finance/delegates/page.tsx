@@ -20,9 +20,9 @@ export default async function DelegatesReport({ searchParams: rawSearchParams }:
   })
 
   const stat = delegates.map((d) => {
-    const sold = d.settlements.reduce((s, x) => s + x.soldQty, 0)
-    const bonus = d.settlements.reduce((s, x) => s + x.bonusQty, 0)
-    const returned = d.settlements.reduce((s, x) => s + x.returnedQty, 0)
+    const sold = d.settlements.reduce((s, x) => s + Number(x.soldQty), 0)
+    const bonus = d.settlements.reduce((s, x) => s + Number(x.bonusQty), 0)
+    const returned = d.settlements.reduce((s, x) => s + Number(x.returnedQty), 0)
     const cash = d.settlements.reduce((s, x) => s + Number(x.cashAmount), 0)
     const credit = d.settlements.reduce((s, x) => s + Number(x.creditAmount), 0)
     const commission = d.settlements.reduce((s, x) => s + Number(x.commission), 0)

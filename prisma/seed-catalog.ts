@@ -26,6 +26,7 @@ const PACKAGING = [
   { name: 'شرينك التفويقة', tare: 0 },
   { name: 'شرينك علب', tare: 0 },
   { name: 'الكرتونة', tare: 0 },
+  { name: 'الكيس الشفاف', tare: 17.5 },
 ]
 // التوليفات ووصفاتها — كل المكوّنات بنسب مئوية والمجموع = 100% بالظبط
 const BLENDS: { name: string; greens: [string, number][]; spices?: [string, number][] }[] = [
@@ -47,14 +48,45 @@ const BLENDS: { name: string; greens: [string, number][]; spices?: [string, numb
     greens: [['بن أخضر — اندونيسي', 65], ['بن أخضر — هندي روبيستا', 10], ['بن أخضر — برازيلي', 15], ['بن أخضر — XL', 10]],
   },
 ]
-// عينة منتجات نهائية بمواصفات التعبئة (توليفة + وزن القطعة + قطع/علبة + تغليف)
-const FINISHED: { name: string; blend: string; grams: number; pcs: number; pkg: string }[] = [
-  { name: 'شوت ١٠ جرام سادة', blend: 'توليفة سادة', grams: 10, pcs: 12, pkg: 'كيس شوت' },
-  { name: 'شوت ١٠ جرام محوج', blend: 'توليفة محوج', grams: 10, pcs: 12, pkg: 'كيس شوت' },
-  { name: 'سوسته ٢٥٠ جرام سادة', blend: 'توليفة سادة', grams: 250, pcs: 4, pkg: 'الباكت الأبيض' },
-  { name: 'سوسته ٢٥٠ جرام محوج', blend: 'توليفة محوج', grams: 250, pcs: 4, pkg: 'الباكت الأبيض' },
-  { name: 'علبة ١٠٠ جرام سادة', blend: 'توليفة سادة', grams: 100, pcs: 10, pkg: 'كيس 100جم' },
-  { name: 'علبة ٥٠ جرام محوج', blend: 'توليفة محوج', grams: 50, pcs: 10, pkg: 'كيس 50جم' },
+// كل المنتجات النهائية من شيت Operation (يونيو 2026) بمواصفات التعبئة
+// qty = الرصيد الافتتاحي التجريبي من عمود "الكمية الناتجة بالعلبة" — فيه كسور فعلية (20.5 / 200.25 / 20.375)
+const FINISHED: { name: string; blend: string; grams: number; pcs: number; pkg: string; unit?: string; qty: number }[] = [
+  { name: 'شوت ١٠ جرام سادة', blend: 'توليفة سادة', grams: 10, pcs: 12, pkg: 'كيس شوت', qty: 103 },
+  { name: 'شوت ١٠ جرام محوج', blend: 'توليفة محوج', grams: 10, pcs: 12, pkg: 'كيس شوت', qty: 43 },
+  { name: 'شوت ١٠ جرام فانيليا', blend: 'توليفة النكهات (بيز)', grams: 10, pcs: 12, pkg: 'كيس شوت', qty: 0 },
+  { name: 'التفويقه سينجل سادة', blend: 'توليفة سادة', grams: 28, pcs: 12, pkg: 'كيس سادة 30جم', qty: 0 },
+  { name: 'التفويقه سينجل محوج', blend: 'توليفة محوج', grams: 28, pcs: 12, pkg: 'كيس سادة 30جم', qty: 0 },
+  { name: 'التفويقه دوبل سادة', blend: 'توليفة سادة', grams: 25, pcs: 28, pkg: 'كيس سادة 30جم', qty: 645 },
+  { name: 'التفويقه دوبل محوج', blend: 'توليفة محوج', grams: 25, pcs: 28, pkg: 'كيس سادة 30جم', qty: 215 },
+  { name: 'علبة ٥٠ جرام سادة', blend: 'توليفة سادة', grams: 50, pcs: 10, pkg: 'كيس 50جم', qty: 91 },
+  { name: 'علبة ٥٠ جرام محوج', blend: 'توليفة محوج', grams: 50, pcs: 10, pkg: 'كيس 50جم', qty: 0 },
+  { name: 'علبة ١٠٠ جرام سادة', blend: 'توليفة سادة', grams: 100, pcs: 10, pkg: 'كيس 100جم', qty: 60 },
+  { name: 'علبة ١٠٠ جرام محوج', blend: 'توليفة محوج', grams: 100, pcs: 10, pkg: 'كيس 100جم', qty: 64 },
+  { name: 'عرض ٢٢٥ جرام سادة', blend: 'توليفة سادة', grams: 225, pcs: 4, pkg: 'الباكت الأبيض', qty: 0 },
+  { name: 'عرض ٢٢٥ جرام محوج', blend: 'توليفة محوج', grams: 225, pcs: 4, pkg: 'الباكت الأبيض', qty: 0 },
+  { name: 'كامل ٢٥٠ جرام سادة (أبيض)', blend: 'توليفة سادة', grams: 250, pcs: 4, pkg: 'الباكت الأبيض', qty: 0 },
+  { name: 'كامل ٢٥٠ جرام محوج (أبيض)', blend: 'توليفة محوج', grams: 250, pcs: 4, pkg: 'الباكت الأبيض', qty: 0 },
+  { name: 'كامل ٢٥٠ جرام سادة (ورق)', blend: 'توليفة سادة', grams: 250, pcs: 4, pkg: 'الباكت الورق', qty: 0 },
+  { name: 'كامل ٢٥٠ جرام محوج (ورق)', blend: 'توليفة محوج', grams: 250, pcs: 4, pkg: 'الباكت الورق', qty: 0 },
+  { name: 'غامق ٢٥٠ جرام سادة', blend: 'توليفة سادة', grams: 250, pcs: 4, pkg: 'الباكت الورق الأسود', qty: 20.5 },
+  { name: 'غامق ٢٥٠ جرام محوج', blend: 'توليفة محوج', grams: 250, pcs: 4, pkg: 'الباكت الورق الأسود', qty: 0 },
+  { name: 'شرينك الشرايط سادة', blend: 'توليفة سادة', grams: 10, pcs: 12, pkg: 'شرينك الشرايط', unit: 'شرينك', qty: 10315 },
+  { name: 'شرينك الشرايط محوج', blend: 'توليفة محوج', grams: 10, pcs: 12, pkg: 'شرينك الشرايط', unit: 'شرينك', qty: 9795 },
+  { name: 'عرض كيلو سادة', blend: 'توليفة سادة', grams: 1000, pcs: 20, pkg: 'كيس 50جم', unit: 'شرينك', qty: 0 },
+  { name: 'عرض كيلو محوج', blend: 'توليفة محوج', grams: 1000, pcs: 20, pkg: 'كيس 50جم', unit: 'شرينك', qty: 0 },
+  { name: 'سوسته ٢٠٠ جرام سادة', blend: 'توليفة سادة', grams: 200, pcs: 5, pkg: 'الباكت الأبيض', qty: 20 },
+  { name: 'سوسته ٢٠٠ جرام محوج', blend: 'توليفة محوج', grams: 200, pcs: 5, pkg: 'الباكت الأبيض', qty: 9.6 },
+  { name: 'سوسته ٢٥٠ جرام سادة', blend: 'توليفة سادة', grams: 250, pcs: 4, pkg: 'الباكت الأبيض', qty: 200.25 },
+  { name: 'سوسته ٢٥٠ جرام محوج', blend: 'توليفة محوج', grams: 250, pcs: 4, pkg: 'الباكت الأبيض', qty: 30 },
+  { name: 'سوسته ٢٥٠ جرام بندق', blend: 'توليفة النكهات (بيز)', grams: 250, pcs: 4, pkg: 'الباكت الأبيض', qty: 89.75 },
+  { name: 'سوسته ١٢٥ جرام سادة', blend: 'توليفة سادة', grams: 125, pcs: 8, pkg: 'الباكت الأبيض', qty: 20.375 },
+  { name: 'سوسته ١٢٥ جرام محوج', blend: 'توليفة محوج', grams: 125, pcs: 8, pkg: 'الباكت الأبيض', qty: 20 },
+  { name: 'سايب سادة (كيلو)', blend: 'توليفة سادة', grams: 1000, pcs: 1, pkg: 'الكيس الشفاف', unit: 'كجم', qty: 252 },
+  { name: 'سايب محوج (كيلو)', blend: 'توليفة محوج', grams: 1000, pcs: 1, pkg: 'الكيس الشفاف', unit: 'كجم', qty: 60 },
+  { name: 'سايب نسكافيه (كيلو)', blend: 'توليفة النكهات (بيز)', grams: 1000, pcs: 1, pkg: 'الكيس الشفاف', unit: 'كجم', qty: 0 },
+  { name: 'سايب بندق (كيلو)', blend: 'توليفة النكهات (بيز)', grams: 1000, pcs: 1, pkg: 'الكيس الشفاف', unit: 'كجم', qty: 0 },
+  { name: 'سايب عربي (كيلو)', blend: 'توليفة عربي', grams: 1000, pcs: 1, pkg: 'الكيس الشفاف', unit: 'كجم', qty: 0 },
+  { name: 'سايب كراميل (كيلو)', blend: 'توليفة النكهات (بيز)', grams: 1000, pcs: 1, pkg: 'الكيس الشفاف', unit: 'كجم', qty: 0 },
 ]
 
 async function main() {
@@ -113,16 +145,26 @@ async function main() {
     }
   }
 
-  // المنتجات النهائية بمواصفات التعبئة
+  // المنتجات النهائية بمواصفات التعبئة + الرصيد الافتتاحي التجريبي من الشيت (بالكسور)
+  const finishedStageRec = stages.find((s) => s.id === finishedStage)
+  const finishedWarehouseId = finishedStageRec?.warehouseId || null
   for (const f of FINISHED) {
-    await upsert(f.name, 'FINISHED', {
+    const pid = await upsert(f.name, 'FINISHED', {
       type: 'FINISHED',
-      unit: 'علبة',
+      unit: f.unit || 'علبة',
       blendId: idByName.get(f.blend) || null,
       packagingId: idByName.get(f.pkg) || null,
       gramsPerPiece: f.grams,
       piecesPerBox: f.pcs,
+      quantity: f.qty,
     }, finishedStage)
+    if (finishedWarehouseId) {
+      await prisma.productStock.upsert({
+        where: { warehouseId_productId: { warehouseId: finishedWarehouseId, productId: pid } },
+        create: { warehouseId: finishedWarehouseId, productId: pid, quantity: f.qty },
+        update: { quantity: f.qty },
+      })
+    }
   }
 
   const counts = {

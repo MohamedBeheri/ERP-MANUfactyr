@@ -46,7 +46,7 @@ export default async function ProductionPrintPage({ params: rawParams }: { param
         rows={prod.inputs.map((inp, i) => [
           i + 1,
           inp.product.name,
-          `${inp.quantity} ${inp.product.unit}`,
+          `${Number(inp.quantity)} ${inp.product.unit}`,
           Number(inp.percentage) > 0 ? `${Number(inp.percentage)}%` : '—',
         ])}
       />
@@ -55,7 +55,7 @@ export default async function ProductionPrintPage({ params: rawParams }: { param
       <h4 className="font-bold text-sm mb-2 mt-6">المخرجات (المنتج الناتج)</h4>
       <PrintTable
         headers={['#', 'المنتج', 'الكمية', 'الوحدة']}
-        rows={prod.items.map((item, i) => [i + 1, item.product.name, item.quantity, item.product.unit])}
+        rows={prod.items.map((item, i) => [i + 1, item.product.name, Number(item.quantity), item.product.unit])}
       />
 
       {/* ميزان الوزن والهدر */}
@@ -63,9 +63,9 @@ export default async function ProductionPrintPage({ params: rawParams }: { param
         <PrintTable
           headers={['البيان', 'القيمة']}
           rows={[
-            ['إجمالي وزن المدخلات', `${prod.inputWeight}`],
-            ['إجمالي وزن المخرجات', `${prod.outputWeight}`],
-            ['الهدر (Yield Loss)', `${prod.wasteWeight}`],
+            ['إجمالي وزن المدخلات', `${Number(prod.inputWeight)}`],
+            ['إجمالي وزن المخرجات', `${Number(prod.outputWeight)}`],
+            ['الهدر (Yield Loss)', `${Number(prod.wasteWeight)}`],
           ]}
           totals={[{ label: 'نسبة الهدر', value: `${Number(prod.wastePercent).toFixed(2)}%` }]}
         />

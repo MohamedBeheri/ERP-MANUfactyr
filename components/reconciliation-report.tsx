@@ -113,7 +113,7 @@ export function ReconciliationReport() {
                       <td className="p-3 tabular-nums">{fmt(g.kg)}</td>
                       <td className="p-3 tabular-nums text-red-600">{fmt(g.roastLoss)}%</td>
                       <td className="p-3">
-                        <input type="number" step="0.01" value={actual[`green-${g.name}`] ?? ''} onChange={(e) => setActual({ ...actual, [`green-${g.name}`]: e.target.value })} placeholder={fmt(g.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" />
+                        <input type="text" inputMode="decimal" dir="ltr" step="0.01" value={actual[`green-${g.name}`] ?? ''} onChange={(e) => setActual({ ...actual, [`green-${g.name}`]: e.target.value })} placeholder={fmt(g.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" />
                       </td>
                       <td className={`p-3 tabular-nums font-bold ${v === null ? 'text-gray-300' : v === 0 ? 'text-green-600' : v > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                         {v === null ? '—' : `${v > 0 ? '+' : ''}${fmt(v)}`}
@@ -154,7 +154,7 @@ export function ReconciliationReport() {
                     <tr key={s.name} className="border-b border-gray-50 last:border-0">
                       <td className="p-3 font-semibold">{s.name}</td>
                       <td className="p-3 tabular-nums">{fmt(s.kg)}</td>
-                      <td className="p-3"><input type="number" step="0.01" value={actual[`spice-${s.name}`] ?? ''} onChange={(e) => setActual({ ...actual, [`spice-${s.name}`]: e.target.value })} placeholder={fmt(s.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" /></td>
+                      <td className="p-3"><input type="text" inputMode="decimal" dir="ltr" step="0.01" value={actual[`spice-${s.name}`] ?? ''} onChange={(e) => setActual({ ...actual, [`spice-${s.name}`]: e.target.value })} placeholder={fmt(s.kg)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm tabular-nums" /></td>
                       <td className={`p-3 tabular-nums font-bold ${v === null ? 'text-gray-300' : v === 0 ? 'text-green-600' : v > 0 ? 'text-blue-600' : 'text-red-600'}`}>{v === null ? '—' : `${v > 0 ? '+' : ''}${fmt(v)}`}</td>
                     </tr>
                   )

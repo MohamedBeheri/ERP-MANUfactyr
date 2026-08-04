@@ -40,5 +40,5 @@ export async function getStock(warehouseId: string, productId: string): Promise<
   const stock = await prisma.productStock.findUnique({
     where: { warehouseId_productId: { warehouseId, productId } },
   })
-  return stock?.quantity ?? 0
+  return Number(stock?.quantity ?? 0)
 }

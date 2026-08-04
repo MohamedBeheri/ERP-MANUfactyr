@@ -36,19 +36,19 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     if (!invoice) return NextResponse.json({ error: 'الفاتورة غير موجودة' }, { status: 400 })
 
     const lineById = new Map(invoice.items.map((it) => [it.id, it]))
-    const priorReturned = new Map(invoice.items.map((it) => [it.id, it.returnItems.reduce((s, r) => s + r.quantity, 0)]))
+    const priorReturned = new Map(invoice.items.map((it) => [it.id, it.returnItems.reduce((s, r) => s + Number(r.quantity), 0)]))
     const thisReturn = new Map(reqItems.map((i) => [i.invoiceItemId, i.quantity]))
 
     // تحقّق الكميات لكل بند
     for (const ri of reqItems) {
       const line = lineById.get(ri.invoiceItemId)
       if (!line) return NextResponse.json({ error: 'بند مش موجود في الفاتورة دي' }, { status: 400 })
-      const avail = line.quantity - (priorReturned.get(line.id) || 0)
+      const avail = Number(line.quantity) - (priorReturned.get(line.id) || 0)
       if (ri.quantity > avail) return NextResponse.json({ error: `كمية الإرجاع أكبر من المتاح (${avail}) لـ ${line.product.name}` }, { status: 400 })
     }
 
     // ===== فحص شرط العرض: لو رجّع كمية خلّت الشرط مش محقق لازم يرجّع الهدية =====
-    const keptOf = (l: (typeof invoice.items)[number]) => l.quantity - (priorReturned.get(l.id) || 0) - (thisReturn.get(l.id) || 0)
+    const keptOf = (l: (typeof invoice.items)[number]) => Number(l.quantity) - (priorReturned.get(l.id) || 0) - (thisReturn.get(l.id) || 0)
     const ruleIds = Array.from(new Set(invoice.items.filter((it) => it.isBonus && it.rewardRuleId).map((it) => it.rewardRuleId as string)))
     for (const ruleId of ruleIds) {
       const giftLines = invoice.items.filter((it) => it.isBonus && it.rewardRuleId === ruleId)

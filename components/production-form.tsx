@@ -223,7 +223,7 @@ export function ProductionForm({ products, operations, warehouses = [], recipes 
               {recipeId && (
                 <div className="mt-2">
                   <label className="block text-xs font-semibold text-gray-500 mb-1">الوزن الإجمالي للخلطة — هيتوزّع على النسب</label>
-                  <input type="number" min="0" onChange={(e) => distributeByRecipe(e.target.value)} className={inputCls} placeholder="مثال: 10000" />
+                  <input type="text" inputMode="decimal" dir="ltr" min="0" onChange={(e) => distributeByRecipe(e.target.value)} className={inputCls} placeholder="مثال: 10000" />
                 </div>
               )}
             </div>
@@ -252,7 +252,7 @@ export function ProductionForm({ products, operations, warehouses = [], recipes 
                     ))}
                   </select>
                   <input
-                    type="number" min="0" placeholder="وزن"
+                    type="text" inputMode="decimal" dir="ltr" min="0" placeholder="وزن"
                     value={inp.quantity}
                     onChange={(e) => setInputs(inputs.map((it, j) => (j === i ? { ...it, quantity: e.target.value } : it)))}
                     className="w-20 shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
@@ -306,7 +306,7 @@ export function ProductionForm({ products, operations, warehouses = [], recipes 
                   {outputProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <input
-                  type="number" min="0" placeholder="وزن/عدد"
+                  type="text" inputMode="decimal" dir="ltr" min="0" placeholder="وزن/عدد"
                   value={item.quantity}
                   onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, quantity: e.target.value } : it)))}
                   className="w-24 shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm tabular-nums"
@@ -361,7 +361,7 @@ export function ProductionForm({ products, operations, warehouses = [], recipes 
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">تكلفة التشغيل (ج.م)</label>
-              <input type="number" min="0" step="0.01" value={opCost} onChange={(e) => setOpCost(e.target.value)} className={inputCls} />
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={opCost} onChange={(e) => setOpCost(e.target.value)} className={inputCls} />
             </div>
             {warehouses.length > 1 && (
               <div>

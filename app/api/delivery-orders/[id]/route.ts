@@ -32,14 +32,14 @@ export async function GET(_req: Request, { params: rawParams }: { params: Promis
       const delivered = deliveryOrder.invoices
         .flatMap((inv) => inv.items)
         .filter((invItem) => invItem.productId === item.productId)
-        .reduce((sum, invItem) => sum + invItem.quantity, 0)
+        .reduce((sum, invItem) => sum + Number(invItem.quantity), 0)
 
       return {
         productId: item.productId,
         productName: item.product.name,
         loaded: item.quantity,
         delivered,
-        remaining: item.quantity - delivered,
+        remaining: Number(item.quantity) - delivered,
       }
     })
 

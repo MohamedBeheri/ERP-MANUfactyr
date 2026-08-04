@@ -156,7 +156,7 @@ export function DeliveryReturnForm({
                       {it.isBonus ? 'مجانًا' : `${fmt(it.unitPrice)} ج.م`} · متاح للإرجاع {it.available} {it.unit}{it.returned > 0 ? ` (رجع ${it.returned})` : ''}
                     </p>
                   </div>
-                  <input type="number" min="0" max={it.available} placeholder="0" value={qty[it.invoiceItemId] || ''} onChange={(e) => setQty({ ...qty, [it.invoiceItemId]: e.target.value })} className="w-16 shrink-0 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums text-center" />
+                  <input type="text" inputMode="decimal" dir="ltr" min="0" max={it.available} placeholder="0" value={qty[it.invoiceItemId] || ''} onChange={(e) => setQty({ ...qty, [it.invoiceItemId]: e.target.value })} className="w-16 shrink-0 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums text-center" />
                 </div>
               ))}
             </div>

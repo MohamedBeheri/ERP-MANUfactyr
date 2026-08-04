@@ -39,9 +39,9 @@ export default async function DeliveryPrintPage({ params: rawParams }: { params:
     >
       <PrintTable
         headers={['#', 'الصنف', 'الكمية المحمّلة', 'الوحدة']}
-        rows={order.items.map((item, i) => [i + 1, item.product.name, item.quantity, item.product.unit])}
+        rows={order.items.map((item, i) => [i + 1, item.product.name, Number(item.quantity), item.product.unit])}
         totals={[
-          { label: 'إجمالي الوحدات المحمّلة', value: `${order.items.reduce((s, i) => s + i.quantity, 0)}` },
+          { label: 'إجمالي الوحدات المحمّلة', value: `${order.items.reduce((s, i) => s + Number(i.quantity), 0)}` },
         ]}
       />
     </PrintDoc>
