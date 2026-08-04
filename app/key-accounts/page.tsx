@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 import { KeyAccountsManager } from '@/components/key-accounts-manager'
+import { KeyAccountDispatchForm } from '@/components/key-account-dispatch-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,10 @@ export default async function KeyAccountsPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [accounts, products] = await Promise.all([
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  const canAdd = canDoAction(perms, 'keyaccounts', 'add')
+
+  const [accounts, products, warehouses] = await Promise.all([
     prisma.keyAccount.findMany({
       where: { isActive: true },
       orderBy: { createdAt: 'desc' },
@@ -31,7 +35,8 @@ export default async function KeyAccountsPage() {
         payments: { orderBy: { createdAt: 'desc' }, take: 10 },
       },
     }),
-    prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.product.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, include: { stocks: true } }),
+    prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
   ])
 
   return (
@@ -50,6 +55,25 @@ export default async function KeyAccountsPage() {
           <LayoutDashboard className="w-4 h-4" /> لوحة التحكم
         </Link>
       </div>
+
+      {canAdd && (
+        <KeyAccountDispatchForm
+          accounts={accounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            branches: a.branches.map((br) => ({ id: br.id, name: br.name })),
+            quoteItems: (a.quotes[0]?.items || []).map((it) => ({ productId: it.productId, unitPrice: Number(it.unitPrice) })),
+          }))}
+          products={products.map((p) => ({
+            id: p.id,
+            name: p.name,
+            unit: p.unit,
+            minKeyPrice: Number(p.minKeyPrice),
+            stocks: p.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: Number(s.quantity) })),
+          }))}
+          warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+        />
+      )}
 
       <KeyAccountsManager
         accounts={accounts.map((a) => ({

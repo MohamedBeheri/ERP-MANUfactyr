@@ -6,7 +6,6 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DeliverForm } from '@/components/deliver-form'
 import { SettleForm } from '@/components/settle-form'
-import { KeyAccountSupplyForm } from '@/components/key-account-supply-form'
 import { DeliveryReturnForm } from '@/components/delivery-return-form'
 import { ReceiptConfirm } from '@/components/receipt-confirm'
 
@@ -31,7 +30,7 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [deliveryOrder, allCustomers, keyAccounts, rewardRules] = await Promise.all([
+  const [deliveryOrder, allCustomers, rewardRules] = await Promise.all([
     prisma.deliveryOrder.findUnique({
       where: { id: params.deliveryOrderId },
       include: {
@@ -53,19 +52,6 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
       },
     }),
     prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, include: { tier: true } }),
-    prisma.keyAccount.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' },
-      include: {
-        branches: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
-        quotes: {
-          where: { status: 'APPROVED' },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          include: { items: true },
-        },
-      },
-    }),
     prisma.rewardRule.findMany({ where: { isActive: true } }),
   ])
 
@@ -373,16 +359,6 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                 remainingItems={remaining}
                 rewardRules={rewardRulesLite}
                 delegateArea={delegateArea}
-              />
-              <KeyAccountSupplyForm
-                deliveryOrderId={deliveryOrder.id}
-                remainingItems={remaining}
-                keyAccounts={keyAccounts.map((a) => ({
-                  id: a.id,
-                  name: a.name,
-                  branches: a.branches.map((br) => ({ id: br.id, name: br.name })),
-                  quoteItems: (a.quotes[0]?.items || []).map((it) => ({ productId: it.productId, unitPrice: Number(it.unitPrice) })),
-                }))}
               />
               <DeliveryReturnForm deliveryOrderId={deliveryOrder.id} customers={customersLite} />
               <SettleForm deliveryOrderId={deliveryOrder.id} remainingItems={remaining} />
