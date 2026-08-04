@@ -6,7 +6,7 @@ import {
   Warehouse, Building2, Wallet, Users, Gift, Coins, Clock, Crown, Undo2, Car,
   MapPin, ClipboardList, TrendingUp, TrendingDown, Banknote, ReceiptText,
   ShoppingBag, Scale, ArrowUpRight, ArrowDownRight, DollarSign, CreditCard,
-  Boxes, FileSpreadsheet, Landmark, CircleDollarSign, BadgePercent,
+  Boxes, FileSpreadsheet, Landmark, CircleDollarSign, BadgePercent, Coffee, Printer,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -64,10 +64,11 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     paymentVouchers, cashFlows, liabilities, customerCount, supplierPayAgg,
     kaPayAgg, creditCollections,
     periodSettlements, periodCollections, treasuries, pendingUnloadsCount,
+    prevInvoices, prevVoucherAgg,
   ] = await Promise.all([
     prisma.invoice.findMany({
       where: { createdAt: period, status: 'COMPLETED' },
-      include: { items: { include: { product: { select: { name: true, costPrice: true } } } } },
+      include: { customer: { select: { name: true } }, items: { include: { product: { select: { name: true, costPrice: true, itemKind: true } } } } },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.production.findMany({
@@ -94,6 +95,14 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     prisma.collection.findMany({ where: { createdAt: period }, include: { paymentMethod: { select: { name: true, type: true } } } }).catch(() => []),
     prisma.treasury.findMany({ where: { isActive: true }, select: { name: true, type: true, balance: true } }).catch(() => []),
     prisma.unloadOrder.count({ where: { status: 'PENDING' } }).catch(() => 0),
+    prisma.invoice.findMany({
+      where: { createdAt: { gte: new Date(from.getTime() - (to.getTime() - from.getTime())), lt: from }, status: 'COMPLETED' },
+      include: { items: { include: { product: { select: { costPrice: true } } } } },
+    }).catch(() => []),
+    prisma.paymentVoucher.aggregate({
+      where: { status: 'APPROVED', createdAt: { gte: new Date(from.getTime() - (to.getTime() - from.getTime())), lt: from } },
+      _sum: { amount: true },
+    }).catch(() => ({ _sum: { amount: 0 } })),
   ])
 
   // ─── KPIs ───
@@ -105,6 +114,24 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
   const grossProfit = totalSales - cogs
   const totalExpenses = paymentVouchers.reduce((s, v) => s + Number(v.amount), 0)
   const netProfit = grossProfit - totalExpenses
+
+  // مقارنة بالفترة السابقة (نفس الطول) — نسبة التغيّر لكل مؤشر رئيسي
+  const prevSales = prevInvoices.reduce((s: number, i: any) => s + Number(i.netAmount), 0)
+  const prevCogs = prevInvoices.reduce((s: number, inv: any) => s + inv.items.reduce((a: number, it: any) => a + Number(it.quantity) * Number(it.product.costPrice), 0), 0)
+  const prevGross = prevSales - prevCogs
+  const prevExpenses = Number(prevVoucherAgg._sum.amount) || 0
+  const prevNet = prevGross - prevExpenses
+  const deltaPct = (cur: number, prev: number) => (prev !== 0 ? ((cur - prev) / Math.abs(prev)) * 100 : cur !== 0 ? 100 : null)
+  const salesDelta = deltaPct(totalSales, prevSales)
+  const grossDelta = deltaPct(grossProfit, prevGross)
+  const expensesDelta = deltaPct(totalExpenses, prevExpenses)
+  const netDelta = deltaPct(netProfit, prevNet)
+
+  // مبيعات الكافيه في الفترة (أصناف CAFE_ITEM)
+  const cafeSales = invoices.reduce(
+    (s, inv) => s + inv.items.filter((it: any) => it.product.itemKind === 'CAFE_ITEM' && !it.isBonus).reduce((a: number, it: any) => a + Number(it.totalPrice), 0),
+    0
+  )
   const producedQty = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + Number(i.quantity), 0), 0)
   const purchaseTotal = Number(purchaseAgg._sum.totalAmount) || 0
   const purchasePaid = Number(purchaseAgg._sum.paidAmount) || 0
@@ -289,15 +316,16 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
         <>
           {/* ─── KPI Cards — صف أول: المالية الرئيسية ─── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard label="إجمالي المبيعات" value={egp(totalSales)} sub={`${fmt(invoices.length)} فاتورة`} Icon={Banknote} color="bg-blue-50 text-blue-600" href="/finance/sales" trend={null} />
-            <KpiCard label="إجمالي الربح" value={egp(grossProfit)} sub={`هامش ${grossMargin}%`} Icon={TrendingUp} color="bg-green-50 text-green-600" href="/finance" trend={grossProfit >= 0 ? 'up' : 'down'} />
-            <KpiCard label="المصروفات" value={egp(totalExpenses)} sub={`${fmt(paymentVouchers.length)} سند صرف`} Icon={FileSpreadsheet} color="bg-red-50 text-red-600" href="/finance/expenses" trend={null} />
-            <KpiCard label="صافي الربح" value={egp(netProfit)} sub={`هامش ${profitMargin}%`} Icon={CircleDollarSign} color={netProfit >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'} href="/finance" trend={netProfit >= 0 ? 'up' : 'down'} />
+            <KpiCard label="إجمالي المبيعات" value={egp(totalSales)} sub={`${fmt(invoices.length)} فاتورة`} Icon={Banknote} color="bg-blue-50 text-blue-600" href="/finance/sales" trend={null} delta={salesDelta} />
+            <KpiCard label="إجمالي الربح" value={egp(grossProfit)} sub={`هامش ${grossMargin}%`} Icon={TrendingUp} color="bg-green-50 text-green-600" href="/finance" trend={grossProfit >= 0 ? 'up' : 'down'} delta={grossDelta} />
+            <KpiCard label="المصروفات" value={egp(totalExpenses)} sub={`${fmt(paymentVouchers.length)} سند صرف`} Icon={FileSpreadsheet} color="bg-red-50 text-red-600" href="/finance/expenses" trend={null} delta={expensesDelta} deltaInverted />
+            <KpiCard label="صافي الربح" value={egp(netProfit)} sub={`هامش ${profitMargin}%`} Icon={CircleDollarSign} color={netProfit >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'} href="/finance" trend={netProfit >= 0 ? 'up' : 'down'} delta={netDelta} />
           </div>
 
           {/* ─── KPI Cards — صف ثاني: التشغيل ─── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             <MiniKpi label="محصّل نقدي" value={egp(cashSales)} Icon={Wallet} cls="text-green-600" />
+            <MiniKpi label="مبيعات الكافيه" value={egp(cafeSales)} Icon={Coffee} cls="text-amber-700" />
             <MiniKpi label="آجل (مديونية)" value={egp(creditSales)} Icon={Scale} cls="text-amber-600" />
             <MiniKpi label="مشتريات الفترة" value={egp(purchaseTotal)} Icon={ShoppingBag} cls="text-orange-600" />
             <MiniKpi label="إنتاج الفترة" value={`${fmt(producedQty)} وحدة`} Icon={Factory} cls="text-purple-600" />
@@ -383,6 +411,51 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
             <CashFlowChart labels={chartLabels} inflows={chartCfIn} outflows={chartCfOut} />
           </div>
 
+          {/* ─── أحدث الفواتير (جدول تفصيلي) ─── */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3">
+              <h3 className="text-sm font-bold text-[#1a1a2e] flex items-center gap-2"><ReceiptText className="w-4 h-4 text-[#0f3460]" /> أحدث الفواتير</h3>
+              <Link href="/sales" className="text-[11px] text-[#0f3460] font-bold hover:underline">كل المبيعات ←</Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50 text-xs">
+                    <th className="p-3 font-medium">الفاتورة</th>
+                    <th className="p-3 font-medium">العميل</th>
+                    <th className="p-3 font-medium">النوع</th>
+                    <th className="p-3 font-medium">الوسيلة</th>
+                    <th className="p-3 font-medium">الصافي</th>
+                    <th className="p-3 font-medium">الوقت</th>
+                    <th className="p-3 font-medium no-print"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.slice(-8).reverse().map((inv) => (
+                    <tr key={inv.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                      <td className="p-3 font-semibold tabular-nums text-xs">{inv.invoiceNo}</td>
+                      <td className="p-3">{inv.customer?.name || '—'}</td>
+                      <td className="p-3">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${inv.type === 'CASH' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {inv.type === 'CASH' ? 'نقدي' : 'آجل'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs text-gray-500">{inv.paymentMethod}{(inv as any).collectionMethod === 'تحويل انستا' ? ' — إنستا' : (inv as any).collectionMethod === 'تحويل محفظة' ? ' — محفظة' : ''}</td>
+                      <td className="p-3 font-bold tabular-nums">{egp(Number(inv.netAmount))}</td>
+                      <td className="p-3 text-xs text-gray-400 tabular-nums">{new Date(inv.createdAt).toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="p-3 no-print">
+                        <Link href={`/print/invoice/${inv.id}`} className="text-[#0f3460] hover:underline"><Printer className="w-3.5 h-3.5" /></Link>
+                      </td>
+                    </tr>
+                  ))}
+                  {invoices.length === 0 && (
+                    <tr><td colSpan={7} className="p-6 text-center text-gray-400 text-sm">مفيش فواتير في الفترة دي.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {/* ─── Bottom: Receivables + Low Stock + Activity ─── */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
             {/* ملخص التحصيل والذمم */}
@@ -449,20 +522,31 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
 }
 
 /* ─── KPI Card Component ─── */
-function KpiCard({ label, value, sub, Icon, color, href, trend }: {
+function KpiCard({ label, value, sub, Icon, color, href, trend, delta, deltaInverted }: {
   label: string; value: string; sub: string; Icon: any; color: string; href: string; trend: 'up' | 'down' | null
+  delta?: number | null // نسبة التغيّر عن الفترة السابقة
+  deltaInverted?: boolean // للمصروفات: الزيادة وحشة
 }) {
+  const deltaGood = delta !== null && delta !== undefined ? (deltaInverted ? delta <= 0 : delta >= 0) : null
   return (
     <Link href={href} className="group bg-white p-4 rounded-2xl shadow-sm ring-1 ring-transparent transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-gray-200">
       <div className="flex items-start justify-between">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${color}`}>
           <Icon className="w-5 h-5" />
         </div>
-        {trend && (
+        {delta !== null && delta !== undefined ? (
+          <span
+            title="مقارنة بالفترة السابقة بنفس الطول"
+            className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums ${deltaGood ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}
+          >
+            {delta >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {Math.abs(delta) >= 1000 ? '+999%' : `${delta >= 0 ? '+' : ''}${delta.toFixed(0)}%`}
+          </span>
+        ) : trend ? (
           <span className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${trend === 'up' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
             {trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
           </span>
-        )}
+        ) : null}
       </div>
       <p className="text-lg font-black text-[#1a1a2e] tabular-nums mt-2 truncate">{value}</p>
       <p className="text-[11px] text-gray-500 flex items-center justify-between mt-0.5">
