@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { ReportShell } from '@/components/report-shell'
 import { ReportTable } from '@/components/report-table'
 import { fmt, money, parsePeriod } from '@/lib/report-utils'
+import { DelegateReportFilters } from '@/components/delegate-report-filters'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,11 +24,12 @@ export default async function DelegateDetailReport({
   searchParams: rawSearchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ from?: string; to?: string }>
+  searchParams: Promise<{ from?: string; to?: string; area?: string }>
 }) {
   const params = await rawParams
   const searchParams = await rawSearchParams
   const { fromStr, toStr, period } = parsePeriod(searchParams)
+  const areaFilter = searchParams.area?.trim() || ''
 
   const [delegate, routePlan, periodInvoices, unloads] = await Promise.all([
     prisma.delegate.findUnique({
@@ -48,7 +50,7 @@ export default async function DelegateDetailReport({
       orderBy: [{ dayOfWeek: 'asc' }, { sortOrder: 'asc' }],
     }),
     prisma.invoice.findMany({
-      where: { delegateId: params.id, createdAt: period },
+      where: { delegateId: params.id, createdAt: period, ...(areaFilter ? { customer: { area: areaFilter } } : {}) },
       include: { customer: { select: { id: true, name: true } } },
     }),
     prisma.unloadOrder.findMany({
@@ -58,6 +60,15 @@ export default async function DelegateDetailReport({
     }),
   ])
   if (!delegate) notFound()
+
+  const [allDelegates, customerAreas] = await Promise.all([
+    prisma.delegate.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.customer.findMany({ where: { isActive: true, area: { not: null } }, select: { area: true }, distinct: ['area'] }),
+  ])
+  const areas = customerAreas.map((c) => c.area).filter(Boolean) as string[]
+
+  // فلترة خط السير بالمنطقة لو محددة
+  const filteredPlan = areaFilter ? routePlan.filter((e) => e.customer.area === areaFilter) : routePlan
 
   // تحقيق الفترة: عملاء مميزين + إجمالي فواتير
   const achievedIds = new Set(periodInvoices.map((i) => i.customerId))
@@ -83,12 +94,12 @@ export default async function DelegateDetailReport({
 
   // خط السير الأسبوعي مجمّع بالأيام
   const planByDay = new Map<number, typeof routePlan>()
-  for (const e of routePlan) {
+  for (const e of filteredPlan) {
     const list = planByDay.get(e.dayOfWeek) || []
     list.push(e)
     planByDay.set(e.dayOfWeek, list)
   }
-  const planTotal = routePlan.length
+  const planTotal = filteredPlan.length
 
   // كشف الجولات
   const roundRows = delegate.settlements.map((s) => {
@@ -146,10 +157,12 @@ export default async function DelegateDetailReport({
         { label: 'العمولة المستحقة', value: money(S.commission), color: 'text-[#e94560]' },
       ]}
     >
+      <DelegateReportFilters delegates={allDelegates} areas={areas} currentDelegateId={delegate.id} currentArea={areaFilter} />
+
       {/* خط السير الأسبوعي الكامل */}
       <section className="bg-white rounded-xl shadow-sm overflow-hidden print-area">
         <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
-          <h3 className="text-base font-bold text-[#1a1a2e]">خط السير الأسبوعي الكامل ({fmt(planTotal)} عميل موزّع)</h3>
+          <h3 className="text-base font-bold text-[#1a1a2e]">خط السير الأسبوعي الكامل ({fmt(planTotal)} عميل موزّع{areaFilter ? ` — منطقة ${areaFilter}` : ''})</h3>
           <span className="text-xs text-gray-400">اللي عليه ✓ اتعمل له فاتورة خلال الفترة المختارة</span>
         </div>
         {planTotal === 0 ? (

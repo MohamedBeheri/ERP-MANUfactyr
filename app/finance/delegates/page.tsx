@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
+import { DelegateReportFilters } from '@/components/delegate-report-filters'
 import { ReportShell } from '@/components/report-shell'
 import { ReportTable } from '@/components/report-table'
 import { fmt, money, parsePeriod } from '@/lib/report-utils'
@@ -7,13 +8,14 @@ import { fmt, money, parsePeriod } from '@/lib/report-utils'
 export const dynamic = 'force-dynamic'
 
 // تقرير المناديب المفصّل: تحصيل بالوسيلة (كاش/إنستا/محفظة) + تارجت وتحقيق + تفريغات
-export default async function DelegatesReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+export default async function DelegatesReport({ searchParams: rawSearchParams }: { searchParams: Promise<{ from?: string; to?: string; area?: string }> }) {
   const searchParams = await rawSearchParams;
   const { fromStr, toStr, period } = parsePeriod(searchParams)
+  const areaFilter = searchParams.area?.trim() || ''
 
   const [delegates, periodInvoices, unloads] = await Promise.all([
     prisma.delegate.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(areaFilter ? { area: areaFilter } : {}) },
       include: {
         vehicle: { select: { plateNo: true } },
         settlements: {
@@ -33,6 +35,12 @@ export default async function DelegatesReport({ searchParams: rawSearchParams }:
       include: { delegate: { select: { id: true, name: true } }, items: true },
     }),
   ])
+
+  const [allDelegates, delegateAreas] = await Promise.all([
+    prisma.delegate.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.delegate.findMany({ where: { isActive: true, area: { not: null } }, select: { area: true }, distinct: ['area'] }),
+  ])
+  const areas = delegateAreas.map((d) => d.area).filter(Boolean) as string[]
 
   // عملاء الفترة المتحققين (distinct) لكل مندوب — أساس متابعة التارجت
   const customersByDelegate = new Map<string, Set<string>>()
@@ -140,7 +148,9 @@ export default async function DelegatesReport({ searchParams: rawSearchParams }:
         { label: 'العمولات', value: money(T.commission), color: 'text-[#e94560]' },
       ]}
     >
-      <ReportTable title="المناديب — التحصيل والتارجت" columns={columns} rows={rows}
+      <DelegateReportFilters delegates={allDelegates} areas={areas} currentArea={areaFilter} />
+
+      <ReportTable title={`المناديب — التحصيل والتارجت${areaFilter ? ` (منطقة ${areaFilter})` : ''}`} columns={columns} rows={rows}
         footer={['الإجمالي', '', '', '', fmt(T.sold), '', money(T.cashOnly), money(T.insta), money(T.wallet), money(T.collected), money(T.credit), money(T.commission), '']} />
 
       {unloadRows.length > 0 && (

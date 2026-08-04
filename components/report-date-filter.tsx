@@ -1,20 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 
 // فلتر مدة (من / إلى) لصفحة التقارير — زي التقرير الشامل بتاع الكافيه
 export function ReportDateFilter({ from, to, basePath = '/finance' }: { from: string; to: string; basePath?: string }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [f, setF] = useState(from)
   const [t, setT] = useState(to)
 
+  // نحافظ على باقي الفلاتر (منطقة/مندوب...) مع تغيير المدة
+  const withCurrent = (fromVal: string, toVal: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (fromVal) params.set('from', fromVal); else params.delete('from')
+    if (toVal) params.set('to', toVal); else params.delete('to')
+    return params.toString()
+  }
+
   const apply = () => {
-    const params = new URLSearchParams()
-    if (f) params.set('from', f)
-    if (t) params.set('to', t)
-    router.push(`${basePath}?${params.toString()}`)
+    router.push(`${basePath}?${withCurrent(f, t)}`)
   }
 
   const quick = (days: number) => {
@@ -23,8 +29,7 @@ export function ReportDateFilter({ from, to, basePath = '/finance' }: { from: st
     start.setDate(start.getDate() - days + 1)
     const iso = (d: Date) => d.toISOString().slice(0, 10)
     setF(iso(start)); setT(iso(now))
-    const params = new URLSearchParams({ from: iso(start), to: iso(now) })
-    router.push(`${basePath}?${params.toString()}`)
+    router.push(`${basePath}?${withCurrent(iso(start), iso(now))}`)
   }
 
   return (
