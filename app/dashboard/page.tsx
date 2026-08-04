@@ -17,7 +17,6 @@ import {
   SalesTrendChart, RevenueBreakdownChart, TopProductsBar, PaymentMethodsPie,
   ExpensesByCategoryChart, ProductionTrendChart, CashFlowChart,
 } from '@/components/dashboard-charts'
-import { RecentActivity } from '@/components/recent-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -132,6 +131,19 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     (s, inv) => s + inv.items.filter((it: any) => it.product.itemKind === 'CAFE_ITEM' && !it.isBonus).reduce((a: number, it: any) => a + Number(it.totalPrice), 0),
     0
   )
+
+  // ─── تحليلات النظام (مشتقة من بيانات الفترة) ───
+  const avgInvoice = invoices.length > 0 ? totalSales / invoices.length : 0
+  const creditRatio = totalSales > 0 ? (creditSales / totalSales) * 100 : 0
+  const cafeRatio = totalSales > 0 ? (cafeSales / totalSales) * 100 : 0
+  const cogsRatio = totalSales > 0 ? (cogs / totalSales) * 100 : 0
+  const invoicesPerDay = invoices.length / Math.max(1, days)
+  const topCustomerMap = new Map<string, number>()
+  for (const inv of invoices) {
+    const name = inv.customer?.name || 'غير محدد'
+    topCustomerMap.set(name, (topCustomerMap.get(name) || 0) + Number(inv.netAmount))
+  }
+  const topCustomer = Array.from(topCustomerMap.entries()).sort((a, b) => b[1] - a[1])[0] || null
   const producedQty = productions.reduce((s, p) => s + p.items.reduce((a, i) => a + Number(i.quantity), 0), 0)
   const purchaseTotal = Number(purchaseAgg._sum.totalAmount) || 0
   const purchasePaid = Number(purchaseAgg._sum.paidAmount) || 0
@@ -178,6 +190,9 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
   const mainTreasury = treasuries.filter((t: any) => t.type === 'MAIN_CASH').reduce((s: number, t: any) => s + Number(t.balance), 0)
   const clearingTreasury = treasuries.filter((t: any) => t.type === 'CLEARING_ACCOUNT').reduce((s: number, t: any) => s + Number(t.balance), 0)
   const bankTreasury = treasuries.filter((t: any) => t.type === 'BANK').reduce((s: number, t: any) => s + Number(t.balance), 0)
+  const payPairs: [string, number][] = [['كاش', payCash], ['إنستا باي', payInsta], ['محفظة', payWallet], ['فيزا/شبكة', payNetwork]]
+  const topPayMethod = payPairs.sort((a, b) => b[1] - a[1])[0]
+  const payTotalAll = payCash + payInsta + payWallet + payNetwork
 
   // ─── تجميع المبيعات والمصروفات اليومية ───
   const dayMap = new Map<string, { sales: number; expenses: number; prodQty: number; prodOrders: number; cfIn: number; cfOut: number }>()
@@ -500,7 +515,47 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
               </div>
             </div>
 
-            <RecentActivity activities={recentActivity} />
+            {/* تحليلات النظام */}
+            <div className="bg-white rounded-2xl shadow-sm p-5">
+              <h3 className="text-sm font-bold text-[#1a1a2e] mb-4 flex items-center gap-2"><BadgePercent className="w-4 h-4 text-[#e94560]" />تحليلات النظام — {label}</h3>
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">متوسط قيمة الفاتورة</span>
+                  <span className="font-bold tabular-nums text-[#0f3460]">{egp(avgInvoice)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">معدل الفواتير اليومي</span>
+                  <span className="font-bold tabular-nums text-[#0f3460]">{invoicesPerDay.toFixed(1)} فاتورة/يوم</span>
+                </div>
+                {[
+                  { label: 'تكلفة المبيعات من الإيراد', pct: cogsRatio, warn: cogsRatio > 70, cls: 'bg-orange-400' },
+                  { label: 'نسبة البيع الآجل', pct: creditRatio, warn: creditRatio > 50, cls: 'bg-amber-400' },
+                  { label: 'نسبة مبيعات الكافيه', pct: cafeRatio, warn: false, cls: 'bg-purple-400' },
+                ].map((r) => (
+                  <div key={r.label}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-600">{r.label}</span>
+                      <span className={`font-bold tabular-nums ${r.warn ? 'text-red-600' : 'text-[#1a1a2e]'}`}>{r.pct.toFixed(1)}%{r.warn ? ' ⚠️' : ''}</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${r.warn ? 'bg-red-400' : r.cls}`} style={{ width: `${Math.min(100, r.pct)}%` }} />
+                    </div>
+                  </div>
+                ))}
+                {topCustomer && (
+                  <div className="flex items-center justify-between text-sm pt-1 border-t border-gray-50">
+                    <span className="text-gray-600">أعلى عميل شراءً</span>
+                    <span className="font-bold text-[#1a1a2e] text-xs">{topCustomer[0]} <span className="text-gray-400 tabular-nums">({egp(topCustomer[1])})</span></span>
+                  </div>
+                )}
+                {payTotalAll > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">أكثر وسيلة تحصيل</span>
+                    <span className="font-bold text-[#1a1a2e] text-xs">{topPayMethod[0]} <span className="text-gray-400 tabular-nums">({((topPayMethod[1] / payTotalAll) * 100).toFixed(0)}%)</span></span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}
