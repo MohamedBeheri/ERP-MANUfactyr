@@ -14,7 +14,7 @@ import { effectivePermissions } from '@/lib/permissions'
 import { PeriodSelector } from '@/components/period-selector'
 import { AlBadrLogo } from '@/components/albadr-logo'
 import {
-  SalesTrendChart, RevenueBreakdownChart, TopProductsBar,
+  SalesTrendChart, RevenueBreakdownChart, TopProductsBar, PaymentMethodsPie,
   ExpensesByCategoryChart, ProductionTrendChart, CashFlowChart,
 } from '@/components/dashboard-charts'
 import { RecentActivity } from '@/components/recent-activity'
@@ -63,6 +63,7 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     recentActivity, pendingOnline, activeTours, keyClaims, wasteAlerts,
     paymentVouchers, cashFlows, liabilities, customerCount, supplierPayAgg,
     kaPayAgg, creditCollections,
+    periodSettlements, periodCollections, treasuries, pendingUnloadsCount,
   ] = await Promise.all([
     prisma.invoice.findMany({
       where: { createdAt: period, status: 'COMPLETED' },
@@ -89,6 +90,10 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     prisma.supplierPayment.aggregate({ where: { createdAt: period }, _sum: { amount: true } }),
     prisma.keyAccountPayment.aggregate({ where: { createdAt: period }, _sum: { amount: true } }),
     prisma.invoice.aggregate({ where: { createdAt: period, status: 'COMPLETED', type: 'CREDIT', paidAmount: { gt: 0 } }, _sum: { paidAmount: true } }),
+    prisma.settlement.findMany({ where: { createdAt: period }, select: { cashAmount: true, cashOnlyAmount: true, instapayAmount: true, walletAmount: true } }).catch(() => []),
+    prisma.collection.findMany({ where: { createdAt: period }, include: { paymentMethod: { select: { name: true, type: true } } } }).catch(() => []),
+    prisma.treasury.findMany({ where: { isActive: true }, select: { name: true, type: true, balance: true } }).catch(() => []),
+    prisma.unloadOrder.count({ where: { status: 'PENDING' } }).catch(() => 0),
   ])
 
   // ─── KPIs ───
@@ -111,6 +116,41 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
   const supPayTotal = Number(supplierPayAgg._sum.amount) || 0
   const kaPayTotal = Number(kaPayAgg._sum.amount) || 0
   const collectionsTotal = Number(creditCollections._sum.paidAmount) || 0
+
+  // ─── حجم الفلوس بوسيلة الدفع (كاش/إنستا/محفظة/فيزا-شبكة) خلال الفترة ───
+  let payCash = 0, payInsta = 0, payWallet = 0, payNetwork = 0
+  // تسويات المناديب المفصّلة (القديمة بدون تفصيل = كاش)
+  for (const s of periodSettlements) {
+    const parts = Number(s.cashOnlyAmount) + Number(s.instapayAmount) + Number(s.walletAmount)
+    if (parts === 0) payCash += Number(s.cashAmount)
+    else {
+      payCash += Number(s.cashOnlyAmount)
+      payInsta += Number(s.instapayAmount)
+      payWallet += Number(s.walletAmount)
+    }
+  }
+  // سندات التحصيل المباشرة بالوسيلة
+  for (const c of periodCollections) {
+    const amt = Number(c.amount)
+    if (c.paymentMethod.type === 'ELECTRONIC') payInsta += amt
+    else if (c.paymentMethod.type === 'BANK') payNetwork += amt
+    else payCash += amt
+  }
+  // مبيعات نقطة البيع المباشرة (غير المناديب) بوسيلة الدفع المسجّلة على الفاتورة
+  for (const inv of invoices) {
+    if ((inv as any).delegateId) continue // تحصيل المندوب اتحسب من تسويته
+    const paid = Number(inv.paidAmount)
+    if (paid <= 0) continue
+    const pm = inv.paymentMethod || 'نقدي'
+    if (pm.includes('انستا') || pm.includes('إنستا')) payInsta += paid
+    else if (pm.includes('فيزا') || pm.includes('شبكة')) payNetwork += paid
+    else if (pm.includes('محفظة')) payWallet += paid
+    else payCash += paid
+  }
+  const treasuryTotal = treasuries.reduce((s: number, t: any) => s + Number(t.balance), 0)
+  const mainTreasury = treasuries.filter((t: any) => t.type === 'MAIN_CASH').reduce((s: number, t: any) => s + Number(t.balance), 0)
+  const clearingTreasury = treasuries.filter((t: any) => t.type === 'CLEARING_ACCOUNT').reduce((s: number, t: any) => s + Number(t.balance), 0)
+  const bankTreasury = treasuries.filter((t: any) => t.type === 'BANK').reduce((s: number, t: any) => s + Number(t.balance), 0)
 
   // ─── تجميع المبيعات والمصروفات اليومية ───
   const dayMap = new Map<string, { sales: number; expenses: number; prodQty: number; prodOrders: number; cfIn: number; cfOut: number }>()
@@ -291,6 +331,44 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
               <SalesTrendChart labels={chartLabels} sales={chartSales} expenses={chartExpenses} title={days === 1 ? 'مبيعات اليوم (بالساعة)' : `المبيعات والمصروفات — ${label}`} />
             </div>
             <RevenueBreakdownChart cash={cashSales} credit={creditSales} ka={kaSales} />
+          </div>
+
+          {/* ─── حجم الفلوس بالوسيلة + أرصدة الخزائن ─── */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <PaymentMethodsPie cash={payCash} insta={payInsta} wallet={payWallet} network={payNetwork} />
+            <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <h3 className="text-sm font-bold text-[#1a1a2e]">أرصدة الخزائن دلوقتي</h3>
+                <Link href="/treasury" className="text-xs font-semibold text-[#0f3460] hover:underline">إدارة الخزائن ←</Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'إجمالي الخزائن', value: treasuryTotal, cls: 'text-[#0f3460] bg-blue-50' },
+                  { label: 'الخزنة العمومية', value: mainTreasury, cls: 'text-emerald-700 bg-emerald-50' },
+                  { label: 'تحت التسوية (إنستا/محفظة)', value: clearingTreasury, cls: 'text-purple-700 bg-purple-50' },
+                  { label: 'بالبنك', value: bankTreasury, cls: 'text-teal-700 bg-teal-50' },
+                ].map((t) => (
+                  <div key={t.label} className={`rounded-xl p-3.5 ${t.cls}`}>
+                    <p className="text-[11px] font-semibold opacity-70">{t.label}</p>
+                    <p className="text-lg font-black tabular-nums mt-0.5">{egp(t.value)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                {treasuries.filter((t: any) => t.type === 'SALESMAN_CASH' && Number(t.balance) > 0).slice(0, 3).map((t: any) => (
+                  <div key={t.name} className="rounded-xl p-3 bg-amber-50 text-amber-800">
+                    <p className="text-[10px] font-semibold opacity-70 truncate">{t.name}</p>
+                    <p className="text-sm font-black tabular-nums">{egp(Number(t.balance))}</p>
+                  </div>
+                ))}
+                {pendingUnloadsCount > 0 && (
+                  <Link href="/warehouse" className="rounded-xl p-3 bg-orange-50 text-orange-700 hover:ring-2 ring-orange-200 transition-all">
+                    <p className="text-[10px] font-semibold opacity-70">أوامر تفريغ منتظرة استلام المخزن</p>
+                    <p className="text-sm font-black tabular-nums">{fmt(pendingUnloadsCount)} أمر</p>
+                  </Link>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* ─── Charts Row 2: Top Products + Expenses by Category ─── */}

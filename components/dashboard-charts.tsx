@@ -110,6 +110,51 @@ export function RevenueBreakdownChart({ cash, credit, ka }: { cash: number; cred
   )
 }
 
+/* ─── دائرة توزيع المحصّل بوسيلة الدفع (كاش/إنستا/محفظة/فيزا-شبكة) ─── */
+export function PaymentMethodsPie({ cash, insta, wallet, network }: { cash: number; insta: number; wallet: number; network: number }) {
+  const total = cash + insta + wallet + network
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-5">
+      <h3 className="text-sm font-bold text-[#1a1a2e] mb-1">حجم الفلوس بوسيلة الدفع</h3>
+      <p className="text-[11px] text-gray-400 mb-4">كاش · إنستا باي · محفظة · فيزا/شبكة</p>
+      <div className="h-56 flex items-center justify-center">
+        {total === 0 ? (
+          <p className="text-sm text-gray-400">لا توجد تحصيلات</p>
+        ) : (
+          <Doughnut
+            data={{
+              labels: ['كاش', 'إنستا باي', 'محفظة', 'فيزا/شبكة'],
+              datasets: [{ data: [cash, insta, wallet, network], backgroundColor: ['#16a34a', '#7c3aed', '#2563eb', '#0d9488'], borderWidth: 0 }],
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: '58%',
+              plugins: {
+                legend: { position: 'bottom', rtl: true, labels: { usePointStyle: true, pointStyle: 'circle', padding: 12, font: { size: 11 } } },
+                tooltip: { rtl: true, callbacks: { label: (ctx: any) => ` ${ctx.label}: ${egp(ctx.parsed)} (${((ctx.parsed / total) * 100).toFixed(0)}%)` } },
+              },
+            }}
+          />
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        {[
+          { label: 'كاش', value: cash, cls: 'text-green-700 bg-green-50' },
+          { label: 'إنستا باي', value: insta, cls: 'text-purple-700 bg-purple-50' },
+          { label: 'محفظة', value: wallet, cls: 'text-blue-700 bg-blue-50' },
+          { label: 'فيزا/شبكة', value: network, cls: 'text-teal-700 bg-teal-50' },
+        ].map((m) => (
+          <div key={m.label} className={`rounded-lg px-2.5 py-1.5 ${m.cls}`}>
+            <p className="text-[10px] font-semibold opacity-70">{m.label}</p>
+            <p className="text-sm font-black tabular-nums">{egp(m.value)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ─── أعمدة المنتجات الأكثر مبيعًا ─── */
 export function TopProductsBar({ items }: { items: { name: string; qty: number; revenue: number }[] }) {
   return (
