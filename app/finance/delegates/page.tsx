@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { ReportShell } from '@/components/report-shell'
 import { ReportTable } from '@/components/report-table'
@@ -58,6 +59,7 @@ export default async function DelegatesReport({ searchParams: rawSearchParams }:
     const target = Number(d.weeklyCustomerTarget)
     const achieved = customersByDelegate.get(d.id)?.size || 0
     return {
+      id: d.id,
       name: d.name, plate: d.vehicle?.plateNo || d.carNumber || '—',
       rounds: d.settlements.length, invoices: d._count.invoices,
       sold, bonus, returned, cashOnly, insta, wallet, collected, credit, commission,
@@ -82,7 +84,10 @@ export default async function DelegatesReport({ searchParams: rawSearchParams }:
     { header: 'عمولة', align: 'end' as const }, { header: 'تارجت/متحقق', align: 'center' as const },
   ]
   const rows = stat.map((s) => [
-    s.name, s.plate, fmt(s.rounds), fmt(s.invoices), fmt(s.sold), fmt(s.returned),
+    <Link key="n" href={`/finance/delegates/${s.id}?from=${fromStr}&to=${toStr}`} className="font-semibold text-[#0f3460] hover:underline">
+      {s.name} ←
+    </Link>,
+    s.plate, fmt(s.rounds), fmt(s.invoices), fmt(s.sold), fmt(s.returned),
     money(s.cashOnly),
     <span key="i" className="text-purple-700">{money(s.insta)}</span>,
     <span key="w" className="text-blue-700">{money(s.wallet)}</span>,
