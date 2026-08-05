@@ -18,6 +18,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         sellPrice: b.sellPrice !== undefined ? Number(b.sellPrice) || 0 : undefined,
         minStock: b.minStock !== undefined ? Number(b.minStock) || 0 : undefined,
         unit: b.unit || undefined,
+        showInPos: b.showInPos !== undefined ? !!b.showInPos : undefined,
       },
     })
     return NextResponse.json({ success: true })

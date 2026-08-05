@@ -45,7 +45,10 @@ export default async function CafePage() {
     }),
     prisma.product.findMany({
       where: { stageId: itemsStageId, isActive: true },
-      include: { cafeRecipeAsProduct: { include: { material: { select: { id: true, name: true, unit: true } } } } },
+      include: {
+        stocks: true,
+        cafeRecipeAsProduct: { include: { material: { select: { id: true, name: true, unit: true } } } },
+      },
       orderBy: { name: 'asc' },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
@@ -65,6 +68,7 @@ export default async function CafePage() {
     prisma.product.findMany({
       where: {
         isActive: true,
+        showInPos: true,
         OR: [
           { stageId: { in: sellableIds } },
           ...(sellableIds.length === 0 ? [{ type: 'FINISHED' as const }] : []),
@@ -114,6 +118,8 @@ export default async function CafePage() {
           unit: p.unit,
           sellPrice: Number(p.sellPrice),
           categoryId: p.categoryId,
+          showInPos: p.showInPos,
+          stock: Number(p.stocks.find((s) => s.warehouseId === warehouseId)?.quantity ?? 0),
           recipe: p.cafeRecipeAsProduct.map((r) => ({
             materialId: r.materialId,
             materialName: r.material.name,

@@ -12,7 +12,12 @@ interface Material {
   stocks?: { warehouseId: string; quantity: number }[]
 }
 interface RecipeLine { materialId: string; materialName: string; unit: string; quantity: number }
-interface CafeItem { id: string; name: string; unit: string; sellPrice: number; categoryId: string | null; recipe: RecipeLine[] }
+interface CafeItem {
+  id: string; name: string; unit: string; sellPrice: number; categoryId: string | null
+  showInPos: boolean
+  stock: number // رصيد البيع المباشر في مخزن الكافيه (للأصناف بدون توليفة)
+  recipe: RecipeLine[]
+}
 interface CafePurchase {
   id: string; invoiceNo: string; supplier: string; total: number; createdAt: string
   items: { name: string; quantity: number; unit: string }[]
@@ -82,6 +87,7 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
       )}
       {tab === 'warehouse' && (
         <div className="space-y-4">
+          <DirectItemsPanel items={cafeItems} canEdit={canEdit} router={router} />
           <MaterialsTab materials={materials} categories={categories} canAdd={canAdd} canDelete={canDelete} router={router} />
           <MovementsPanel movements={movements} />
         </div>
@@ -90,6 +96,85 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
         <ItemsTab cafeItems={cafeItems} materials={materials} categories={categories} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} router={router} />
       )}
       {tab === 'purchases' && <PurchasesTab purchases={purchases} canAdd={canAdd} />}
+    </div>
+  )
+}
+
+// سويتش ظهور الصنف في نقطة البيع
+function PosToggle({ id, value, canEdit, router }: { id: string; value: boolean; canEdit: boolean; router: any }) {
+  const [busy, setBusy] = useState(false)
+  async function toggle() {
+    if (!canEdit || busy) return
+    setBusy(true)
+    await fetch(`/api/cafe/products/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showInPos: !value }),
+    })
+    setBusy(false)
+    router.refresh()
+  }
+  return (
+    <button
+      onClick={toggle}
+      disabled={!canEdit || busy}
+      title={value ? 'ظاهر في نقطة البيع — اضغط للإخفاء' : 'مخفي من نقطة البيع — اضغط للإظهار'}
+      className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${value ? 'bg-green-500' : 'bg-gray-300'}`}
+    >
+      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${value ? 'right-0.5' : 'right-[22px]'}`} />
+    </button>
+  )
+}
+
+// مخزن المنتجات الجاهزة: أصناف بتتباع مباشرة من رصيدها (من غير توليفة استهلاك)
+function DirectItemsPanel({ items, canEdit, router }: { items: CafeItem[]; canEdit: boolean; router: any }) {
+  const direct = items.filter((i) => i.recipe.length === 0)
+  const prepared = items.filter((i) => i.recipe.length > 0)
+  return (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="p-4 pb-2">
+        <h3 className="text-sm font-bold text-[#1a1a2e]">مخزن المنتجات الجاهزة — بيع مباشر</h3>
+        <p className="text-xs text-gray-400">أصناف بتتباع من رصيدها مباشرة · الأصناف اللي ليها توليفة بتتحضّر من مخزن المواد الخام</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-gray-500 text-right border-y border-gray-100 bg-gray-50/50">
+              <th className="p-3 font-medium">الصنف</th>
+              <th className="p-3 font-medium">سعر البيع</th>
+              <th className="p-3 font-medium">الرصيد</th>
+              <th className="p-3 font-medium">يظهر في نقطة البيع</th>
+            </tr>
+          </thead>
+          <tbody>
+            {direct.length === 0 && (
+              <tr><td colSpan={4} className="p-5 text-center text-gray-500">مفيش منتجات بيع مباشر — كل الأصناف الحالية بتتحضّر بتوليفة.</td></tr>
+            )}
+            {direct.map((it) => (
+              <tr key={it.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                <td className="p-3 font-semibold">{it.name}</td>
+                <td className="p-3 tabular-nums">{it.sellPrice.toLocaleString('ar-EG')} ج.م</td>
+                <td className="p-3">
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold tabular-nums ${it.stock <= 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                    {it.stock} {it.unit}
+                  </span>
+                </td>
+                <td className="p-3"><PosToggle id={it.id} value={it.showInPos} canEdit={canEdit} router={router} /></td>
+              </tr>
+            ))}
+            {prepared.map((it) => (
+              <tr key={it.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                <td className="p-3 font-semibold">{it.name}</td>
+                <td className="p-3 tabular-nums">{it.sellPrice.toLocaleString('ar-EG')} ج.م</td>
+                <td className="p-3">
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700">تحضير من الخامات ({it.recipe.length} مكوّن)</span>
+                </td>
+                <td className="p-3"><PosToggle id={it.id} value={it.showInPos} canEdit={canEdit} router={router} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -130,6 +215,10 @@ function MaterialsTab({ materials, categories, canAdd, canDelete, router }: any)
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
       <div className="xl:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="p-4 pb-2">
+          <h3 className="text-sm font-bold text-[#1a1a2e]">مخزن المواد الخام</h3>
+          <p className="text-xs text-gray-400">خامات التحضير (شوكولاتة/حليب/مكونات) — بتتخصم تلقائي بتوليفة الاستهلاك عند البيع</p>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -241,6 +330,7 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
   const [unit, setUnit] = useState('قطعة')
   const [sellPrice, setSellPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [showInPos, setShowInPos] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -252,7 +342,7 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
     const res = await fetch('/api/cafe/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, kind: 'item', unit, sellPrice, categoryId: categoryId || null }),
+      body: JSON.stringify({ name, kind: 'item', unit, sellPrice, categoryId: categoryId || null, showInPos }),
     })
     setLoading(false)
     if (!res.ok) return setError((await res.json()).error || 'فشل الحفظ')
@@ -281,9 +371,16 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
             <div className="flex items-center justify-between p-4">
               <div>
                 <p className="font-bold text-[#1a1a2e]">{item.name}</p>
-                <p className="text-xs text-gray-500">سعر البيع: {item.sellPrice.toLocaleString('ar-EG')} ج.م · {item.recipe.length} مكوّن في التوليفة</p>
+                <p className="text-xs text-gray-500">
+                  سعر البيع: {item.sellPrice.toLocaleString('ar-EG')} ج.م ·{' '}
+                  {item.recipe.length > 0 ? `${item.recipe.length} مكوّن في التوليفة` : `بيع مباشر — الرصيد: ${item.stock} ${item.unit}`}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-400 whitespace-nowrap hidden sm:inline">نقطة البيع</span>
+                  <PosToggle id={item.id} value={item.showInPos} canEdit={canEdit} router={router} />
+                </div>
                 {canDelete && (
                   <button onClick={() => remove(item.id)} className="text-red-500 hover:text-red-700">
                     <Trash2 className="w-4 h-4" />
@@ -324,6 +421,10 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
                 <input className={inputCls} placeholder="الوحدة" value={unit} onChange={(e) => setUnit(e.target.value)} />
                 <input className={inputCls} placeholder="سعر البيع" type="text" inputMode="decimal" dir="ltr" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
               </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+                <input type="checkbox" checked={showInPos} onChange={(e) => setShowInPos(e.target.checked)} className="w-4 h-4 accent-[#e94560]" />
+                يظهر في نقطة البيع
+              </label>
               <button onClick={submit} disabled={loading} className="w-full bg-[#e94560] text-white py-2 rounded-lg text-sm font-bold disabled:opacity-50">
                 {loading ? 'جارٍ الحفظ...' : 'حفظ المنتج'}
               </button>

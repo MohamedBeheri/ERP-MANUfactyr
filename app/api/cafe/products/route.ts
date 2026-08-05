@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, kind, categoryId, costPrice, sellPrice, minStock, unit } = body
+    const { name, kind, categoryId, costPrice, sellPrice, minStock, unit, showInPos } = body
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'اسم الصنف مطلوب' }, { status: 400 })
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
         sellPrice: Number(sellPrice) || 0,
         minStock: Number(minStock) || 0,
         unit: unit || 'قطعة',
+        showInPos: showInPos === undefined ? true : !!showInPos,
       },
     })
 

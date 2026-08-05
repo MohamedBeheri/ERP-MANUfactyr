@@ -245,6 +245,7 @@ model Product {
   quantity         Decimal  @default(0) @db.Decimal(12, 3) // الكمية الإجمالية (كل المخازن)
   unit             String   @default("كجم") // وحدة القياس
   imageUrl         String? // صورة المنتج (رابط أو data URL)
+  showInPos        Boolean  @default(true) // يظهر في شاشة نقطة البيع؟
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
