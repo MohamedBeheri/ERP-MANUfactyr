@@ -333,7 +333,7 @@ function CollectForm({ customers, delegates, methods, onDone, onError }: any) {
       </div>
       {isElectronic && (
         <p className="text-xs text-purple-700 bg-purple-50 rounded-lg px-3 py-2">
-          تحصيل إنستا باي بيتوجّه تلقائي لحساب "إنستا باي تحت التسوية" — مش لخزنة المندوب النقدية، وبالتالي مش هيظهر في جرده النقدي.
+          التحصيل الإلكتروني بيتوجّه تلقائي لحسابه الوسيط (الإنستا لحساب الإنستا والمحفظة لحساب المحفظة) — مش لخزنة المندوب النقدية، وبالتالي مش هيظهر في جرده النقدي.
         </p>
       )}
       <button onClick={submit} disabled={busy || !customerId || !methodId || !amount} className="bg-[#0f3460] text-white px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40">

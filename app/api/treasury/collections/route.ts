@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
-import { ensureTreasuries, salesmanTreasury, applyTreasuryTxn, MAIN_CASH_NAME, CLEARING_NAME } from '@/lib/treasuries'
+import { ensureTreasuries, salesmanTreasury, applyTreasuryTxn, MAIN_CASH_NAME, CLEARING_NAME, WALLET_CLEARING_NAME } from '@/lib/treasuries'
 
 export async function GET(req: NextRequest) {
   const auth = await requirePermission('treasury', 'view')
@@ -58,7 +58,9 @@ export async function POST(req: NextRequest) {
       // تحديد الخزنة المستهدفة
       let treasuryId: string
       if (method.type === 'ELECTRONIC') {
-        const clearing = await tx.treasury.findUnique({ where: { name: CLEARING_NAME } })
+        // كل وسيلة إلكترونية بتدخل حسابها الوسيط: المحفظة لحساب المحفظة والإنستا لحساب الإنستا
+        const clearingName = method.name.includes('محفظة') ? WALLET_CLEARING_NAME : CLEARING_NAME
+        const clearing = await tx.treasury.findUnique({ where: { name: clearingName } })
         treasuryId = clearing!.id
       } else if (b.delegateId) {
         treasuryId = await salesmanTreasury(tx, b.delegateId)

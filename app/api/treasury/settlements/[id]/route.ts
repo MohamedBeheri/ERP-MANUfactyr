@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
-import { ensureTreasuries, applyTreasuryTxn, MAIN_CASH_NAME, CLEARING_NAME } from '@/lib/treasuries'
+import { ensureTreasuries, applyTreasuryTxn, MAIN_CASH_NAME, CLEARING_NAME, WALLET_CLEARING_NAME } from '@/lib/treasuries'
 
 
 export async function GET(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
@@ -45,9 +45,10 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
     const walletPart = Number(settlement.walletAmount)
     if (cashPart + instaPart + walletPart === 0) cashPart = Number(settlement.amount)
 
-    const [mainCash, clearing] = await Promise.all([
+    const [mainCash, clearing, walletClearing] = await Promise.all([
       prisma.treasury.findUnique({ where: { name: MAIN_CASH_NAME } }),
       prisma.treasury.findUnique({ where: { name: CLEARING_NAME } }),
+      prisma.treasury.findUnique({ where: { name: WALLET_CLEARING_NAME } }),
     ])
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -92,9 +93,10 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
           createdById: (session.user as any).id,
         })
       }
-      if (walletPart > 0 && clearing) {
+      if (walletPart > 0 && (walletClearing || clearing)) {
+        // تحويلات المحفظة بتدخل حساب المحفظة الوسيط — نفس الطريقة اللي المندوب حوّل بيها
         await applyTreasuryTxn(tx, {
-          treasuryId: clearing.id,
+          treasuryId: (walletClearing || clearing)!.id,
           type: 'IN',
           amount: walletPart,
           refType: 'settlement',

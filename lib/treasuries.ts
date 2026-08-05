@@ -5,6 +5,7 @@ type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0] | typeof pris
 // أسماء الخزائن الافتراضية — ثابتة عشان الـ lookup
 export const MAIN_CASH_NAME = 'الخزنة العمومية'
 export const CLEARING_NAME = 'حساب إنستا باي تحت التسوية'
+export const WALLET_CLEARING_NAME = 'حساب المحفظة تحت التسوية'
 export const BANK_NAME = 'الحساب البنكي الرئيسي'
 
 let ensured = false
@@ -13,7 +14,7 @@ let ensured = false
 export async function ensureTreasuries() {
   if (ensured) return
   const count = await prisma.treasury.count({ where: { type: { in: ['MAIN_CASH', 'CLEARING_ACCOUNT', 'BANK'] } } })
-  if (count >= 3) {
+  if (count >= 4) {
     ensured = true
     return
   }
@@ -22,6 +23,7 @@ export async function ensureTreasuries() {
     const defaults: { name: string; type: 'MAIN_CASH' | 'CLEARING_ACCOUNT' | 'BANK'; allowExpenseDisbursement: boolean }[] = [
       { name: MAIN_CASH_NAME, type: 'MAIN_CASH', allowExpenseDisbursement: true },
       { name: CLEARING_NAME, type: 'CLEARING_ACCOUNT', allowExpenseDisbursement: false },
+      { name: WALLET_CLEARING_NAME, type: 'CLEARING_ACCOUNT', allowExpenseDisbursement: false },
       { name: BANK_NAME, type: 'BANK', allowExpenseDisbursement: false },
     ]
     for (const t of defaults) {
@@ -32,6 +34,7 @@ export async function ensureTreasuries() {
     const methods: { name: string; type: 'CASH' | 'ELECTRONIC' | 'BANK' }[] = [
       { name: 'نقدي', type: 'CASH' },
       { name: 'إنستا باي', type: 'ELECTRONIC' },
+      { name: 'محفظة', type: 'ELECTRONIC' },
       { name: 'شبكة', type: 'BANK' },
     ]
     for (const m of methods) {
