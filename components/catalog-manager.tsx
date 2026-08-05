@@ -28,6 +28,8 @@ interface Item {
   imageUrl: string | null
   minStock: number
   isActive: boolean
+  showInPos: boolean
+  showOnline: boolean
   components: Component[]
 }
 interface CategoryRef { id: string; name: string }
@@ -104,6 +106,7 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
     name: '', unit: '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '',
     roastLossPercent: '', tareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1',
     categoryId: '', stageId: '', minStock: '0', imageUrl: '',
+    showInPos: false, showOnline: true,
   }
   const [form, setForm] = useState<any>(empty)
   const [components, setComponents] = useState<Component[]>([])
@@ -126,6 +129,7 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
       gramsPerPiece: String(it.gramsPerPiece || ''), piecesPerBox: String(it.piecesPerBox || 1),
       categoryId: it.categoryId || '', stageId: it.stageId || '', minStock: String(it.minStock || 0),
       imageUrl: it.imageUrl || '',
+      showInPos: it.showInPos, showOnline: it.showOnline,
     })
     setComponents(it.components.map((c) => ({ ...c })))
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -330,6 +334,23 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
           </div>
         )}
 
+        {/* أماكن ظهور الصنف للبيع */}
+        {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1.5">أماكن الظهور للبيع</label>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+                <input type="checkbox" checked={!!form.showInPos} onChange={(e) => setForm({ ...form, showInPos: e.target.checked })} className="w-4 h-4 accent-[#e94560]" />
+                نقطة البيع (الكافيه)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+                <input type="checkbox" checked={!!form.showOnline} onChange={(e) => setForm({ ...form, showOnline: e.target.checked })} className="w-4 h-4 accent-[#0f3460]" />
+                الموقع الأونلاين
+              </label>
+            </div>
+          </div>
+        )}
+
         {/* الحد الأدنى للمخزون */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الأدنى للمخزون</label>
@@ -391,6 +412,16 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
                     {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && it.sellPrice > 0 && <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">قطاعي {fmt(it.sellPrice)}</span>}
                     {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && it.wholesalePrice > 0 && <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">جملة {fmt(it.wholesalePrice)}</span>}
                     {it.minStock > 0 && <span className="bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">حد أدنى {it.minStock}</span>}
+                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+                      it.showInPos
+                        ? <span className="bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded font-semibold">نقطة البيع ✓</span>
+                        : <span className="bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-semibold">مخفي من نقطة البيع</span>
+                    )}
+                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+                      it.showOnline
+                        ? <span className="bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded font-semibold">أونلاين ✓</span>
+                        : <span className="bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-semibold">مخفي من الأونلاين</span>
+                    )}
                   </div>
                   {kind === 'BLEND' && it.components.length > 0 && (
                     <p className="text-[11px] text-gray-500 mt-1">

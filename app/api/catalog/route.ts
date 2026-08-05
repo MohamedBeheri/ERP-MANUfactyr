@@ -58,6 +58,8 @@ export async function GET() {
         stageId: p.stageId,
         imageUrl: p.imageUrl,
         minStock: p.minStock,
+        showInPos: p.showInPos,
+        showOnline: p.showOnline,
         isActive: p.isActive,
         components: p.blendComponents.map((c) => ({
           componentId: c.componentId,
@@ -113,6 +115,8 @@ export async function POST(req: NextRequest) {
         piecesPerBox: Number(b.piecesPerBox) || 1,
         minStock: Number(b.minStock) || 0,
         imageUrl: b.imageUrl || null,
+        showInPos: !!b.showInPos,
+        showOnline: b.showOnline === undefined ? true : !!b.showOnline,
         ...(kind === 'BLEND' && Array.isArray(b.components)
           ? {
               blendComponents: {

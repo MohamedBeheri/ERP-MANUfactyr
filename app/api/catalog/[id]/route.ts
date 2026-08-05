@@ -40,6 +40,8 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         stageId: b.stageId !== undefined ? b.stageId || undefined : undefined,
         minStock: b.minStock !== undefined ? Number(b.minStock) || 0 : undefined,
         imageUrl: b.imageUrl !== undefined ? b.imageUrl || null : undefined,
+        showInPos: b.showInPos !== undefined ? !!b.showInPos : undefined,
+        showOnline: b.showOnline !== undefined ? !!b.showOnline : undefined,
       },
     })
 

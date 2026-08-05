@@ -246,6 +246,7 @@ model Product {
   unit             String   @default("كجم") // وحدة القياس
   imageUrl         String? // صورة المنتج (رابط أو data URL)
   showInPos        Boolean  @default(true) // يظهر في شاشة نقطة البيع؟
+  showOnline       Boolean  @default(true) // يظهر في الموقع الأونلاين؟
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

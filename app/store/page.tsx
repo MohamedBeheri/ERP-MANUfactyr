@@ -16,6 +16,7 @@ export default async function StorePage() {
     prisma.product.findMany({
       where: {
         isActive: true,
+        showOnline: true,
         OR: [{ stageId: { in: sellableIds } }, ...(sellableIds.length === 0 ? [{ type: 'FINISHED' as const }] : [])],
       },
       include: { stocks: { where: { warehouseId: storeWarehouse } } },
