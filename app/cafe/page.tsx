@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { getCafeStageIds } from '@/lib/cafe'
+import { ensureStockStages } from '@/lib/stock-stages'
+import { ensureTiers } from '@/lib/tiers'
 import { CafeManager } from '@/components/cafe-manager'
 
 export const dynamic = 'force-dynamic'
@@ -20,9 +22,21 @@ export default async function CafePage() {
   const canEdit = canDoAction(perms, 'cafe', 'edit')
   const canDelete = canDoAction(perms, 'cafe', 'delete')
 
-  const { warehouseId, materialsStageId, itemsStageId } = await getCafeStageIds()
+  const canSell = canDoAction(perms, 'sales', 'add')
 
-  const [cafeWarehouse, materials, cafeItems, categories, purchases, movements] = await Promise.all([
+  const { warehouseId, materialsStageId, itemsStageId } = await getCafeStageIds()
+  await ensureStockStages()
+  await ensureTiers()
+
+  // نقطة البيع (اتنقلت هنا من شاشة المبيعات): كل الأصناف القابلة للبيع بما فيها منتجات الكافيه
+  const sellableStages = await prisma.stockStage.findMany({ where: { isActive: true, sellable: true }, select: { id: true } })
+  const sellableIds = sellableStages.map((s) => s.id)
+
+  // الأصناف اللي ليها توليفة استهلاك — رصيدها بيتحدد من الخامات وقت البيع مش من كميتها
+  const recipeRows = await prisma.cafeRecipeItem.findMany({ select: { productId: true }, distinct: ['productId'] })
+  const recipeProductIds = new Set(recipeRows.map((r) => r.productId))
+
+  const [cafeWarehouse, materials, cafeItems, categories, purchases, movements, posProducts, posCustomers, posWarehouses] = await Promise.all([
     prisma.warehouse.findUnique({ where: { id: warehouseId } }),
     prisma.product.findMany({
       where: { stageId: materialsStageId, isActive: true },
@@ -48,6 +62,18 @@ export default async function CafePage() {
       orderBy: { createdAt: 'desc' },
       take: 30,
     }),
+    prisma.product.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { stageId: { in: sellableIds } },
+          ...(sellableIds.length === 0 ? [{ type: 'FINISHED' as const }] : []),
+        ],
+      },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, include: { tier: true } }),
+    prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
   ])
 
   return (
@@ -106,6 +132,31 @@ export default async function CafePage() {
             .filter((i) => i.product.itemKind === 'CAFE_MATERIAL')
             .map((i) => ({ name: i.product.name, quantity: Number(i.quantity), unit: i.product.unit })),
         }))}
+        pos={{
+          products: posProducts.map((p) => ({
+            id: p.id,
+            name: p.name,
+            unit: p.unit,
+            sellPrice: Number(p.sellPrice),
+            wholesalePrice: Number(p.wholesalePrice),
+            quantity: Number(p.quantity),
+            categoryId: p.categoryId,
+            imageUrl: p.imageUrl,
+            hasRecipe: recipeProductIds.has(p.id),
+          })),
+          customers: posCustomers.map((c) => ({
+            id: c.id,
+            name: c.name,
+            customerType: c.customerType,
+            tier: c.tier
+              ? { name: c.tier.name, priceSource: c.tier.priceSource, discountPercent: Number(c.tier.discountPercent) }
+              : null,
+          })),
+          categories: categories.map((c) => ({ id: c.id, name: c.name })),
+          warehouses: posWarehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault })),
+          cafeWarehouseId: warehouseId,
+          canSell,
+        }}
         canAdd={canAdd}
         canEdit={canEdit}
         canDelete={canDelete}

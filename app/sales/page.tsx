@@ -1,13 +1,9 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Printer, ReceiptText } from 'lucide-react'
+import { Printer, ReceiptText, Coffee, ArrowLeft } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
-import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
-import { ensureStockStages } from '@/lib/stock-stages'
-import { ensureTiers } from '@/lib/tiers'
-import { Pos } from '@/components/pos'
 import { ExportButtons } from '@/components/export-buttons'
 
 export const dynamic = 'force-dynamic'
@@ -16,37 +12,11 @@ export default async function SalesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
-  const canAdd = canDoAction(perms, 'sales', 'add')
-
-  await ensureStockStages()
-  await ensureTiers()
-
-  // الأصناف اللي بتتباع = اللي على مرحلة مخزنية معلّم عليها "بيع"
-  const sellableStages = await prisma.stockStage.findMany({ where: { isActive: true, sellable: true }, select: { id: true } })
-  const sellableIds = sellableStages.map((s) => s.id)
-
-  const [invoices, customers, products, categories, warehouses] = await Promise.all([
-    prisma.invoice.findMany({
-      include: { customer: true, items: { include: { product: true } }, creator: true },
-      orderBy: { createdAt: 'desc' },
-      take: 30,
-    }),
-    prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, include: { tier: true } }),
-    prisma.product.findMany({
-      where: {
-        isActive: true,
-        OR: [
-          { stageId: { in: sellableIds } },
-          // توافق: لو مفيش مراحل، اعرض المنتجات النهائية
-          ...(sellableIds.length === 0 ? [{ type: 'FINISHED' as const }] : []),
-        ],
-      },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-    prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
-  ])
+  const invoices = await prisma.invoice.findMany({
+    include: { customer: true, items: { include: { product: true } }, creator: true },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+  })
 
   const invoiceRows = invoices.map((inv) => [
     inv.invoiceNo,
@@ -60,33 +30,26 @@ export default async function SalesPage() {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#1a1a2e]">نقطة البيع</h1>
-        <p className="text-sm text-gray-500 mt-0.5">اختار المنتجات ← راجع الفاتورة ← أكّد البيع واطبعها</p>
+        <h1 className="text-2xl font-bold text-[#1a1a2e]">المبيعات</h1>
+        <p className="text-sm text-gray-500 mt-0.5">سجل فواتير البيع — نقطة البيع اتنقلت لشاشة الكافيه</p>
       </div>
 
-      <Pos
-        products={products.map((p) => ({
-          id: p.id,
-          name: p.name,
-          unit: p.unit,
-          sellPrice: Number(p.sellPrice),
-          wholesalePrice: Number(p.wholesalePrice),
-          quantity: Number(p.quantity),
-          categoryId: p.categoryId,
-          imageUrl: p.imageUrl,
-        }))}
-        customers={customers.map((c) => ({
-          id: c.id,
-          name: c.name,
-          customerType: c.customerType,
-          tier: c.tier
-            ? { name: c.tier.name, priceSource: c.tier.priceSource, discountPercent: Number(c.tier.discountPercent) }
-            : null,
-        }))}
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-        canAdd={canAdd}
-      />
+      {/* نقطة البيع دلوقتي جوه شاشة الكافيه */}
+      <Link
+        href="/cafe"
+        className="flex items-center justify-between gap-3 bg-gradient-to-l from-[#1a1a2e] to-[#0f3460] text-white rounded-xl p-5 hover:opacity-95 transition-opacity"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+            <Coffee className="w-6 h-6 text-[#e9b44c]" />
+          </div>
+          <div>
+            <p className="font-bold">نقطة البيع</p>
+            <p className="text-sm text-white/70">افتح شاشة الكافيه وبيع كل الأصناف (بن + منتجات الكافيه) من تبويب نقطة البيع</p>
+          </div>
+        </div>
+        <ArrowLeft className="w-5 h-5 shrink-0" />
+      </Link>
 
       {/* سجل الفواتير */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden print-area">

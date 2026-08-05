@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
+import { CafePos } from '@/components/cafe-pos'
 
 interface Material {
   id: string; name: string; unit: string; costPrice: number; stock: number
@@ -17,6 +18,17 @@ interface CafePurchase {
   items: { name: string; quantity: number; unit: string }[]
 }
 interface Movement { id: string; productName: string; unit: string; quantity: number; source: string; createdAt: string }
+interface PosData {
+  products: {
+    id: string; name: string; unit: string; sellPrice: number; wholesalePrice: number
+    quantity: number; categoryId: string | null; imageUrl: string | null; hasRecipe?: boolean
+  }[]
+  customers: { id: string; name: string; customerType: 'RETAIL' | 'WHOLESALE'; tier: { name: string; priceSource: string; discountPercent: number } | null }[]
+  categories: { id: string; name: string }[]
+  warehouses: { id: string; name: string; isDefault: boolean }[]
+  cafeWarehouseId?: string
+  canSell: boolean
+}
 interface Props {
   warehouses: { id: string; name: string; isDefault: boolean }[]
   materials: Material[]
@@ -24,22 +36,24 @@ interface Props {
   categories: { id: string; name: string }[]
   purchases: CafePurchase[]
   movements: Movement[]
+  pos: PosData
   canAdd: boolean
   canEdit: boolean
   canDelete: boolean
 }
 
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
-const TABS = ['warehouse', 'items', 'purchases'] as const
+const TABS = ['pos', 'warehouse', 'items', 'purchases'] as const
 
-export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, movements, canAdd, canEdit, canDelete }: Props) {
+export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, movements, pos, canAdd, canEdit, canDelete }: Props) {
   const router = useRouter()
-  const [tab, setTab] = useState<(typeof TABS)[number]>('warehouse')
+  const [tab, setTab] = useState<(typeof TABS)[number]>('pos')
 
   return (
     <div className="space-y-4">
       <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         {[
+          { key: 'pos', label: 'نقطة البيع' },
           { key: 'warehouse', label: `مخزن الكافيه (${materials.length})` },
           { key: 'items', label: `المنتجات (${cafeItems.length})` },
           { key: 'purchases', label: `مشتريات الكافيه (${purchases.length})` },
@@ -56,6 +70,16 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
         ))}
       </div>
 
+      {tab === 'pos' && (
+        <CafePos
+          products={pos.products}
+          customers={pos.customers}
+          categories={pos.categories}
+          warehouses={pos.warehouses}
+          cafeWarehouseId={pos.cafeWarehouseId}
+          canAdd={pos.canSell}
+        />
+      )}
       {tab === 'warehouse' && (
         <div className="space-y-4">
           <MaterialsTab materials={materials} categories={categories} canAdd={canAdd} canDelete={canDelete} router={router} />
@@ -274,7 +298,7 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
               </div>
             </div>
             {expanded === item.id && (
-              <RecipeEditor productId={item.id} recipe={item.recipe} materials={materials} canEdit={canEdit} router={router} />
+              <RecipeEditor productId={item.id} recipe={item.recipe} sellPrice={item.sellPrice} materials={materials} canEdit={canEdit} router={router} />
             )}
           </div>
         ))}
@@ -311,11 +335,19 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
   )
 }
 
-function RecipeEditor({ productId, recipe, materials, canEdit, router }: any) {
+function RecipeEditor({ productId, recipe, sellPrice, materials, canEdit, router }: any) {
   const [lines, setLines] = useState<{ materialId: string; quantity: string }[]>(
     recipe.length > 0 ? recipe.map((r: RecipeLine) => ({ materialId: r.materialId, quantity: String(r.quantity) })) : [{ materialId: '', quantity: '' }]
   )
   const [loading, setLoading] = useState(false)
+
+  // تكلفة التوليفة لايف = مجموع (الكمية × تكلفة الخامة) — وهامش الربح مقابل سعر البيع
+  const recipeCost = lines.reduce((s, l) => {
+    const m = materials.find((mt: Material) => mt.id === l.materialId)
+    return s + (m ? (Number(l.quantity) || 0) * m.costPrice : 0)
+  }, 0)
+  const margin = sellPrice - recipeCost
+  const marginPct = sellPrice > 0 ? (margin / sellPrice) * 100 : 0
 
   function addLine() {
     setLines([...lines, { materialId: '', quantity: '' }])
@@ -371,6 +403,16 @@ function RecipeEditor({ productId, recipe, materials, canEdit, router }: any) {
           )}
         </div>
       ))}
+      {recipeCost > 0 && (
+        <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
+          <span className="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg font-semibold tabular-nums">
+            تكلفة التوليفة: {recipeCost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+          </span>
+          <span className={`px-2.5 py-1 rounded-lg font-semibold tabular-nums ${margin >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+            هامش الربح: {margin.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م ({marginPct.toLocaleString('ar-EG', { maximumFractionDigits: 1 })}%)
+          </span>
+        </div>
+      )}
       {canEdit && (
         <div className="flex items-center gap-2 pt-2">
           <button onClick={addLine} className="text-xs font-semibold text-[#0f3460] flex items-center gap-1">
