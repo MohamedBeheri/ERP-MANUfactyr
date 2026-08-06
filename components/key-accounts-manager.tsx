@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Building2, Plus, X, ChevronDown, MapPin, Phone, Pencil, Trash2, Store,
-  FileText, Printer, Tag, AlertTriangle, Wallet, HandCoins, PackageCheck,
+  FileText, Printer, Tag, AlertTriangle, Wallet, HandCoins, PackageCheck, Search,
 } from 'lucide-react'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface ProductLite {
   id: string
@@ -87,6 +88,10 @@ export function KeyAccountsManager({ accounts, products }: { accounts: Account[]
   const [accForm, setAccForm] = useState(emptyAcc)
   const [editAccId, setEditAccId] = useState<string | null>(null)
   const [err, setErr] = useState('')
+  const [search, setSearch] = useState('')
+  const filteredAccounts = search.trim()
+    ? accounts.filter((a) => a.name.includes(search.trim()) || (a.brandName || '').includes(search.trim()))
+    : accounts
 
   const submitAcc = async (e: React.FormEvent) => {
     e.preventDefault(); setErr('')
@@ -145,8 +150,23 @@ export function KeyAccountsManager({ accounts, products }: { accounts: Account[]
         <div className="bg-white rounded-xl shadow-sm p-10 text-center text-gray-500 text-sm">مفيش عملاء كبار موردين لسه. ضيف أول عميل.</div>
       )}
 
+      {accounts.length > 6 && (
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="دوّر على عميل بالاسم أو الماركة..."
+            className="w-full pr-9 pl-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm bg-white shadow-sm"
+          />
+        </div>
+      )}
+      {accounts.length > 0 && filteredAccounts.length === 0 && (
+        <p className="text-sm text-gray-500 text-center py-4">مفيش نتائج مطابقة لـ "{search}".</p>
+      )}
+
       <div className="space-y-3">
-        {accounts.map((a) => {
+        {filteredAccounts.map((a) => {
           const open = openId === a.id
           return (
             <div key={a.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -323,10 +343,15 @@ function QuotesSection({ account, products }: { account: Account; products: Prod
             return (
               <div key={i} className="space-y-1">
                 <div className="flex gap-2">
-                  <select value={r.productId} onChange={(e) => setRow(i, 'productId', e.target.value)} className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">اختار الصنف</option>
-                    {products.map((pr) => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
-                  </select>
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      value={r.productId}
+                      onChange={(v) => setRow(i, 'productId', v)}
+                      placeholder="اختار الصنف"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                      options={products.map((pr) => ({ value: pr.id, label: pr.name }))}
+                    />
+                  </div>
                   <input type="text" inputMode="decimal" dir="ltr" min="0" placeholder="كمية" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} className="w-16 shrink-0 px-2 py-2 border border-gray-300 rounded-lg text-sm tabular-nums" />
                   <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="سعر" value={r.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} className={`w-20 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${low ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
                   {rows.length > 1 && <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} className="shrink-0 text-red-500"><X className="w-4 h-4" /></button>}

@@ -17,6 +17,7 @@ import {
   Delete,
   Banknote,
 } from 'lucide-react'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface Product {
   id: string
@@ -356,22 +357,21 @@ export function CafePos({
                 </select>
               </div>
             ) : (
-              <select
+              <SearchableSelect
                 value={customerId}
-                onChange={(e) => {
-                  setCustomerId(e.target.value)
-                  const cust = customers.find((c) => c.id === e.target.value)
+                onChange={(v) => {
+                  setCustomerId(v)
+                  const cust = customers.find((c) => c.id === v)
                   repriceCart(cust || null)
                 }}
+                placeholder="اختار العميل"
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
-              >
-                <option value="">اختار العميل</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.tier ? c.tier.name : c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي'})
-                  </option>
-                ))}
-              </select>
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                  sublabel: c.tier ? c.tier.name : c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي',
+                }))}
+              />
             )}
           </div>
         </div>

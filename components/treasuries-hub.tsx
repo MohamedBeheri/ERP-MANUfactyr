@@ -5,6 +5,7 @@ import {
   Vault, Landmark, ArrowLeftRight, Banknote, Wallet, Receipt, Printer,
   Plus, X, CheckCircle2, FileText, RefreshCw,
 } from 'lucide-react'
+import { SearchableSelect } from '@/components/searchable-select'
 
 const num = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 const inputCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 text-sm bg-white'
@@ -313,10 +314,17 @@ function CollectForm({ customers, delegates, methods, onDone, onError }: any) {
     <div className="bg-white rounded-xl shadow-sm p-5 space-y-3">
       <h3 className="text-sm font-bold text-[#1a1a2e] flex items-center gap-2"><Banknote className="w-4 h-4 text-[#0f3460]" /> سند تحصيل من عميل</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        <select className={inputCls} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-          <option value="">اختار العميل *</option>
-          {customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}{Number(c.balance) > 0 ? ` — مديونية ${num(c.balance)} ج.م` : ''}</option>)}
-        </select>
+        <SearchableSelect
+          value={customerId}
+          onChange={setCustomerId}
+          placeholder="اختار العميل *"
+          className={inputCls}
+          options={customers.map((c: any) => ({
+            value: c.id,
+            label: c.name,
+            sublabel: Number(c.balance) > 0 ? `مديونية ${num(c.balance)} ج.م` : undefined,
+          }))}
+        />
         <select className={inputCls} value={delegateId} onChange={(e) => setDelegateId(e.target.value)}>
           <option value="">بدون مندوب (تحصيل مباشر)</option>
           {delegates.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send, Plus, X, Printer, CheckCircle2, ChevronDown, ChevronUp, Warehouse as WarehouseIcon } from 'lucide-react'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface ProductLite {
   id: string
@@ -137,10 +138,13 @@ export function KeyAccountDispatchForm({
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <select className={inputCls} value={keyAccountId} onChange={(e) => { setKeyAccountId(e.target.value); setRows([{ branchId: '', productId: '', quantity: '', unitPrice: '' }]) }}>
-                  <option value="">اختار العميل (المقر الرئيسي) *</option>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                <SearchableSelect
+                  value={keyAccountId}
+                  onChange={(v) => { setKeyAccountId(v); setRows([{ branchId: '', productId: '', quantity: '', unitPrice: '' }]) }}
+                  placeholder="اختار العميل (المقر الرئيسي) *"
+                  className={inputCls}
+                  options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+                />
                 <div className="flex items-center gap-2">
                   <WarehouseIcon className="w-4 h-4 text-gray-400 shrink-0" />
                   <select className={inputCls} value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
@@ -159,12 +163,13 @@ export function KeyAccountDispatchForm({
                           <option value="">الفرع *</option>
                           {account.branches.map((br) => <option key={br.id} value={br.id}>{br.name}</option>)}
                         </select>
-                        <select className={inputCls} value={r.productId} onChange={(e) => setRow(i, 'productId', e.target.value)}>
-                          <option value="">الصنف *</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name} — متاح {fmt(stockOf(p.id))}</option>
-                          ))}
-                        </select>
+                        <SearchableSelect
+                          value={r.productId}
+                          onChange={(v) => setRow(i, 'productId', v)}
+                          placeholder="الصنف *"
+                          className={inputCls}
+                          options={products.map((p) => ({ value: p.id, label: p.name, sublabel: `متاح ${fmt(stockOf(p.id))}` }))}
+                        />
                         <input className={inputCls} type="text" inputMode="decimal" dir="ltr" placeholder="الكمية" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} />
                         <input className={inputCls} type="text" inputMode="decimal" dir="ltr" placeholder="السعر" value={r.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} />
                         <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-red-500 hover:text-red-700" disabled={rows.length === 1}>

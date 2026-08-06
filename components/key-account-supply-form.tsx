@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2, Plus, X, AlertTriangle } from 'lucide-react'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface RemainingItem {
   productId: string
@@ -115,10 +116,13 @@ export function KeyAccountSupplyForm({
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <select value={keyAccountId} onChange={(e) => { setKeyAccountId(e.target.value); setBranchId('') }} className={inputCls}>
-          <option value="">اختار العميل (المقر)</option>
-          {keyAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
+        <SearchableSelect
+          value={keyAccountId}
+          onChange={(v) => { setKeyAccountId(v); setBranchId('') }}
+          placeholder="اختار العميل (المقر)"
+          className={inputCls}
+          options={keyAccounts.map((a) => ({ value: a.id, label: a.name }))}
+        />
         <select value={branchId} onChange={(e) => setBranchId(e.target.value)} disabled={!account} className={`${inputCls} disabled:bg-gray-100`}>
           <option value="">اختار الفرع</option>
           {(account?.branches || []).map((br) => <option key={br.id} value={br.id}>{br.name}</option>)}
@@ -135,10 +139,15 @@ export function KeyAccountSupplyForm({
           return (
             <div key={i} className="space-y-0.5">
               <div className="flex gap-2">
-                <select value={r.productId} onChange={(e) => setRow(i, 'productId', e.target.value)} className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded-lg text-sm">
-                  <option value="">اختار الصنف</option>
-                  {available.map((p) => <option key={p.productId} value={p.productId}>{p.productName} (متبقي {p.remaining})</option>)}
-                </select>
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    value={r.productId}
+                    onChange={(v) => setRow(i, 'productId', v)}
+                    placeholder="اختار الصنف"
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    options={available.map((p) => ({ value: p.productId, label: p.productName, sublabel: `متبقي ${p.remaining}` }))}
+                  />
+                </div>
                 <input type="text" inputMode="decimal" dir="ltr" min="1" placeholder="كمية" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} className={`w-16 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${over ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
                 <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="سعر" value={r.unitPrice} onChange={(e) => setRow(i, 'unitPrice', e.target.value)} className={`w-20 shrink-0 px-2 py-2 border rounded-lg text-sm tabular-nums ${low ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
                 {rows.length > 1 && <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} className="shrink-0 text-red-500"><X className="w-4 h-4" /></button>}
