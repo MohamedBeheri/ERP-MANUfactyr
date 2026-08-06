@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   PackageSearch, Truck, ArrowDownToLine, ArrowUpFromLine, Search,
-  ChevronRight, ChevronLeft, Warehouse as WarehouseIcon, PackageOpen,
+  ChevronRight, ChevronLeft, Warehouse as WarehouseIcon, PackageOpen, Building2,
 } from 'lucide-react'
 import { UnloadOrdersPanel } from '@/components/unload-orders-panel'
 import { StocktakeForm } from '@/components/stocktake-form'
@@ -60,6 +60,17 @@ interface UnloadRow {
   items: { name: string; unit: string; quantity: number; kind: string }[]
   notes: string | null
 }
+interface KeySupplyRow {
+  id: string
+  supplyNo: string
+  accountName: string
+  branchName: string
+  warehouseName: string | null
+  netAmount: number
+  creatorName: string
+  createdAt: string
+  items: { name: string; unit: string; quantity: number; unitPrice: number }[]
+}
 
 const LOAD_STATUS: Record<string, { label: string; cls: string }> = {
   PENDING: { label: 'في انتظار استلام المندوب', cls: 'bg-yellow-50 text-yellow-700' },
@@ -73,7 +84,7 @@ const UNLOAD_STATUS: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: 'ملغي', cls: 'bg-gray-100 text-gray-500' },
 }
 
-type Tab = 'stock' | 'loads' | 'unloads' | 'outs' | 'ins'
+type Tab = 'stock' | 'loads' | 'unloads' | 'supplies' | 'outs' | 'ins'
 
 export function WarehouseHub({
   stock,
@@ -82,6 +93,7 @@ export function WarehouseHub({
   loads,
   unloads,
   pendingUnloads,
+  keySupplies,
   ins,
   outs,
   canEdit,
@@ -93,6 +105,7 @@ export function WarehouseHub({
   loads: LoadOrder[]
   unloads: UnloadRow[]
   pendingUnloads: any[]
+  keySupplies: KeySupplyRow[]
   ins: Movement[]
   outs: Movement[]
   canEdit: boolean
@@ -104,6 +117,7 @@ export function WarehouseHub({
     { key: 'stock', label: `رصيد الأصناف (${stock.length})`, icon: PackageSearch },
     { key: 'loads', label: `أوامر التحميل (${loads.length})`, icon: Truck },
     { key: 'unloads', label: `أوامر التفريغ (${unloads.length})`, icon: PackageOpen, count: pendingUnloads.length },
+    { key: 'supplies', label: `طلبيات كبار الموردين (${keySupplies.length})`, icon: Building2 },
     { key: 'outs', label: 'خوارج الشركة', icon: ArrowUpFromLine },
     { key: 'ins', label: 'وارد المخزن', icon: ArrowDownToLine },
   ]
@@ -136,6 +150,7 @@ export function WarehouseHub({
           <UnloadsHistory unloads={unloads.filter((u) => u.status !== 'PENDING')} />
         </div>
       )}
+      {tab === 'supplies' && <KeySuppliesTab supplies={keySupplies} />}
       {tab === 'outs' && <MovementsTab title="خوارج الشركة (إذون الصرف)" movements={outs} negative />}
       {tab === 'ins' && <MovementsTab title="وارد المخزن (إذون الإضافة)" movements={ins} />}
     </div>
@@ -479,6 +494,79 @@ function UnloadsHistory({ unloads }: { unloads: UnloadRow[] }) {
                 ))}
               </div>
               {u.notes && <p className="text-[11px] text-gray-500 mt-2 whitespace-pre-line">{u.notes}</p>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ─── طلبيات كبار الموردين — حركات الصرف لفروع بيوت الجملة ─── */
+function KeySuppliesTab({ supplies }: { supplies: KeySupplyRow[] }) {
+  const [search, setSearch] = useState('')
+  const [openId, setOpenId] = useState('')
+  const q = search.trim()
+  const filtered = supplies.filter(
+    (s) =>
+      !q ||
+      s.supplyNo.includes(q) ||
+      s.accountName.includes(q) ||
+      s.branchName.includes(q) ||
+      s.items.some((it) => it.name.includes(q))
+  )
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 border-b border-gray-100">
+        <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2">
+          <Building2 className="w-5 h-5 text-[#0f3460]" />
+          طلبيات كبار الموردين ({filtered.length})
+        </h3>
+        <div className="relative w-64 max-w-full">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            className="w-full pr-9 pl-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30"
+            placeholder="بحث برقم الطلبية أو العميل أو الفرع أو الصنف..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="divide-y divide-gray-50 max-h-[32rem] overflow-y-auto">
+        {filtered.length === 0 && <p className="p-6 text-center text-gray-500 text-sm">مفيش طلبيات.</p>}
+        {filtered.map((s) => {
+          const open = openId === s.id
+          return (
+            <div key={s.id}>
+              <button
+                onClick={() => setOpenId(open ? '' : s.id)}
+                className="w-full text-right p-3.5 px-5 flex justify-between items-start hover:bg-gray-50/50 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="font-bold text-sm text-[#1a1a2e] tabular-nums">
+                    {s.supplyNo}
+                    <span className="font-normal text-gray-500"> — {s.accountName} · فرع {s.branchName}{s.warehouseName ? ` · من ${s.warehouseName}` : ''}</span>
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{s.items.length} صنف · بواسطة {s.creatorName}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="font-semibold text-sm text-[#0f3460] tabular-nums">{money(s.netAmount)} ج.م</span>
+                  <span className="text-xs text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')}</span>
+                  {open ? <ChevronLeft className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400 rotate-180" />}
+                </div>
+              </button>
+              {open && (
+                <div className="px-5 pb-4">
+                  <div className="flex flex-wrap gap-1.5">
+                    {s.items.map((it, i) => (
+                      <span key={i} className="text-xs px-2 py-0.5 rounded font-semibold tabular-nums bg-blue-50 text-blue-700">
+                        {it.name} {fmt(it.quantity)} {it.unit} × {money(it.unitPrice)} ج.م
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}

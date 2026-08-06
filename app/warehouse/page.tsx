@@ -17,7 +17,7 @@ export default async function WarehousePage() {
 
   await ensureStockStages() // يضمن وجود المخازن والمراحل وترحيل الأرصدة
 
-  const [products, warehouseIns, warehouseOuts, warehouses, loads, unloads] = await Promise.all([
+  const [products, warehouseIns, warehouseOuts, warehouses, loads, unloads, keySupplies] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
       include: { stocks: true, category: true, stockStage: true },
@@ -55,6 +55,17 @@ export default async function WarehousePage() {
       },
       orderBy: { createdAt: 'desc' },
       take: 40,
+    }),
+    prisma.keyAccountSupply.findMany({
+      include: {
+        keyAccount: { select: { name: true } },
+        branch: { select: { name: true } },
+        warehouse: { select: { name: true } },
+        creator: { select: { name: true } },
+        items: { include: { product: { select: { name: true, unit: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 60,
     }),
   ])
 
@@ -119,6 +130,22 @@ export default async function WarehousePage() {
         }))}
         unloads={unloads.map(mapUnload)}
         pendingUnloads={unloads.filter((u) => u.status === 'PENDING').map(mapUnload)}
+        keySupplies={keySupplies.map((s) => ({
+          id: s.id,
+          supplyNo: s.supplyNo,
+          accountName: s.keyAccount.name,
+          branchName: s.branch.name,
+          warehouseName: s.warehouse?.name || null,
+          netAmount: Number(s.netAmount),
+          creatorName: s.creator.name,
+          createdAt: s.createdAt.toISOString(),
+          items: s.items.map((it) => ({
+            name: it.product.name,
+            unit: it.product.unit,
+            quantity: Number(it.quantity),
+            unitPrice: Number(it.unitPrice),
+          })),
+        }))}
         ins={warehouseIns.map((e) => ({
           id: e.id,
           productName: e.product.name,

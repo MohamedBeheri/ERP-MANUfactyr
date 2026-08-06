@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
             supplyNo: `SUP-${String(baseCount + seq).padStart(4, '0')}`,
             keyAccountId,
             branchId,
+            warehouseId,
             totalAmount,
             discountType: dPercent > 0 ? 'CASH' : 'NONE',
             discountPercent: dPercent,
