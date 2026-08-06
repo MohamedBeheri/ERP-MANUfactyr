@@ -44,6 +44,8 @@ interface LoadOrder {
   items: { name: string; unit: string; quantity: number }[]
   preparedAt: string | null
   preparedByName: string | null
+  creatorName: string
+  notes: string | null
 }
 interface UnloadRow {
   id: string
@@ -323,6 +325,7 @@ function LoadsTab({ loads, canEdit }: { loads: LoadOrder[]; canEdit: boolean }) 
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [openId, setOpenId] = useState<string | null>(null)
 
   const prepare = async (id: string) => {
     setBusyId(id)
@@ -339,49 +342,101 @@ function LoadsTab({ loads, canEdit }: { loads: LoadOrder[]; canEdit: boolean }) 
         <Truck className="w-5 h-5 text-[#0f3460]" />
         <h3 className="text-base font-bold text-[#1a1a2e]">أوامر تحميل العربيات</h3>
       </div>
+      <p className="text-xs text-gray-400 px-5 pb-2">دوس على أي أمر عشان تفتح تفاصيله كاملة وتأكد التجهيز منها</p>
       {error && <div className="mx-5 mb-2 bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{error}</div>}
       <div className="divide-y divide-gray-50">
         {loads.length === 0 && <p className="p-6 text-center text-gray-500 text-sm">مفيش أوامر تحميل.</p>}
         {loads.map((o) => {
           const st = LOAD_STATUS[o.status] || LOAD_STATUS.PENDING
+          const open = openId === o.id
+          const needsPrep = o.status === 'PENDING' || o.preparedAt
           return (
-            <div key={o.id} className="p-4 px-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-bold text-sm text-[#1a1a2e] tabular-nums">
-                  {o.orderNo}
-                  <span className="font-normal text-gray-500"> — مندوب: {o.delegateName}{o.vehicle ? ` · عربية ${o.vehicle}` : ''}{o.warehouseName ? ` · من ${o.warehouseName}` : ''}</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded font-semibold ${st.cls}`}>{st.label}</span>
-                  <span className="text-xs text-gray-400 tabular-nums">{new Date(o.createdAt).toLocaleDateString('ar-EG')}</span>
+            <div key={o.id}>
+              <button
+                type="button"
+                onClick={() => setOpenId(open ? null : o.id)}
+                className="w-full text-right p-4 px-5 hover:bg-gray-50/60 transition-colors"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-bold text-sm text-[#1a1a2e] tabular-nums flex items-center gap-1.5">
+                    {open ? <ChevronLeft className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
+                    {o.orderNo}
+                    <span className="font-normal text-gray-500"> — مندوب: {o.delegateName}{o.vehicle ? ` · عربية ${o.vehicle}` : ''}</span>
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {needsPrep && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${o.preparedAt ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {o.preparedAt ? 'المخزن جهّز ✓' : 'مستني التجهيز'}
+                      </span>
+                    )}
+                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${st.cls}`}>{st.label}</span>
+                    <span className="text-xs text-gray-400 tabular-nums">{new Date(o.createdAt).toLocaleDateString('ar-EG')}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {o.items.map((it, i) => (
-                  <span key={i} className="text-xs bg-gray-50 text-gray-700 px-2 py-0.5 rounded tabular-nums">
-                    {it.name} {fmt(it.quantity)} {it.unit}
-                  </span>
-                ))}
-              </div>
-              {/* موقف تجهيز المخزن — منفصل عن موقف استلام المندوب، وذو معنى بس لحد ما المندوب يستلم */}
-              {(o.status === 'PENDING' || o.preparedAt) && (
-                <div className="mt-2.5 pt-2.5 border-t border-gray-50 flex items-center justify-between gap-2">
-                  {o.preparedAt ? (
-                    <span className="text-xs font-semibold text-green-600">
-                      ✓ اتجهز{o.preparedByName ? ` — ${o.preparedByName}` : ''} · {new Date(o.preparedAt).toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  ) : (
-                    <span className="text-xs font-semibold text-amber-600">لسه بيتجهز في المخزن</span>
-                  )}
-                  {canEdit && o.status === 'PENDING' && !o.preparedAt && (
-                    <button
-                      onClick={() => prepare(o.id)}
-                      disabled={busyId === o.id}
-                      className="px-3 py-1.5 rounded-lg bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2545] disabled:opacity-50"
-                    >
-                      {busyId === o.id ? 'جارٍ الحفظ...' : 'تم التجهيز'}
-                    </button>
-                  )}
+              </button>
+
+              {open && (
+                <div className="px-5 pb-4 -mt-1">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-3">
+                    {/* بيانات الأمر كاملة */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                      <div><span className="text-gray-400">رقم الأمر</span><p className="font-semibold text-[#1a1a2e] tabular-nums">{o.orderNo}</p></div>
+                      <div><span className="text-gray-400">المندوب</span><p className="font-semibold text-[#1a1a2e]">{o.delegateName}</p></div>
+                      <div><span className="text-gray-400">العربية</span><p className="font-semibold text-[#1a1a2e]">{o.vehicle || '—'}</p></div>
+                      <div><span className="text-gray-400">مخزن التحميل</span><p className="font-semibold text-[#1a1a2e]">{o.warehouseName || '—'}</p></div>
+                      <div><span className="text-gray-400">أمر بواسطة</span><p className="font-semibold text-[#1a1a2e]">{o.creatorName}</p></div>
+                      <div><span className="text-gray-400">التاريخ</span><p className="font-semibold text-[#1a1a2e] tabular-nums">{new Date(o.createdAt).toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p></div>
+                    </div>
+                    {o.notes && (
+                      <p className="text-xs bg-white rounded-lg p-2.5 border border-gray-100"><span className="text-gray-400">ملاحظات: </span>{o.notes}</p>
+                    )}
+
+                    {/* الأصناف كاملة بالجدول */}
+                    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-500 text-right">
+                            <th className="p-2 font-medium">#</th>
+                            <th className="p-2 font-medium">الصنف</th>
+                            <th className="p-2 font-medium">الكمية المحمّلة</th>
+                            <th className="p-2 font-medium">الوحدة</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {o.items.map((it, i) => (
+                            <tr key={i} className="border-t border-gray-50">
+                              <td className="p-2 text-gray-400 tabular-nums">{i + 1}</td>
+                              <td className="p-2 font-semibold text-[#1a1a2e]">{it.name}</td>
+                              <td className="p-2 tabular-nums font-semibold">{fmt(it.quantity)}</td>
+                              <td className="p-2 text-gray-500">{it.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* موقف تجهيز المخزن — منفصل عن موقف استلام المندوب، وذو معنى بس لحد ما المندوب يستلم */}
+                    {needsPrep && (
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        {o.preparedAt ? (
+                          <span className="text-xs font-semibold text-green-600">
+                            ✓ اتجهز{o.preparedByName ? ` — ${o.preparedByName}` : ''} · {new Date(o.preparedAt).toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-amber-600">لسه بيتجهز في المخزن</span>
+                        )}
+                        {canEdit && o.status === 'PENDING' && !o.preparedAt && (
+                          <button
+                            onClick={() => prepare(o.id)}
+                            disabled={busyId === o.id}
+                            className="px-4 py-2 rounded-lg bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2545] disabled:opacity-50"
+                          >
+                            {busyId === o.id ? 'جارٍ الحفظ...' : 'تم التجهيز'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -40,6 +40,7 @@ export default async function WarehousePage() {
         warehouse: { select: { name: true } },
         items: { include: { product: { select: { name: true, unit: true } } } },
         preparedBy: { select: { name: true } },
+        creator: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 40,
@@ -112,6 +113,8 @@ export default async function WarehousePage() {
           items: o.items.map((it) => ({ name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity) })),
           preparedAt: o.preparedAt ? o.preparedAt.toISOString() : null,
           preparedByName: o.preparedBy?.name || null,
+          creatorName: o.creator.name,
+          notes: o.notes,
         }))}
         unloads={unloads.map(mapUnload)}
         pendingUnloads={unloads.filter((u) => u.status === 'PENDING').map(mapUnload)}
