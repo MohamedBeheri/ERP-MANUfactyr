@@ -18,6 +18,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     })
     if (!order) return NextResponse.json({ error: 'أمر التحميل غير موجود' }, { status: 404 })
     if (order.status !== 'PENDING') return NextResponse.json({ error: 'الأمر ده مش معلّق (اتأكد أو اتلغى قبل كده)' }, { status: 400 })
+    if (!order.preparedAt) return NextResponse.json({ error: 'لسه المخزن ما جهّزش الأصناف — استنى تأكيد التجهيز الأول' }, { status: 400 })
 
     // لو الداخل مندوب، لازم يكون هو صاحب الأمر
     if (session.user.role === 'DELEGATE' && order.delegate.userId !== session.user.id) {

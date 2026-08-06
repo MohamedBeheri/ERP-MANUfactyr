@@ -36,6 +36,7 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
       include: {
         delegate: true,
         settlement: true,
+        preparedBy: { select: { name: true } },
         items: { include: { product: true } },
         invoices: {
           include: { customer: true, items: { include: { product: true } } },
@@ -167,6 +168,11 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
               محضر التسوية
             </Link>
           )}
+          {deliveryOrder.status === 'PENDING' && (
+            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${deliveryOrder.preparedAt ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+              {deliveryOrder.preparedAt ? 'المخزن جهّز ✓' : 'المخزن بيجهّز'}
+            </span>
+          )}
           <span className={`px-4 py-2 rounded-full text-sm font-semibold ${STATUS_COLOR[deliveryOrder.status]}`}>
             {STATUS_LABEL[deliveryOrder.status]}
           </span>
@@ -175,12 +181,23 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
 
       {/* أمر تحميل معلّق — مطابقة استلام */}
       {deliveryOrder.status === 'PENDING' && (
-        <div className="bg-white rounded-xl shadow-sm ring-2 ring-orange-200 p-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="font-bold text-orange-700 flex items-center gap-2"><FileCheck2 className="w-5 h-5" /> مستني تأكيد استلام المندوب</p>
-            <p className="text-xs text-gray-500 mt-0.5">البضاعة لسه في المخزن — لما المندوب يأكّد الاستلام تخرج من المخزن وتتحرك العربية.</p>
-          </div>
-          <ReceiptConfirm orderId={deliveryOrder.id} />
+        <div className={`bg-white rounded-xl shadow-sm p-5 flex flex-wrap items-center justify-between gap-3 ${deliveryOrder.preparedAt ? 'ring-2 ring-orange-200' : 'ring-2 ring-amber-100'}`}>
+          {deliveryOrder.preparedAt ? (
+            <>
+              <div>
+                <p className="font-bold text-orange-700 flex items-center gap-2"><FileCheck2 className="w-5 h-5" /> مستني تأكيد استلام المندوب</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  المخزن جهّز الأصناف{deliveryOrder.preparedBy?.name ? ` (${deliveryOrder.preparedBy.name})` : ''} — لما المندوب يأكّد الاستلام تخرج البضاعة من المخزن وتتحرك العربية.
+                </p>
+              </div>
+              <ReceiptConfirm orderId={deliveryOrder.id} />
+            </>
+          ) : (
+            <div>
+              <p className="font-bold text-amber-700 flex items-center gap-2"><FileCheck2 className="w-5 h-5" /> لسه المخزن بيجهّز الأصناف</p>
+              <p className="text-xs text-gray-500 mt-0.5">مستني أمين المخزن يأكّد التجهيز الأول، وبعدها يظهر زرار تأكيد الاستلام.</p>
+            </div>
+          )}
         </div>
       )}
 

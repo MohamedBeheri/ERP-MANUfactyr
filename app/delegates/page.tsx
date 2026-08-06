@@ -48,7 +48,7 @@ export default async function DelegatesPage() {
     }),
     prisma.product.findMany({ where: { isActive: true, type: 'FINISHED' }, include: { stocks: true }, orderBy: { name: 'asc' } }),
     prisma.deliveryOrder.findMany({
-      include: { delegate: true, items: true, settlement: true },
+      include: { delegate: true, items: true, settlement: true, preparedBy: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 30,
     }),
@@ -123,9 +123,16 @@ export default async function DelegatesPage() {
                       {new Date(order.createdAt).toLocaleDateString('ar-EG')}
                     </p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${STATUS_COLOR[order.status]}`}>
-                    {STATUS_LABEL[order.status]}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {order.status === 'PENDING' && (
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${order.preparedAt ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {order.preparedAt ? 'المخزن جهّز ✓' : 'المخزن بيجهّز'}
+                      </span>
+                    )}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLOR[order.status]}`}>
+                      {STATUS_LABEL[order.status]}
+                    </span>
+                  </div>
                 </Link>
                 <Link
                   href={`/print/delivery/${order.id}`}

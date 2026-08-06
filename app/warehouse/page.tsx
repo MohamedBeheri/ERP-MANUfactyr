@@ -39,6 +39,7 @@ export default async function WarehousePage() {
         delegate: { include: { vehicle: true } },
         warehouse: { select: { name: true } },
         items: { include: { product: { select: { name: true, unit: true } } } },
+        preparedBy: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 40,
@@ -109,6 +110,8 @@ export default async function WarehousePage() {
           status: o.status,
           createdAt: o.createdAt.toISOString(),
           items: o.items.map((it) => ({ name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity) })),
+          preparedAt: o.preparedAt ? o.preparedAt.toISOString() : null,
+          preparedByName: o.preparedBy?.name || null,
         }))}
         unloads={unloads.map(mapUnload)}
         pendingUnloads={unloads.filter((u) => u.status === 'PENDING').map(mapUnload)}

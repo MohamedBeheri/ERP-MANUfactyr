@@ -117,6 +117,7 @@ model User {
   unloadsCreated              UnloadOrder[]          @relation("UnloadCreator")
   unloadsConfirmed            UnloadOrder[]          @relation("UnloadConfirmer")
   purchaseVouchersCreated     PurchaseVoucher[]      @relation("PurchaseVoucherCreator")
+  preparedDeliveryOrders      DeliveryOrder[]        @relation("DeliveryOrderPreparer")
 
   @@map("users")
 }
@@ -947,6 +948,10 @@ model DeliveryOrder {
   createdAt   DateTime    @default(now())
   createdById String
 
+  // موقف تجهيز المخزن — منفصل عن موقف استلام المندوب (status/receivedAt) عشان الأدمن يشوف الاتنين لوحدهم
+  preparedAt   DateTime? // وقت تأكيد أمين المخزن إن الأصناف اتجهزت فعليًا
+  preparedById String?
+
   // Relations
   delegate           Delegate            @relation(fields: [delegateId], references: [id])
   warehouse          Warehouse?          @relation(fields: [warehouseId], references: [id])
@@ -958,6 +963,7 @@ model DeliveryOrder {
   keyAccountSupplies KeyAccountSupply[]
   returns            DeliveryReturn[]
   creator            User                @relation(fields: [createdById], references: [id])
+  preparedBy         User?               @relation("DeliveryOrderPreparer", fields: [preparedById], references: [id])
 
   @@map("delivery_orders")
 }

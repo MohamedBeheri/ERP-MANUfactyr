@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   PackageSearch, Truck, ArrowDownToLine, ArrowUpFromLine, Search,
   ChevronRight, ChevronLeft, Warehouse as WarehouseIcon, PackageOpen,
@@ -41,6 +42,8 @@ interface LoadOrder {
   status: string
   createdAt: string
   items: { name: string; unit: string; quantity: number }[]
+  preparedAt: string | null
+  preparedByName: string | null
 }
 interface UnloadRow {
   id: string
@@ -123,7 +126,7 @@ export function WarehouseHub({
       </div>
 
       {tab === 'stock' && <StockTab stock={stock} warehouses={warehouses} categories={categories} canEdit={canEdit} stocktakeProducts={stocktakeProducts} />}
-      {tab === 'loads' && <LoadsTab loads={loads} />}
+      {tab === 'loads' && <LoadsTab loads={loads} canEdit={canEdit} />}
       {tab === 'unloads' && (
         <div className="space-y-4">
           <UnloadOrdersPanel unloads={pendingUnloads} canEdit={canEdit} />
@@ -316,13 +319,27 @@ function StockTab({ stock, warehouses, categories, canEdit, stocktakeProducts }:
 }
 
 /* ─── أوامر التحميل ─── */
-function LoadsTab({ loads }: { loads: LoadOrder[] }) {
+function LoadsTab({ loads, canEdit }: { loads: LoadOrder[]; canEdit: boolean }) {
+  const router = useRouter()
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const prepare = async (id: string) => {
+    setBusyId(id)
+    setError('')
+    const res = await fetch(`/api/delivery-orders/${id}/prepare`, { method: 'POST' })
+    setBusyId(null)
+    if (!res.ok) { setError((await res.json()).error || 'فشل تسجيل التجهيز'); return }
+    router.refresh()
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 p-5 pb-3">
         <Truck className="w-5 h-5 text-[#0f3460]" />
         <h3 className="text-base font-bold text-[#1a1a2e]">أوامر تحميل العربيات</h3>
       </div>
+      {error && <div className="mx-5 mb-2 bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{error}</div>}
       <div className="divide-y divide-gray-50">
         {loads.length === 0 && <p className="p-6 text-center text-gray-500 text-sm">مفيش أوامر تحميل.</p>}
         {loads.map((o) => {
@@ -346,6 +363,27 @@ function LoadsTab({ loads }: { loads: LoadOrder[] }) {
                   </span>
                 ))}
               </div>
+              {/* موقف تجهيز المخزن — منفصل عن موقف استلام المندوب، وذو معنى بس لحد ما المندوب يستلم */}
+              {(o.status === 'PENDING' || o.preparedAt) && (
+                <div className="mt-2.5 pt-2.5 border-t border-gray-50 flex items-center justify-between gap-2">
+                  {o.preparedAt ? (
+                    <span className="text-xs font-semibold text-green-600">
+                      ✓ اتجهز{o.preparedByName ? ` — ${o.preparedByName}` : ''} · {new Date(o.preparedAt).toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-amber-600">لسه بيتجهز في المخزن</span>
+                  )}
+                  {canEdit && o.status === 'PENDING' && !o.preparedAt && (
+                    <button
+                      onClick={() => prepare(o.id)}
+                      disabled={busyId === o.id}
+                      className="px-3 py-1.5 rounded-lg bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2545] disabled:opacity-50"
+                    >
+                      {busyId === o.id ? 'جارٍ الحفظ...' : 'تم التجهيز'}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}
