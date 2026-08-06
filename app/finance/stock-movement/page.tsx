@@ -22,12 +22,36 @@ export default async function StockMovementReport({ searchParams: rawSearchParam
   if (productId) {
     const [ins, outs, transfers, invoiceItems, prodInputs, prodItems] = await Promise.all([
       prisma.warehouseIn.findMany({
-        where: { productId, createdAt: period },
+        // مستبعد التحويلات والتصنيع/التعبئة/التوليف لأنها معروضة بالتفصيل من stockTransfer/productionInput/productionItem —
+        // عرضها هنا كمان كان بيسبب ازدواج في العد (نفس الحركة بتظهر مرتين)
+        where: {
+          productId,
+          createdAt: period,
+          NOT: {
+            OR: [
+              { source: { contains: 'تحويل من مخزن' } },
+              { source: { contains: 'PACK-' } },
+              { source: { contains: 'BLND-' } },
+              { source: { contains: 'PROD-' } },
+            ],
+          },
+        },
         include: { warehouse: { select: { name: true } }, creator: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.warehouseOut.findMany({
-        where: { productId, createdAt: period },
+        where: {
+          productId,
+          createdAt: period,
+          NOT: {
+            OR: [
+              { reason: { contains: 'تحويل مخزني' } },
+              { reason: { contains: 'PACK-' } },
+              { reason: { contains: 'BLND-' } },
+              { reason: { contains: 'PROD-' } },
+            ],
+          },
+        },
         include: { warehouse: { select: { name: true } }, creator: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
       }),
