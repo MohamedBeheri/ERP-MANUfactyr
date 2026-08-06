@@ -389,6 +389,10 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                 <h3 className="text-base font-bold text-[#1a1a2e]">ملخص التسوية</h3>
               </div>
               <div className="flex justify-between text-sm">
+                <span className="text-gray-500">محمّل على العربية</span>
+                <span className="font-semibold tabular-nums">{deliveryOrder.items.reduce((s, it) => s + Number(it.quantity), 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
                 <span className="text-gray-500">المباع</span>
                 <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.soldQty)}</span>
               </div>
@@ -398,10 +402,33 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                   <span className="font-semibold text-amber-700 tabular-nums">{Number(deliveryOrder.settlement.bonusQty)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">المرتجع</span>
-                <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.returnedQty)}</span>
-              </div>
+              {(() => {
+                const customerReturnTotal = deliveryOrder.returns
+                  .flatMap((r) => r.items)
+                  .reduce((s, it) => s + Number(it.quantity), 0)
+                const leftoverTotal = Math.max(0, Number(deliveryOrder.settlement!.returnedQty) - customerReturnTotal)
+                return customerReturnTotal > 0 ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">باقي على العربية (بواقي بيع)</span>
+                      <span className="font-semibold tabular-nums">{leftoverTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">مرتجع من عميل (فاتورة سابقة)</span>
+                      <span className="font-semibold text-orange-600 tabular-nums">{customerReturnTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-sm border-t border-dashed border-gray-100 pt-1.5">
+                      <span className="text-gray-500">إجمالي المرتجع</span>
+                      <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement!.returnedQty)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">المرتجع</span>
+                    <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement!.returnedQty)}</span>
+                  </div>
+                )
+              })()}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">محصّل كاش</span>
                 <span className="font-semibold tabular-nums">{Number(deliveryOrder.settlement.cashOnlyAmount).toLocaleString('ar-EG')} ج.م</span>

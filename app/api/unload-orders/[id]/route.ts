@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
   const params = await rawParams
   const { session } = auth
 
-  const { action } = await req.json()
+  const { action, notes } = await req.json()
   const unload = await prisma.unloadOrder.findUnique({
     where: { id: params.id },
     include: {
@@ -45,7 +45,12 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
       }
       await tx.unloadOrder.update({
         where: { id: unload.id },
-        data: { status: 'CONFIRMED', confirmedById: session.user.id, confirmedAt: new Date() },
+        data: {
+          status: 'CONFIRMED',
+          confirmedById: session.user.id,
+          confirmedAt: new Date(),
+          ...(notes && String(notes).trim() ? { notes: `${unload.notes ? `${unload.notes}\n` : ''}ملاحظة المخزن: ${String(notes).trim()}` } : {}),
+        },
       })
       await tx.auditLog.create({
         data: {

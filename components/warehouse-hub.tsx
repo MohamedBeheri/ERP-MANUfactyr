@@ -58,6 +58,7 @@ interface UnloadRow {
   createdAt: string
   confirmedByName: string | null
   items: { name: string; unit: string; quantity: number; kind: string }[]
+  notes: string | null
 }
 
 const LOAD_STATUS: Record<string, { label: string; cls: string }> = {
@@ -477,6 +478,7 @@ function UnloadsHistory({ unloads }: { unloads: UnloadRow[] }) {
                   </span>
                 ))}
               </div>
+              {u.notes && <p className="text-[11px] text-gray-500 mt-2 whitespace-pre-line">{u.notes}</p>}
             </div>
           )
         })}

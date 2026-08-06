@@ -70,6 +70,7 @@ export default async function WarehousePage() {
     status: u.status,
     createdAt: u.createdAt.toISOString(),
     confirmedByName: u.confirmedBy?.name || null,
+    notes: u.notes,
     items: u.items.map((it) => ({
       name: it.product.name,
       unit: it.product.unit,

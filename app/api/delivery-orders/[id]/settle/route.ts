@@ -125,6 +125,17 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
         }
       }
 
+      // كل صنف ممكن يبقى جزء منه مرتجع عميل فعلي والجزء التاني بواقي بيع عادية —
+      // بنفصلهم في بندين منفصلين عشان المخزن يشوف التفصيلة الحقيقية بدل ما يتلخبطوا في بند واحد
+      const unloadItems: { productId: string; quantity: number; kind: string }[] = []
+      for (const ret of validReturns) {
+        const qty = Number(ret.quantity)
+        const customerReturn = Math.min(qty, customerReturnQty.get(ret.productId) || 0)
+        const leftover = qty - customerReturn
+        if (customerReturn > 0) unloadItems.push({ productId: ret.productId, quantity: customerReturn, kind: 'RETURN' })
+        if (leftover > 0) unloadItems.push({ productId: ret.productId, quantity: leftover, kind: 'LEFTOVER' })
+      }
+
       await prisma.unloadOrder.create({
         data: {
           unloadNo,
@@ -134,13 +145,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           status: 'PENDING',
           notes: `تفريغ جولة ${deliveryOrder.orderNo}`,
           createdById: session.user.id,
-          items: {
-            create: validReturns.map((ret) => ({
-              productId: ret.productId,
-              quantity: Number(ret.quantity),
-              kind: (customerReturnQty.get(ret.productId) || 0) > 0 ? 'RETURN' : 'LEFTOVER',
-            })),
-          },
+          items: { create: unloadItems },
         },
       })
     }

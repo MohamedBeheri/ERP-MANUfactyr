@@ -13,6 +13,7 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
         include: {
           items: { include: { product: true } },
           invoices: { include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: 'asc' } },
+          returns: { include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: 'asc' } },
         },
       },
     },
@@ -20,6 +21,30 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
   if (!settlement) notFound()
 
   const order = settlement.deliveryOrder
+
+  // تفصيل كل صنف: محمّل / مباع / باقي على العربية (بواقي بيع) / مرتجع من عميل بفاتورة سابقة
+  const itemBreakdown = order
+    ? order.items.map((item) => {
+        const loaded = Number(item.quantity)
+        const delivered = order.invoices
+          .flatMap((inv) => inv.items)
+          .filter((it) => it.productId === item.productId)
+          .reduce((s, it) => s + Number(it.quantity), 0)
+        const customerReturn = order.returns
+          .flatMap((r) => r.items)
+          .filter((it) => it.productId === item.productId)
+          .reduce((s, it) => s + Number(it.quantity), 0)
+        const leftover = Math.max(0, loaded - delivered)
+        return {
+          name: item.product.name,
+          unit: item.product.unit,
+          loaded,
+          delivered,
+          leftover,
+          customerReturn,
+        }
+      }).filter((r) => r.loaded > 0 || r.customerReturn > 0)
+    : []
 
   return (
     <PrintDoc
@@ -47,6 +72,39 @@ export default async function SettlementPrintPage({ params: rawParams }: { param
               inv.invoiceNo,
               inv.type !== 'CASH' ? 'آجل' : inv.collectionMethod === 'تحويل انستا' ? 'إنستا باي' : inv.collectionMethod === 'تحويل محفظة' ? 'محفظة' : 'نقدي',
               `${Number(inv.netAmount).toLocaleString('ar-EG')} ج.م`,
+            ])}
+          />
+        </div>
+      )}
+
+      {itemBreakdown.length > 0 && (
+        <div className="mb-6">
+          <h4 className="font-bold text-sm mb-2">تفصيل الأصناف — محمّل / مباع / باقي على العربية / مرتجع من عميل</h4>
+          <PrintTable
+            headers={['الصنف', 'محمّل', 'مباع', 'باقي على العربية (بواقي)', 'مرتجع عميل (فاتورة سابقة)']}
+            rows={itemBreakdown.map((r) => [
+              `${r.name} (${r.unit})`,
+              r.loaded,
+              r.delivered,
+              r.leftover,
+              r.customerReturn,
+            ])}
+          />
+        </div>
+      )}
+
+      {order && order.returns.length > 0 && (
+        <div className="mb-6">
+          <h4 className="font-bold text-sm mb-2">تفاصيل المرتجعات من العملاء ({order.returns.length})</h4>
+          <PrintTable
+            headers={['#', 'العميل', 'رقم المرتجع', 'الأصناف', 'طريقة الرد', 'القيمة']}
+            rows={order.returns.map((r, i) => [
+              i + 1,
+              r.customer?.name || r.customerName || 'عميل',
+              r.returnNo,
+              r.items.map((it) => `${it.product.name} ×${Number(it.quantity)}`).join('، '),
+              r.refundCash ? 'رد نقدي' : 'خصم آجل',
+              `${Number(r.totalValue).toLocaleString('ar-EG')} ج.م`,
             ])}
           />
         </div>

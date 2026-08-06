@@ -22,6 +22,7 @@ export function UnloadOrdersPanel({ unloads, canEdit }: { unloads: UnloadLite[];
   const router = useRouter()
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [notesById, setNotesById] = useState<Record<string, string>>({})
 
   async function act(id: string, action: 'confirm' | 'cancel') {
     if (action === 'cancel' && !confirm('إلغاء أمر التفريغ ده؟ البضاعة مش هتدخل المخزن.')) return
@@ -30,7 +31,7 @@ export function UnloadOrdersPanel({ unloads, canEdit }: { unloads: UnloadLite[];
     const res = await fetch(`/api/unload-orders/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, notes: action === 'confirm' ? notesById[id] : undefined }),
     })
     setBusy('')
     if (!res.ok) return setError((await res.json()).error || 'حصل خطأ')
@@ -62,24 +63,36 @@ export function UnloadOrdersPanel({ unloads, canEdit }: { unloads: UnloadLite[];
                     </span>
                   ))}
                 </div>
+                {u.items.some((it) => it.kind === 'RETURN') && (
+                  <p className="text-[11px] text-orange-500 mt-1">فيه أصناف مرتجعة من عملاء — اتفصلت عن بواقي البيع العادية</p>
+                )}
               </div>
               {canEdit && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => act(u.id, 'confirm')}
-                    disabled={busy === u.id}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <PackageCheck className="w-4 h-4" /> {busy === u.id ? 'جارٍ...' : 'تأكيد الاستلام'}
-                  </button>
-                  <button
-                    onClick={() => act(u.id, 'cancel')}
-                    disabled={busy === u.id}
-                    className="text-red-500 hover:text-red-700 p-2"
-                    title="إلغاء الأمر"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <div className="flex flex-col items-end gap-2 shrink-0 w-full sm:w-64">
+                  <textarea
+                    value={notesById[u.id] || ''}
+                    onChange={(e) => setNotesById((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                    placeholder="ملاحظات عن التفريغ/المرتجع (اختياري)"
+                    rows={2}
+                    className="w-full text-xs border border-gray-200 rounded-lg p-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => act(u.id, 'confirm')}
+                      disabled={busy === u.id}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <PackageCheck className="w-4 h-4" /> {busy === u.id ? 'جارٍ...' : 'تمام التفريغ'}
+                    </button>
+                    <button
+                      onClick={() => act(u.id, 'cancel')}
+                      disabled={busy === u.id}
+                      className="text-red-500 hover:text-red-700 p-2"
+                      title="إلغاء الأمر"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
