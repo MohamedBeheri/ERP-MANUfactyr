@@ -34,6 +34,7 @@ interface Item {
 }
 interface CategoryRef { id: string; name: string }
 interface StageRef { id: string; name: string; sellable: boolean; purchasable: boolean }
+interface UnitRef { id: string; name: string }
 
 const KINDS = [
   { key: 'GREEN', label: 'البن الأخضر', Icon: Coffee },
@@ -61,6 +62,7 @@ export function CatalogManager() {
   const [items, setItems] = useState<Item[]>([])
   const [categories, setCategories] = useState<CategoryRef[]>([])
   const [stages, setStages] = useState<StageRef[]>([])
+  const [units, setUnits] = useState<UnitRef[]>([])
   const [tab, setTab] = useState<string>('GREEN')
   const [loading, setLoading] = useState(true)
 
@@ -72,6 +74,7 @@ export function CatalogManager() {
       setItems(data.items || [])
       setCategories(data.categories || [])
       setStages(data.stages || [])
+      setUnits(data.units || [])
     }
     setLoading(false)
   }
@@ -94,16 +97,16 @@ export function CatalogManager() {
       {loading ? (
         <div className="bg-white rounded-xl shadow-sm p-10 text-center text-gray-400 text-sm">جاري التحميل…</div>
       ) : (
-        <KindTab key={tab} kind={tab} items={items} categories={categories} stages={stages} reload={load} />
+        <KindTab key={tab} kind={tab} items={items} categories={categories} stages={stages} units={units} reload={load} />
       )}
     </div>
   )
 }
 
-function KindTab({ kind, items, categories, stages, reload }: { kind: string; items: Item[]; categories: CategoryRef[]; stages: StageRef[]; reload: () => void }) {
+function KindTab({ kind, items, categories, stages, units, reload }: { kind: string; items: Item[]; categories: CategoryRef[]; stages: StageRef[]; units: UnitRef[]; reload: () => void }) {
   const list = items.filter((i) => i.itemKind === kind)
   const empty: any = {
-    name: '', unit: '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '',
+    name: '', unit: units[0]?.name || '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '',
     roastLossPercent: '', tareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1',
     categoryId: '', stageId: '', minStock: '0', imageUrl: '',
     showInPos: false, showOnline: true,
@@ -293,14 +296,18 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
-              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="كجم" className={inputCls} />
+              <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inputCls}>
+                {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+              </select>
             </div>
           </div>
         )}
         {kind === 'BLEND' && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
-            <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="كجم" className={inputCls} />
+            <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inputCls}>
+              {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+            </select>
           </div>
         )}
         {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
@@ -328,7 +335,9 @@ function KindTab({ kind, items, categories, stages, reload }: { kind: string; it
             {kind !== 'FINISHED' && (
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
-                <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={kind === 'PACKAGING' ? 'قطعة' : 'كجم'} className={inputCls} />
+                <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inputCls}>
+                  {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
               </div>
             )}
           </div>

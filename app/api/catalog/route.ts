@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 import { ensureStockStages } from '@/lib/stock-stages'
+import { ensureUnits } from '@/lib/units'
 import { validateBlendPercents } from '@/lib/manufacturing'
 
 // المرحلة المخزنية المناسبة لكل نوع صنف (عشان الجرد والإنتاج يفضلوا شغالين)
@@ -21,6 +22,7 @@ export async function GET() {
   const auth = await requirePermission('catalog', 'view')
   if ('response' in auth) return auth.response
   await ensureStockStages()
+  await ensureUnits()
 
   try {
     const products = await prisma.product.findMany({
@@ -34,6 +36,7 @@ export async function GET() {
     })
     const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } })
     const stages = await prisma.stockStage.findMany({ orderBy: { sortOrder: 'asc' } })
+    const units = await prisma.unit.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] })
     return NextResponse.json({
       items: products.map((p) => ({
         id: p.id,
@@ -72,6 +75,7 @@ export async function GET() {
       })),
       categories: categories.map((c) => ({ id: c.id, name: c.name })),
       stages: stages.map((s) => ({ id: s.id, name: s.name, sellable: s.sellable, purchasable: s.purchasable })),
+      units: units.map((u) => ({ id: u.id, name: u.name })),
     })
   } catch {
     return NextResponse.json({ error: 'فشل جلب الأصناف' }, { status: 500 })

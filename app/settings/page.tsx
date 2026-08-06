@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getDefaultWarehouseId } from '@/lib/warehouse'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { ensureTiers } from '@/lib/tiers'
+import { ensureUnits } from '@/lib/units'
 import { SettingsManager } from '@/components/settings-manager'
 
 export const dynamic = 'force-dynamic'
@@ -16,8 +17,9 @@ export default async function SettingsPage() {
   await getDefaultWarehouseId() // يضمن وجود مخزن افتراضي
   await ensureStockStages() // يضمن وجود المراحل والعمليات الافتراضية
   await ensureTiers() // يضمن وجود فئات العملاء الافتراضية
+  await ensureUnits() // يضمن وجود وحدات القياس الافتراضية
 
-  const [suppliers, categories, products, stockStages, operations, warehouses, tiers, rewards] = await Promise.all([
+  const [suppliers, categories, products, stockStages, operations, warehouses, tiers, rewards, units] = await Promise.all([
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.category.findMany({
       where: { isActive: true },
@@ -48,6 +50,7 @@ export default async function SettingsPage() {
       orderBy: { createdAt: 'desc' },
       include: { product: true, freeProduct: true, tier: true },
     }),
+    prisma.unit.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
   ])
 
   return (
@@ -122,6 +125,7 @@ export default async function SettingsPage() {
           tierName: r.tier?.name || null,
           isActive: r.isActive,
         }))}
+        units={units.map((u) => ({ id: u.id, name: u.name, sortOrder: u.sortOrder }))}
       />
     </div>
   )

@@ -562,6 +562,17 @@ enum TransferStatus {
 
 // ============== CUSTOMER TIERS (فئات العملاء والبونص) ==============
 // كبار الموردين/الموزعين، كبار العملاء، تاجر تجزئة، متوسط، قطاعي — لكل فئة تسعير وبونص خاص
+// ============== وحدات القياس (متغيّرة — يتحكم فيها الأدمن) ==============
+model Unit {
+  id        String   @id @default(cuid())
+  name      String   @unique // مثال: كجم، جرام، كيس
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("units")
+}
+
 model CustomerTier {
   id              String   @id @default(cuid())
   name            String   @unique

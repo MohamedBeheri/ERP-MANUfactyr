@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Crown,
   Gift,
+  Ruler,
 } from 'lucide-react'
 
 /* ================= أنواع البيانات ================= */
@@ -86,6 +87,7 @@ interface RewardRuleRow {
 }
 
 interface ProductRef { id: string; name: string }
+interface UnitRow { id: string; name: string; sortOrder: number }
 interface Props {
   suppliers: Supplier[]
   categories: CategoryRow[]
@@ -95,12 +97,14 @@ interface Props {
   tiers: TierRow[]
   rewards: RewardRuleRow[]
   products: ProductRef[]
+  units: UnitRow[]
 }
 
 const TABS = [
   { key: 'categories', label: 'تصنيفات البيع', Icon: Tags },
   { key: 'stockStages', label: 'المراحل المخزنية', Icon: Layers },
   { key: 'operations', label: 'عمليات التصنيع', Icon: Flame },
+  { key: 'units', label: 'وحدات القياس', Icon: Ruler },
   { key: 'tiers', label: 'فئات العملاء والبونص', Icon: Crown },
   { key: 'rewards', label: 'عروض ومكافآت الكمية', Icon: Gift },
   { key: 'suppliers', label: 'الموردين', Icon: TruckIcon },
@@ -121,7 +125,7 @@ async function apiCall(url: string, method: string, body?: any) {
   return data
 }
 
-export function SettingsManager({ suppliers, categories, stockStages, operations, warehouses, tiers, rewards, products }: Props) {
+export function SettingsManager({ suppliers, categories, stockStages, operations, warehouses, tiers, rewards, products, units }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('categories')
 
   return (
@@ -144,6 +148,7 @@ export function SettingsManager({ suppliers, categories, stockStages, operations
       {tab === 'categories' && <CategoriesTab categories={categories} />}
       {tab === 'stockStages' && <StockStagesTab stages={stockStages} warehouses={warehouses} />}
       {tab === 'operations' && <OperationsTab operations={operations} stages={stockStages} />}
+      {tab === 'units' && <UnitsTab units={units} />}
       {tab === 'tiers' && <TiersTab tiers={tiers} />}
       {tab === 'rewards' && <RewardsTab rewards={rewards} products={products} tiers={tiers} />}
       {tab === 'suppliers' && <SuppliersTab suppliers={suppliers} />}
@@ -910,7 +915,7 @@ function WarehousesTab({ warehouses }: { warehouses: WarehouseRow[] }) {
         </div>
       </form>
 
-      <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
+      <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5" data-tab="warehouses-list">
         <h3 className="text-base font-bold text-[#1a1a2e] mb-3">المخازن ({warehouses.length})</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {warehouses.map((w) => (
@@ -937,6 +942,88 @@ function WarehousesTab({ warehouses }: { warehouses: WarehouseRow[] }) {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function UnitsTab({ units }: { units: UnitRow[] }) {
+  const router = useRouter()
+  const empty = { name: '', sortOrder: String(units.length + 1) }
+  const [form, setForm] = useState<any>(empty)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    try {
+      await apiCall(editId ? `/api/units/${editId}` : '/api/units', editId ? 'PUT' : 'POST', form)
+      setForm(empty)
+      setEditId(null)
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`متأكد من حذف وحدة "${name}"؟`)) return
+    try {
+      await apiCall(`/api/units/${id}`, 'DELETE')
+      router.refresh()
+    } catch (err: any) {
+      alert(err.message)
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
+        <h3 className="text-base font-bold text-[#1a1a2e]">{editId ? 'تعديل وحدة' : 'إضافة وحدة جديدة'}</h3>
+        <p className="text-xs text-gray-500">وحدات القياس المستخدمة في بنك الأصناف وإدارة الكافيه (كجم، جرام، كيس...).</p>
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">اسم الوحدة</label>
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="مثال: كيس" className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">ترتيب الظهور</label>
+          <input type="text" inputMode="numeric" dir="ltr" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputCls} />
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" className="flex-1 bg-[#0f3460] text-white py-2.5 rounded-lg font-semibold hover:bg-[#0a2545] text-sm">
+            {editId ? 'حفظ' : 'إضافة'}
+          </button>
+          {editId && (
+            <button type="button" onClick={() => { setEditId(null); setForm(empty) }} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">إلغاء</button>
+          )}
+        </div>
+      </form>
+
+      <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
+        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">وحدات القياس ({units.length})</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {units.map((u) => (
+            <div key={u.id} className="flex items-center justify-between border border-gray-100 rounded-lg p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-[#0f3460]/5 flex items-center justify-center shrink-0">
+                  <Ruler className="w-5 h-5 text-[#0f3460]" />
+                </div>
+                <p className="font-semibold text-sm">{u.name}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => { setEditId(u.id); setForm({ name: u.name, sortOrder: String(u.sortOrder) }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => remove(u.id, u.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+          {units.length === 0 && <p className="text-sm text-gray-500">مفيش وحدات لسه.</p>}
         </div>
       </div>
     </div>

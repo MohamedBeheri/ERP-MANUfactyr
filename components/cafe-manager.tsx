@@ -42,6 +42,7 @@ interface Props {
   purchases: CafePurchase[]
   movements: Movement[]
   pos: PosData
+  units: { id: string; name: string }[]
   canAdd: boolean
   canEdit: boolean
   canDelete: boolean
@@ -50,7 +51,7 @@ interface Props {
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 const TABS = ['pos', 'warehouse', 'items', 'purchases'] as const
 
-export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, movements, pos, canAdd, canEdit, canDelete }: Props) {
+export function CafeManager({ warehouses, materials, cafeItems, categories, purchases, movements, pos, units, canAdd, canEdit, canDelete }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<(typeof TABS)[number]>('pos')
 
@@ -88,12 +89,12 @@ export function CafeManager({ warehouses, materials, cafeItems, categories, purc
       {tab === 'warehouse' && (
         <div className="space-y-4">
           <DirectItemsPanel items={cafeItems} canEdit={canEdit} router={router} />
-          <MaterialsTab materials={materials} categories={categories} canAdd={canAdd} canDelete={canDelete} router={router} />
+          <MaterialsTab materials={materials} categories={categories} units={units} canAdd={canAdd} canDelete={canDelete} router={router} />
           <MovementsPanel movements={movements} />
         </div>
       )}
       {tab === 'items' && (
-        <ItemsTab cafeItems={cafeItems} materials={materials} categories={categories} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} router={router} />
+        <ItemsTab cafeItems={cafeItems} materials={materials} categories={categories} units={units} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} router={router} />
       )}
       {tab === 'purchases' && <PurchasesTab purchases={purchases} canAdd={canAdd} />}
     </div>
@@ -179,10 +180,10 @@ function DirectItemsPanel({ items, canEdit, router }: { items: CafeItem[]; canEd
   )
 }
 
-function MaterialsTab({ materials, categories, canAdd, canDelete, router }: any) {
+function MaterialsTab({ materials, categories, units, canAdd, canDelete, router }: any) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
-  const [unit, setUnit] = useState('كجم')
+  const [unit, setUnit] = useState(units[0]?.name || '')
   const [costPrice, setCostPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [loading, setLoading] = useState(false)
@@ -283,7 +284,9 @@ function MaterialsTab({ materials, categories, canAdd, canDelete, router }: any)
                 ))}
               </select>
               <div className="grid grid-cols-2 gap-2">
-                <input className={inputCls} placeholder="الوحدة" value={unit} onChange={(e) => setUnit(e.target.value)} />
+                <select className={inputCls} value={unit} onChange={(e) => setUnit(e.target.value)}>
+                  {units.map((u: any) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
                 <input className={inputCls} placeholder="سعر التكلفة" type="text" inputMode="decimal" dir="ltr" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
               </div>
               <button onClick={submit} disabled={loading} className="w-full bg-[#e94560] text-white py-2 rounded-lg text-sm font-bold disabled:opacity-50">
@@ -324,10 +327,10 @@ function MovementsPanel({ movements }: { movements: Movement[] }) {
   )
 }
 
-function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete, router }: any) {
+function ItemsTab({ cafeItems, materials, categories, units, canAdd, canEdit, canDelete, router }: any) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
-  const [unit, setUnit] = useState('قطعة')
+  const [unit, setUnit] = useState(units[0]?.name || '')
   const [sellPrice, setSellPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [showInPos, setShowInPos] = useState(true)
@@ -418,7 +421,9 @@ function ItemsTab({ cafeItems, materials, categories, canAdd, canEdit, canDelete
                 ))}
               </select>
               <div className="grid grid-cols-2 gap-2">
-                <input className={inputCls} placeholder="الوحدة" value={unit} onChange={(e) => setUnit(e.target.value)} />
+                <select className={inputCls} value={unit} onChange={(e) => setUnit(e.target.value)}>
+                  {units.map((u: any) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
                 <input className={inputCls} placeholder="سعر البيع" type="text" inputMode="decimal" dir="ltr" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
               </div>
               <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">

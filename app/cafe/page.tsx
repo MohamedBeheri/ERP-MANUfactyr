@@ -7,6 +7,7 @@ import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { getCafeStageIds } from '@/lib/cafe'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { ensureTiers } from '@/lib/tiers'
+import { ensureUnits } from '@/lib/units'
 import { CafeManager } from '@/components/cafe-manager'
 
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,7 @@ export default async function CafePage() {
   const { warehouseId, materialsStageId, itemsStageId } = await getCafeStageIds()
   await ensureStockStages()
   await ensureTiers()
+  await ensureUnits()
 
   // نقطة البيع (اتنقلت هنا من شاشة المبيعات): كل الأصناف القابلة للبيع بما فيها منتجات الكافيه
   const sellableStages = await prisma.stockStage.findMany({ where: { isActive: true, sellable: true }, select: { id: true } })
@@ -36,7 +38,7 @@ export default async function CafePage() {
   const recipeRows = await prisma.cafeRecipeItem.findMany({ select: { productId: true }, distinct: ['productId'] })
   const recipeProductIds = new Set(recipeRows.map((r) => r.productId))
 
-  const [cafeWarehouse, materials, cafeItems, categories, purchases, movements, posProducts, posCustomers, posWarehouses] = await Promise.all([
+  const [cafeWarehouse, materials, cafeItems, categories, purchases, movements, posProducts, posCustomers, posWarehouses, units] = await Promise.all([
     prisma.warehouse.findUnique({ where: { id: warehouseId } }),
     prisma.product.findMany({
       where: { stageId: materialsStageId, isActive: true },
@@ -78,6 +80,7 @@ export default async function CafePage() {
     }),
     prisma.customer.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, include: { tier: true } }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
+    prisma.unit.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
   ])
 
   return (
@@ -163,6 +166,7 @@ export default async function CafePage() {
           cafeWarehouseId: warehouseId,
           canSell,
         }}
+        units={units.map((u) => ({ id: u.id, name: u.name }))}
         canAdd={canAdd}
         canEdit={canEdit}
         canDelete={canDelete}
