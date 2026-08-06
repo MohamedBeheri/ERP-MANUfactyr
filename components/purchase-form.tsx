@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { SearchableSelect } from '@/components/searchable-select'
 
 interface WarehouseOption { id: string; name: string; isDefault: boolean }
+interface PaymentMethodOption { id: string; name: string }
 interface Props {
-  products: { id: string; name: string; unit: string; itemKind?: string }[]
+  products: { id: string; name: string; unit: string; itemKind?: string; warehouseId: string }[]
   suppliers: { id: string; name: string }[]
   warehouses?: WarehouseOption[]
+  paymentMethods?: PaymentMethodOption[]
 }
 
 // تجميع أصناف بنك الأصناف في القائمة حسب النوع
@@ -18,9 +20,10 @@ const KIND_GROUPS: { key: string; label: string }[] = [
   { key: 'SPICE', label: 'عطارة' },
   { key: 'FLAVOR', label: 'نكهات' },
   { key: 'PACKAGING', label: 'مواد تغليف' },
+  { key: 'CAFE_MATERIAL', label: 'خامات الكافيه' },
 ]
 
-const PAY_METHODS = ['نقدي فوري', 'آجل', 'نقدي جزئي'] as const
+const TIMINGS = ['فوري', 'جزئي', 'آجل'] as const
 const inputCls = 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 
 // ضغط صورة الفاتورة لـ data URL
@@ -45,13 +48,14 @@ function fileToDataUrl(file: File, maxSize = 900): Promise<string> {
   })
 }
 
-export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
+export function PurchaseForm({ products, suppliers, warehouses = [], paymentMethods = [] }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [supplierId, setSupplierId] = useState('')
   const [supplierInvoiceNo, setSupplierInvoiceNo] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
-  const [payMethod, setPayMethod] = useState<(typeof PAY_METHODS)[number]>('نقدي فوري')
+  const [timing, setTiming] = useState<(typeof TIMINGS)[number]>('فوري')
+  const [methodId, setMethodId] = useState(paymentMethods[0]?.id || '')
   const [paidAmount, setPaidAmount] = useState('')
   const [invoiceImage, setInvoiceImage] = useState('')
   const [notes, setNotes] = useState('')
@@ -59,9 +63,13 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // التوريد لمخزن معيّن بيفلتر قائمة الأصناف على اللي بيدخلوا المخزن ده بس (حسب مرحلته المخزنية)
+  const visibleProducts = warehouseId ? products.filter((p) => p.warehouseId === warehouseId) : products
+
   const total = items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0)
-  const paid = payMethod === 'آجل' ? 0 : payMethod === 'نقدي جزئي' ? Math.min(total, Number(paidAmount) || 0) : total
+  const paid = timing === 'آجل' ? 0 : timing === 'جزئي' ? Math.min(total, Number(paidAmount) || 0) : total
   const owed = total - paid
+  const selectedMethodName = paymentMethods.find((m) => m.id === methodId)?.name || 'نقدي'
 
   const handleImage = async (file?: File) => {
     if (!file) return
@@ -73,20 +81,23 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
     const validItems = items.filter((i) => i.productId && i.quantity && i.unitPrice)
       .map((i) => ({ productId: i.productId, quantity: Number(i.quantity), unitPrice: Number(i.unitPrice) }))
     if (!supplierId || validItems.length === 0) { setError('اختار المورد وأدخل صنف واحد على الأقل'); return }
-    if (payMethod === 'نقدي جزئي' && !(Number(paidAmount) > 0)) { setError('اكتب المبلغ المدفوع في الدفع الجزئي'); return }
+    if (timing !== 'آجل' && !methodId) { setError('اختار طريقة السداد'); return }
+    if (timing === 'جزئي' && !(Number(paidAmount) > 0)) { setError('اكتب المبلغ المدفوع في الدفع الجزئي'); return }
     setLoading(true)
+    const paymentMethodLabel = timing === 'آجل' ? 'آجل' : `${selectedMethodName}${timing === 'جزئي' ? ' - دفع جزئي' : ''}`
     const res = await fetch('/api/purchases', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         supplierId, supplierInvoiceNo, items: validItems, notes, warehouseId,
-        paymentMethod: payMethod, paidAmount: payMethod === 'نقدي جزئي' ? Number(paidAmount) : undefined,
+        paymentMethod: paymentMethodLabel, paymentTiming: timing,
+        paidAmount: timing === 'جزئي' ? Number(paidAmount) : undefined,
         invoiceImage: invoiceImage || undefined,
       }),
     })
     const data = await res.json()
     setLoading(false)
     if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
-    setSupplierId(''); setSupplierInvoiceNo(''); setNotes(''); setPayMethod('نقدي فوري'); setPaidAmount(''); setInvoiceImage('')
+    setSupplierId(''); setSupplierInvoiceNo(''); setNotes(''); setTiming('فوري'); setMethodId(paymentMethods[0]?.id || ''); setPaidAmount(''); setInvoiceImage('')
     setItems([{ productId: '', quantity: '', unitPrice: '' }]); setOpen(false)
     router.refresh()
   }
@@ -113,14 +124,20 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
       </div>
 
       {warehouses.length > 0 && (
-        <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
+        <select
+          value={warehouseId}
+          onChange={(e) => { setWarehouseId(e.target.value); setItems([{ productId: '', quantity: '', unitPrice: '' }]) }}
+          className={inputCls}
+        >
           <option value="">التوريد لمخزن: تلقائي (حسب الصنف)</option>
           {warehouses.map((w) => <option key={w.id} value={w.id}>توريد لـ {w.name}</option>)}
         </select>
       )}
 
       <div className="space-y-2">
-        <label className="block text-sm font-semibold text-gray-700">الأصناف</label>
+        <label className="block text-sm font-semibold text-gray-700">
+          الأصناف {warehouseId && <span className="font-normal text-gray-400">— أصناف {warehouses.find((w) => w.id === warehouseId)?.name} بس</span>}
+        </label>
         {items.map((item, i) => (
           <div key={i} className="flex gap-2">
             <div className="flex-1 min-w-0">
@@ -128,10 +145,11 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
                 value={item.productId}
                 onChange={(v) => setItems(items.map((it, j) => j === i ? { ...it, productId: v } : it))}
                 placeholder="الصنف"
+                emptyText="مفيش أصناف بتتشرى للمخزن ده"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 options={[
-                  ...KIND_GROUPS.flatMap((g) => products.filter((p) => p.itemKind === g.key).map((p) => ({ value: p.id, label: p.name, sublabel: g.label }))),
-                  ...products.filter((p) => !p.itemKind || !KIND_GROUPS.some((g) => g.key === p.itemKind)).map((p) => ({ value: p.id, label: p.name })),
+                  ...KIND_GROUPS.flatMap((g) => visibleProducts.filter((p) => p.itemKind === g.key).map((p) => ({ value: p.id, label: p.name, sublabel: g.label }))),
+                  ...visibleProducts.filter((p) => !p.itemKind || !KIND_GROUPS.some((g) => g.key === p.itemKind)).map((p) => ({ value: p.id, label: p.name })),
                 ]}
               />
             </div>
@@ -146,11 +164,25 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
       <div className="border-t border-gray-100 pt-3 space-y-2">
         <label className="block text-sm font-semibold text-gray-700">الدفع للمورد</label>
         <div className="flex gap-1.5">
-          {PAY_METHODS.map((m) => (
-            <button key={m} type="button" onClick={() => setPayMethod(m)} className={`flex-1 px-2 py-2 rounded-lg text-xs font-bold transition ${payMethod === m ? 'bg-[#1a1a2e] text-white' : 'bg-gray-100 text-gray-600'}`}>{m}</button>
+          {TIMINGS.map((t) => (
+            <button key={t} type="button" onClick={() => setTiming(t)} className={`flex-1 px-2 py-2 rounded-lg text-xs font-bold transition ${timing === t ? 'bg-[#1a1a2e] text-white' : 'bg-gray-100 text-gray-600'}`}>{t}</button>
           ))}
         </div>
-        {payMethod === 'نقدي جزئي' && (
+        {timing !== 'آجل' && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">طريقة السداد</label>
+            {paymentMethods.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {paymentMethods.map((m) => (
+                  <button key={m.id} type="button" onClick={() => setMethodId(m.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${methodId === m.id ? 'bg-[#e94560] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{m.name}</button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">مفيش طرق دفع مُعرّفة في النظام.</p>
+            )}
+          </div>
+        )}
+        {timing === 'جزئي' && (
           <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="المبلغ المدفوع للمورد دلوقتي" className={inputCls} />
         )}
         {total > 0 && (

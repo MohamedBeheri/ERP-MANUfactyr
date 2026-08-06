@@ -5,6 +5,7 @@ import { ShoppingBag, Printer, Image as ImageIcon, Truck } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
+import { ensureTreasuries } from '@/lib/treasuries'
 import { PurchaseForm } from '@/components/purchase-form'
 import { effectivePermissions, canDoAction } from '@/lib/permissions'
 
@@ -16,10 +17,11 @@ export default async function PurchasesPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
   await ensureStockStages()
+  await ensureTreasuries()
   const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
   const canAdd = canDoAction(perms, 'purchases', 'add')
 
-  const [purchases, products, suppliers, warehouses, supplierBal] = await Promise.all([
+  const [purchases, products, suppliers, warehouses, supplierBal, stockStages, paymentMethods] = await Promise.all([
     prisma.purchase.findMany({
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -33,7 +35,13 @@ export default async function PurchasesPage() {
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
     prisma.supplier.aggregate({ _sum: { balance: true } }),
+    prisma.stockStage.findMany({ select: { id: true, warehouseId: true } }),
+    prisma.paymentMethod.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } }),
   ])
+
+  // مخزن كل صنف = مخزن مرحلته المخزنية (نفس منطق التوريد التلقائي وقت الحفظ) — يستخدم لفلترة الأصناف حسب المخزن المختار
+  const defaultWarehouseId = warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || ''
+  const stageWarehouse = new Map(stockStages.map((s) => [s.id, s.warehouseId || defaultWarehouseId]))
 
   const totalPurchases = purchases.reduce((s, p) => s + Number(p.totalAmount), 0)
   const totalPaid = purchases.reduce((s, p) => s + Number(p.paidAmount), 0)
@@ -132,9 +140,16 @@ export default async function PurchasesPage() {
         <div className="space-y-4">
           {canAdd && (
             <PurchaseForm
-              products={products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, itemKind: p.itemKind }))}
+              products={products.map((p) => ({
+                id: p.id,
+                name: p.name,
+                unit: p.unit,
+                itemKind: p.itemKind,
+                warehouseId: stageWarehouse.get(p.stageId || '') || defaultWarehouseId,
+              }))}
               suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
               warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+              paymentMethods={paymentMethods.map((m) => ({ id: m.id, name: m.name }))}
             />
           )}
 

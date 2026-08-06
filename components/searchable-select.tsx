@@ -141,8 +141,8 @@ export function SearchableSelect({
                 i === activeIndex ? 'bg-[#e94560]/10' : ''
               } ${o.value === value ? 'font-semibold text-[#e94560]' : 'text-[#1a1a2e]'}`}
             >
-              <span className="truncate">{o.label}</span>
-              {o.sublabel && <span className="text-xs text-gray-400 truncate">{o.sublabel}</span>}
+              <span className="leading-snug break-words">{o.label}</span>
+              {o.sublabel && <span className="text-xs text-gray-400 leading-snug break-words">{o.sublabel}</span>}
             </button>
           ))}
         </div>

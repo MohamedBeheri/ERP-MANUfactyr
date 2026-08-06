@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { supplierId, items, notes } = body
     const manualWarehouse = body.warehouseId || null
-    const paymentMethod = ['نقدي فوري', 'آجل', 'نقدي جزئي'].includes(body.paymentMethod) ? body.paymentMethod : 'نقدي فوري'
+    const paymentTiming = ['فوري', 'جزئي', 'آجل'].includes(body.paymentTiming) ? body.paymentTiming : 'فوري'
+    const paymentMethod = body.paymentMethod?.trim() || (paymentTiming === 'آجل' ? 'آجل' : 'نقدي')
     const supplierInvoiceNo = body.supplierInvoiceNo?.trim() || null
     const invoiceImage = body.invoiceImage || null
 
@@ -46,10 +47,10 @@ export async function POST(req: NextRequest) {
       manualWarehouse || (await warehouseForStage(stageOf.get(productId)))
 
     const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
-    // المدفوع للمورد حسب طريقة الدفع
+    // المدفوع للمورد حسب توقيت الدفع (فوري بالكامل / جزئي / آجل)
     let paidAmount = totalAmount
-    if (paymentMethod === 'آجل') paidAmount = 0
-    else if (paymentMethod === 'نقدي جزئي') paidAmount = Math.max(0, Math.min(totalAmount, Number(body.paidAmount) || 0))
+    if (paymentTiming === 'آجل') paidAmount = 0
+    else if (paymentTiming === 'جزئي') paidAmount = Math.max(0, Math.min(totalAmount, Number(body.paidAmount) || 0))
     const owed = totalAmount - paidAmount // المستحق للمورد
 
     const purchase = await prisma.$transaction(async (tx) => {
