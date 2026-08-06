@@ -44,6 +44,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // السعر لازم يمشي بآخر بيان سعر معتمد للعميل (لو فيه بند للصنف ده) — مش السعر اللي اتبعت من الفورم
+    const approvedQuote = await prisma.priceQuote.findFirst({
+      where: { keyAccountId, status: 'APPROVED' },
+      orderBy: { createdAt: 'desc' },
+      include: { items: true },
+    })
+    const quotePriceByProduct = new Map((approvedQuote?.items || []).map((it) => [it.productId, Number(it.unitPrice)]))
+    for (const l of lines) {
+      const quotedPrice = quotePriceByProduct.get(l.productId)
+      if (quotedPrice !== undefined) l.unitPrice = quotedPrice
+    }
+
     // التحقق من الحد الأدنى للسعر + رصيد المخزن الإجمالي لكل صنف عبر كل الفروع
     const neededByProduct = new Map<string, number>()
     for (const l of lines) {

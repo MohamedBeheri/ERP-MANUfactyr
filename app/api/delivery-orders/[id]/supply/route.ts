@@ -44,6 +44,18 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
       return NextResponse.json({ error: 'الفرع مش تابع للعميل المختار' }, { status: 400 })
     }
 
+    // السعر لازم يمشي بآخر بيان سعر معتمد للعميل (لو فيه بند للصنف ده) — مش السعر اللي اتبعت من الفورم
+    const approvedQuote = await prisma.priceQuote.findFirst({
+      where: { keyAccountId, status: 'APPROVED' },
+      orderBy: { createdAt: 'desc' },
+      include: { items: true },
+    })
+    const quotePriceByProduct = new Map((approvedQuote?.items || []).map((it) => [it.productId, Number(it.unitPrice)]))
+    for (const it of items) {
+      const quotedPrice = quotePriceByProduct.get(it.productId)
+      if (quotedPrice !== undefined) it.unitPrice = quotedPrice
+    }
+
     // المتبقي على العربية = المحمّل − (مسلّم في فواتير + موّرد لفروع)
     for (const it of items) {
       const loaded = Number(order.items.find((x) => x.productId === it.productId)?.quantity || 0)

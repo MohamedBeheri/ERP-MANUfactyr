@@ -62,7 +62,7 @@ export default async function KeyAccountsPage() {
             id: a.id,
             name: a.name,
             branches: a.branches.map((br) => ({ id: br.id, name: br.name })),
-            quoteItems: (a.quotes[0]?.items || []).map((it) => ({ productId: it.productId, unitPrice: Number(it.unitPrice) })),
+            quoteItems: (a.quotes.find((q) => q.status === 'APPROVED')?.items || []).map((it) => ({ productId: it.productId, unitPrice: Number(it.unitPrice) })),
           }))}
           products={products.map((p) => ({
             id: p.id,
