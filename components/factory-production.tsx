@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Flame, Package, TriangleAlert, Wheat, Factory, TrendingDown, Plus, X, ArrowRight, Clock, ChevronDown, ChevronUp, Activity } from 'lucide-react'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface GreenT { id: string; name: string; quantity: number; roastLoss: number }
 interface BlendComp { name: string; kind: string; percent: number; roastDegree: string | null; perKilo: number; unit: string }
@@ -411,10 +412,13 @@ function RoastForm({ greens, onDone }: { greens: GreenT[]; onDone: () => void })
 
       <div className="space-y-1.5">
         <label className="text-sm font-semibold text-gray-700">البن الأخضر</label>
-        <select value={greenId} onChange={(e) => setGreenId(e.target.value)} className={inputCls}>
-          <option value="">اختار البن الأخضر</option>
-          {greens.map((g) => <option key={g.id} value={g.id}>{g.name} (متاح {g.quantity} كجم · خسران متوقع {g.roastLoss}%)</option>)}
-        </select>
+        <SearchableSelect
+          value={greenId}
+          onChange={setGreenId}
+          placeholder="اختار البن الأخضر"
+          className={inputCls}
+          options={greens.map((g) => ({ value: g.id, label: g.name, sublabel: `متاح ${g.quantity} كجم · خسران متوقع ${g.roastLoss}%` }))}
+        />
       </div>
 
       <div className="space-y-1.5">
@@ -538,10 +542,13 @@ function GrindAndBlendForm({ blends, availableIngredients, onDone }: { blends: B
         <>
           <div className="space-y-1.5">
             <label className="text-sm font-semibold text-gray-700">التوليفة</label>
-            <select value={blendId} onChange={(e) => setBlendId(e.target.value)} className={inputCls}>
-              <option value="">اختار التوليفة</option>
-              {blends.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <SearchableSelect
+              value={blendId}
+              onChange={setBlendId}
+              placeholder="اختار التوليفة"
+              className={inputCls}
+              options={blends.map((b) => ({ value: b.id, label: b.name }))}
+            />
           </div>
 
           {blend && (
@@ -583,24 +590,19 @@ function GrindAndBlendForm({ blends, availableIngredients, onDone }: { blends: B
               const ing = availableIngredients.find((a) => a.id === c.productId)
               return (
                 <div key={i} className="flex gap-2 items-center">
-                  <select value={c.productId} onChange={(e) => updateComp(i, 'productId', e.target.value)} className="flex-1 min-w-0 px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white">
-                    <option value="">اختار المكوّن</option>
-                    <optgroup label="بن محمص">
-                      {availableIngredients.filter((a) => a.kind === 'ROASTED').map((a) => (
-                        <option key={a.id} value={a.id}>{a.name} ({a.quantity} كجم)</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="نكهات">
-                      {availableIngredients.filter((a) => a.kind === 'FLAVOR').map((a) => (
-                        <option key={a.id} value={a.id}>{a.name} ({a.quantity} كجم)</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="عطارة">
-                      {availableIngredients.filter((a) => a.kind === 'SPICE').map((a) => (
-                        <option key={a.id} value={a.id}>{a.name} ({a.quantity} كجم)</option>
-                      ))}
-                    </optgroup>
-                  </select>
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      value={c.productId}
+                      onChange={(v) => updateComp(i, 'productId', v)}
+                      placeholder="اختار المكوّن"
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
+                      options={[
+                        ...availableIngredients.filter((a) => a.kind === 'ROASTED').map((a) => ({ value: a.id, label: a.name, sublabel: `بن محمص · متاح ${a.quantity} كجم` })),
+                        ...availableIngredients.filter((a) => a.kind === 'FLAVOR').map((a) => ({ value: a.id, label: a.name, sublabel: `نكهات · متاح ${a.quantity} كجم` })),
+                        ...availableIngredients.filter((a) => a.kind === 'SPICE').map((a) => ({ value: a.id, label: a.name, sublabel: `عطارة · متاح ${a.quantity} كجم` })),
+                      ]}
+                    />
+                  </div>
                   <div className="relative w-24 shrink-0">
                     <input type="text" inputMode="decimal" dir="ltr" min="0" max="100" step="0.1" value={c.percent} onChange={(e) => updateComp(i, 'percent', e.target.value)} placeholder="%" className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums bg-white" />
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
@@ -705,11 +707,14 @@ function PackForm({ blends, finished, onDone }: {
 
       <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-4 space-y-3">
         <label className="text-sm font-bold text-blue-700">١. سحب من مخزن المطحون</label>
-        <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} className={inputCls}>
-          <option value="">اختار المنتج المطحون</option>
-          {sourcesWithStock.map((b) => <option key={b.id} value={b.id}>{b.name} (متاح {b.quantity} كجم)</option>)}
-          {sourcesWithStock.length === 0 && <option disabled>مفيش مطحون متاح — لازم تعمل طحن وتوليف الأول</option>}
-        </select>
+        <SearchableSelect
+          value={sourceId}
+          onChange={setSourceId}
+          placeholder="اختار المنتج المطحون"
+          emptyText="مفيش مطحون متاح — لازم تعمل طحن وتوليف الأول"
+          className={inputCls}
+          options={sourcesWithStock.map((b) => ({ value: b.id, label: b.name, sublabel: `متاح ${b.quantity} كجم` }))}
+        />
         <input type="text" inputMode="decimal" dir="ltr" min="0.1" step="0.1" value={pullKg} onChange={(e) => setPullKg(e.target.value)} placeholder="الكمية المسحوبة (كجم)" className={inputCls} />
         {source && pullN > 0 && pullN <= source.quantity && (
           <p className="text-xs text-green-600">✓ متاح {source.quantity} كجم — هيتبقى {fmt(source.quantity - pullN)} كجم</p>
@@ -721,14 +726,17 @@ function PackForm({ blends, finished, onDone }: {
 
       <div className="space-y-1.5">
         <label className="text-sm font-bold text-gray-700">٢. المنتج النهائي (منتج البيع)</label>
-        <select value={finishedId} onChange={(e) => setFinishedId(e.target.value)} className={inputCls}>
-          <option value="">اختار المنتج النهائي</option>
-          {finished.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name} — {f.gramsPerPiece} جم/كيس{f.packagingName ? ` · تغليف: ${f.packagingName}` : ''}
-            </option>
-          ))}
-        </select>
+        <SearchableSelect
+          value={finishedId}
+          onChange={setFinishedId}
+          placeholder="اختار المنتج النهائي"
+          className={inputCls}
+          options={finished.map((f) => ({
+            value: f.id,
+            label: f.name,
+            sublabel: `${f.gramsPerPiece} جم/كيس${f.packagingName ? ` · تغليف: ${f.packagingName}` : ''}`,
+          }))}
+        />
       </div>
 
       {fin && (

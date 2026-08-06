@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClipboardCheck, X } from 'lucide-react'
+import { ClipboardCheck, X, Search } from 'lucide-react'
 
 interface ProductRow {
   id: string
@@ -24,6 +24,7 @@ export function StocktakeForm({ products, warehouses }: { products: ProductRow[]
   const [counts, setCounts] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState('')
   const [showRecorded, setShowRecorded] = useState(false) // جرد أعمى افتراضيًا — الرقم المسجّل مخفي
+  const [search, setSearch] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -113,8 +114,20 @@ export function StocktakeForm({ products, warehouses }: { products: ProductRow[]
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
       {success && <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm">{success}</div>}
 
+      {products.length > 8 && (
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="دوّر على منتج عشان تعده بسرعة..."
+            className="w-full pr-9 pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+          />
+        </div>
+      )}
+
       <div className="max-h-80 overflow-y-auto space-y-2 pl-1">
-        {products.map((p) => {
+        {products.filter((p) => !search.trim() || p.name.includes(search.trim())).map((p) => {
           const recorded = recordedOf(p)
           const counted = counts[p.id]
           const diff = counted !== undefined && counted !== '' ? Number(counted) - recorded : null

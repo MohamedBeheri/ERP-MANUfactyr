@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface WarehouseOption { id: string; name: string; isDefault: boolean }
 interface Props {
@@ -122,21 +123,18 @@ export function PurchaseForm({ products, suppliers, warehouses = [] }: Props) {
         <label className="block text-sm font-semibold text-gray-700">الأصناف</label>
         {items.map((item, i) => (
           <div key={i} className="flex gap-2">
-            <select value={item.productId} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, productId: e.target.value } : it))} className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-              <option value="">الصنف</option>
-              {KIND_GROUPS.map((g) => {
-                const list = products.filter((p) => p.itemKind === g.key)
-                if (list.length === 0) return null
-                return (
-                  <optgroup key={g.key} label={g.label}>
-                    {list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </optgroup>
-                )
-              })}
-              {products.filter((p) => !p.itemKind || !KIND_GROUPS.some((g) => g.key === p.itemKind)).map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            <div className="flex-1 min-w-0">
+              <SearchableSelect
+                value={item.productId}
+                onChange={(v) => setItems(items.map((it, j) => j === i ? { ...it, productId: v } : it))}
+                placeholder="الصنف"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                options={[
+                  ...KIND_GROUPS.flatMap((g) => products.filter((p) => p.itemKind === g.key).map((p) => ({ value: p.id, label: p.name, sublabel: g.label }))),
+                  ...products.filter((p) => !p.itemKind || !KIND_GROUPS.some((g) => g.key === p.itemKind)).map((p) => ({ value: p.id, label: p.name })),
+                ]}
+              />
+            </div>
             <input type="text" inputMode="decimal" dir="ltr" min="1" placeholder="الكمية" value={item.quantity} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, quantity: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" placeholder="السعر" value={item.unitPrice} onChange={(e) => setItems(items.map((it, j) => j === i ? { ...it, unitPrice: e.target.value } : it))} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
           </div>

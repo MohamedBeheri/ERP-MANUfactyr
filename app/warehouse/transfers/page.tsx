@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { ArrowLeftRight, Check, X, Loader2, Plus, Package, ArrowRight } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface Warehouse { id: string; name: string }
 interface Product { id: string; name: string; unit: string; stocks: { warehouseId: string; quantity: number }[] }
@@ -143,11 +144,13 @@ export default function StockTransfersPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">الصنف</label>
-                <select value={productId} onChange={e => setProductId(e.target.value)} required
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-[#0f3460] outline-none">
-                  <option value="">اختر الصنف</option>
-                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <SearchableSelect
+                  value={productId}
+                  onChange={setProductId}
+                  placeholder="اختر الصنف"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-[#0f3460] outline-none"
+                  options={products.map((p) => ({ value: p.id, label: p.name }))}
+                />
                 {availableStock !== null && (
                   <p className="text-[11px] text-gray-400 mt-1">الرصيد المتاح: <span className="font-bold text-[#1a1a2e]">{availableStock}</span></p>
                 )}

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Coffee, Leaf, Sparkles, Blend, Package, Boxes, Plus, X, Pencil, Trash2, FlaskConical, Flame } from 'lucide-react'
+import { Coffee, Leaf, Sparkles, Blend, Package, Boxes, Plus, X, Pencil, Trash2, FlaskConical, Flame, Search } from 'lucide-react'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface Component { componentId: string; componentName?: string; componentKind?: string; percent: number; perKilo: number; roastDegree?: string | null }
 interface Item {
@@ -105,6 +106,8 @@ export function CatalogManager() {
 
 function KindTab({ kind, items, categories, stages, units, reload }: { kind: string; items: Item[]; categories: CategoryRef[]; stages: StageRef[]; units: UnitRef[]; reload: () => void }) {
   const list = items.filter((i) => i.itemKind === kind)
+  const [search, setSearch] = useState('')
+  const filteredList = search.trim() ? list.filter((it) => it.name.includes(search.trim())) : list
   const empty: any = {
     name: '', unit: units[0]?.name || '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '',
     roastLossPercent: '', tareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1',
@@ -224,13 +227,20 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
               const isGreen = comp?.itemKind === 'GREEN'
               return (
                 <div key={i} className="flex gap-2 items-center">
-                  <select value={c.componentId} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, componentId: e.target.value } : x))} className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">اختار المكوّن</option>
-                    <optgroup label="بن محمص جاهز (من تشغيلات التحميص)">{blendable.filter((b) => b.itemKind === 'ROASTED').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
-                    <optgroup label="بن محمص (اختار الأصل ودرجة التحميص)">{blendable.filter((b) => b.itemKind === 'GREEN').map((b) => <option key={b.id} value={b.id}>{b.name} — يتحمّص عند التصنيع</option>)}</optgroup>
-                    <optgroup label="نكهات">{blendable.filter((b) => b.itemKind === 'FLAVOR').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
-                    <optgroup label="عطارة">{blendable.filter((b) => b.itemKind === 'SPICE').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</optgroup>
-                  </select>
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      value={c.componentId}
+                      onChange={(v) => setComponents(components.map((x, j) => j === i ? { ...x, componentId: v } : x))}
+                      placeholder="اختار المكوّن"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                      options={[
+                        ...blendable.filter((b) => b.itemKind === 'ROASTED').map((b) => ({ value: b.id, label: b.name, sublabel: 'بن محمص جاهز' })),
+                        ...blendable.filter((b) => b.itemKind === 'GREEN').map((b) => ({ value: b.id, label: `${b.name} — يتحمّص عند التصنيع`, sublabel: 'بن أخضر' })),
+                        ...blendable.filter((b) => b.itemKind === 'FLAVOR').map((b) => ({ value: b.id, label: b.name, sublabel: 'نكهات' })),
+                        ...blendable.filter((b) => b.itemKind === 'SPICE').map((b) => ({ value: b.id, label: b.name, sublabel: 'عطارة' })),
+                      ]}
+                    />
+                  </div>
                   {isGreen && (
                     <select value={c.roastDegree || ''} onChange={(e) => setComponents(components.map((x, j) => j === i ? { ...x, roastDegree: e.target.value } : x))} className="w-20 shrink-0 px-1 py-2 border border-gray-300 rounded-lg text-xs">
                       <option value="">درجة</option>
@@ -259,10 +269,12 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
           <>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">التوليفة المستخدمة</label>
-              <select value={form.blendId} onChange={(e) => setForm({ ...form, blendId: e.target.value })} className={inputCls}>
-                <option value="">اختار التوليفة</option>
-                {blends.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+              <SearchableSelect
+                value={form.blendId}
+                onChange={(v) => setForm({ ...form, blendId: v })}
+                placeholder="اختار التوليفة"
+                options={blends.map((b) => ({ value: b.id, label: b.name }))}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -276,10 +288,12 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">مادة التغليف</label>
-              <select value={form.packagingId} onChange={(e) => setForm({ ...form, packagingId: e.target.value })} className={inputCls}>
-                <option value="">اختار التغليف</option>
-                {packagings.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <SearchableSelect
+                value={form.packagingId}
+                onChange={(v) => setForm({ ...form, packagingId: v })}
+                placeholder="اختار التغليف"
+                options={packagings.map((p) => ({ value: p.id, label: p.name }))}
+              />
             </div>
           </>
         )}
@@ -398,10 +412,24 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
 
       {/* القائمة */}
       <div className="xl:col-span-2 bg-white rounded-xl shadow-sm p-5">
-        <h3 className="text-base font-bold text-[#1a1a2e] mb-3">{kindLabel} ({list.length})</h3>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="text-base font-bold text-[#1a1a2e]">{kindLabel} ({filteredList.length}{search ? ` من ${list.length}` : ''})</h3>
+        </div>
+        {list.length > 8 && (
+          <div className="relative mb-3">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`دوّر في ${kindLabel}...`}
+              className="w-full pr-9 pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+            />
+          </div>
+        )}
         {list.length === 0 && <p className="text-sm text-gray-500">مفيش أصناف في القسم ده لسه.</p>}
+        {list.length > 0 && filteredList.length === 0 && <p className="text-sm text-gray-500">مفيش نتائج مطابقة لـ "{search}".</p>}
         <div className="space-y-2">
-          {list.map((it) => (
+          {filteredList.map((it) => (
             <div key={it.id} className="flex items-start justify-between border border-gray-100 rounded-lg p-3">
               <div className="min-w-0 flex gap-3">
                 {it.imageUrl && (
