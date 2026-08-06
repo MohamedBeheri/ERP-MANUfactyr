@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface Delegate {
   id: string
@@ -13,7 +14,7 @@ interface Product {
   id: string
   name: string
   unit: string
-  quantity: number
+  stocksByWarehouse: Record<string, number>
 }
 
 interface WarehouseOption {
@@ -38,6 +39,10 @@ export function DeliveryOrderForm({
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // أصناف المخزن المختار بس (متاح > 0) — التحميل بيسحب من رصيد المخزن ده فعليًا
+  const stockOf = (p: Product) => p.stocksByWarehouse[warehouseId] ?? 0
+  const availableProducts = products.filter((p) => stockOf(p) > 0)
 
   const addRow = () => setRows([...rows, { productId: '', quantity: '' }])
   const removeRow = (index: number) => setRows(rows.filter((_, i) => i !== index))
@@ -105,7 +110,7 @@ export function DeliveryOrderForm({
           <label className="block text-sm font-semibold text-gray-700 mb-1">التحميل من مخزن</label>
           <select
             value={warehouseId}
-            onChange={(e) => setWarehouseId(e.target.value)}
+            onChange={(e) => { setWarehouseId(e.target.value); setRows([{ productId: '', quantity: '' }]) }}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560]"
           >
             {warehouses.map((w) => (
@@ -116,21 +121,21 @@ export function DeliveryOrderForm({
       )}
 
       <div className="space-y-2">
-        <label className="block text-sm font-semibold text-gray-700">الأصناف والكميات</label>
+        <label className="block text-sm font-semibold text-gray-700">
+          الأصناف والكميات {warehouseId && <span className="font-normal text-gray-400">— أصناف {warehouses.find((w) => w.id === warehouseId)?.name} بس</span>}
+        </label>
         {rows.map((row, index) => (
           <div key={index} className="flex gap-2">
-            <select
-              value={row.productId}
-              onChange={(e) => updateRow(index, 'productId', e.target.value)}
-              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
-            >
-              <option value="">اختار الصنف</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} (متاح: {p.quantity} {p.unit})
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 min-w-0">
+              <SearchableSelect
+                value={row.productId}
+                onChange={(v) => updateRow(index, 'productId', v)}
+                placeholder="اختار الصنف"
+                emptyText="مفيش أصناف متاحة في المخزن ده"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                options={availableProducts.map((p) => ({ value: p.id, label: p.name, sublabel: `متاح ${stockOf(p)} ${p.unit}` }))}
+              />
+            </div>
             <input
               type="text" inputMode="decimal" dir="ltr"
               min="1"

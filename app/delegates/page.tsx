@@ -46,7 +46,7 @@ export default async function DelegatesPage() {
         settlements: { select: { cashAmount: true, creditAmount: true, soldQty: true, returnedQty: true } },
       },
     }),
-    prisma.product.findMany({ where: { isActive: true, type: 'FINISHED' }, orderBy: { name: 'asc' } }),
+    prisma.product.findMany({ where: { isActive: true, type: 'FINISHED' }, include: { stocks: true }, orderBy: { name: 'asc' } }),
     prisma.deliveryOrder.findMany({
       include: { delegate: true, items: true, settlement: true },
       orderBy: { createdAt: 'desc' },
@@ -150,7 +150,16 @@ export default async function DelegatesPage() {
         {/* فورم التحميل */}
         {canAdd && (
           <div className="space-y-4">
-            <DeliveryOrderForm delegates={delegates.map((d) => ({ id: d.id, name: d.name, carNumber: d.vehicle?.plateNo || d.carNumber }))} products={products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, quantity: Number(p.quantity) }))} warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))} />
+            <DeliveryOrderForm
+              delegates={delegates.map((d) => ({ id: d.id, name: d.name, carNumber: d.vehicle?.plateNo || d.carNumber }))}
+              products={products.map((p) => ({
+                id: p.id,
+                name: p.name,
+                unit: p.unit,
+                stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, Number(s.quantity)])),
+              }))}
+              warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
+            />
           </div>
         )}
       </div>
