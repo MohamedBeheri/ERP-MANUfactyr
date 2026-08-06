@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { ensureTreasuries } from '@/lib/treasuries'
 import { PurchaseForm } from '@/components/purchase-form'
+import { PurchaseStatusCell } from '@/components/purchase-row-actions'
 import { effectivePermissions, canDoAction } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
@@ -20,8 +21,9 @@ export default async function PurchasesPage() {
   await ensureTreasuries()
   const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
   const canAdd = canDoAction(perms, 'purchases', 'add')
+  const canEdit = canDoAction(perms, 'purchases', 'edit')
 
-  const [purchases, products, suppliers, warehouses, supplierBal, stockStages, paymentMethods] = await Promise.all([
+  const [purchases, products, suppliers, warehouses, supplierBal, stockStages, paymentMethods, treasuries] = await Promise.all([
     prisma.purchase.findMany({
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -37,6 +39,8 @@ export default async function PurchasesPage() {
     prisma.supplier.aggregate({ _sum: { balance: true } }),
     prisma.stockStage.findMany({ select: { id: true, warehouseId: true } }),
     prisma.paymentMethod.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } }),
+    // خزائن مسموح الصرف منها بس — دي اللي ممكن يتسدد للموردين منها
+    prisma.treasury.findMany({ where: { isActive: true, allowExpenseDisbursement: true }, orderBy: { name: 'asc' } }),
   ])
 
   // مخزن كل صنف = مخزن مرحلته المخزنية (نفس منطق التوريد التلقائي وقت الحفظ) — يستخدم لفلترة الأصناف حسب المخزن المختار
@@ -107,16 +111,18 @@ export default async function PurchasesPage() {
                     </td>
                     <td className="p-3 font-semibold tabular-nums">{Number(pur.totalAmount).toLocaleString('ar-EG')} ج.م</td>
                     <td className="p-3">
-                      {(() => {
-                        const owed = Number(pur.totalAmount) - Number(pur.paidAmount)
-                        const cls = owed <= 0 ? 'bg-green-50 text-green-600' : Number(pur.paidAmount) > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-600'
-                        return (
-                          <div className="flex flex-col gap-0.5">
-                            <span className={`w-fit px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>{pur.paymentMethod}</span>
-                            {owed > 0 && <span className="text-[10px] text-red-600 tabular-nums">مستحق {owed.toLocaleString('ar-EG')} ج.م</span>}
-                          </div>
-                        )
-                      })()}
+                      <PurchaseStatusCell
+                        purchaseId={pur.id}
+                        invoiceNo={pur.invoiceNo}
+                        supplierName={pur.supplier.name}
+                        totalAmount={Number(pur.totalAmount)}
+                        paidAmount={Number(pur.paidAmount)}
+                        paymentStatus={pur.paymentStatus}
+                        paymentMethod={pur.paymentMethod}
+                        canEdit={canEdit}
+                        treasuries={treasuries.map((t) => ({ id: t.id, name: t.name, balance: Number(t.balance) }))}
+                        paymentMethods={paymentMethods.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
+                      />
                     </td>
                     <td className="p-3 no-print">
                       <div className="flex items-center gap-2">
@@ -149,7 +155,8 @@ export default async function PurchasesPage() {
               }))}
               suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
               warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-              paymentMethods={paymentMethods.map((m) => ({ id: m.id, name: m.name }))}
+              paymentMethods={paymentMethods.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
+              treasuries={treasuries.map((t) => ({ id: t.id, name: t.name, balance: Number(t.balance) }))}
             />
           )}
 

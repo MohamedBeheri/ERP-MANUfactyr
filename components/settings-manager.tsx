@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Truck as TruckIcon,
   Tags,
@@ -239,12 +240,6 @@ function SuppliersTab({ suppliers }: { suppliers: Supplier[] }) {
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
-  const pay = async (sup: Supplier) => {
-    const val = prompt(`المستحق للمورد "${sup.name}": ${sup.balance.toLocaleString('ar-EG')} ج.م\nاكتب المبلغ اللي هتسدده:`)
-    if (!val) return
-    try { await apiCall(`/api/suppliers/${sup.id}/pay`, 'POST', { amount: Number(val) }); router.refresh() } catch (err: any) { alert(err.message) }
-  }
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -319,7 +314,7 @@ function SuppliersTab({ suppliers }: { suppliers: Supplier[] }) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {s.balance > 0 && (
-                  <button onClick={() => pay(s)} className="px-2.5 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">تسديد</button>
+                  <Link href="/purchases" className="px-2.5 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">سداد من المشتريات</Link>
                 )}
                 <div className="flex gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (

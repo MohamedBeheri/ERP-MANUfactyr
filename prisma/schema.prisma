@@ -116,6 +116,7 @@ model User {
   collectionsCreated          Collection[]           @relation("CollectionCreator")
   unloadsCreated              UnloadOrder[]          @relation("UnloadCreator")
   unloadsConfirmed            UnloadOrder[]          @relation("UnloadConfirmer")
+  purchaseVouchersCreated     PurchaseVoucher[]      @relation("PurchaseVoucherCreator")
 
   @@map("users")
 }
@@ -332,6 +333,7 @@ model Supplier {
   // Relations
   purchases Purchase[]
   payments  SupplierPayment[]
+  vouchers  PurchaseVoucher[]
 
   @@map("suppliers")
 }
@@ -356,26 +358,71 @@ model SupplierPayment {
 }
 
 // ============== PURCHASES (شراء بن أخضر) ==============
+enum PurchasePaymentStatus {
+  UNPAID // آجل بالكامل
+  PARTIALLY_PAID // مسدد جزئيًا
+  PAID // مسدد بالكامل
+}
+
 model Purchase {
-  id                String      @id @default(cuid())
-  invoiceNo         String      @unique // رقم أمر الشراء في النظام
+  id                String                @id @default(cuid())
+  invoiceNo         String                @unique // رقم أمر الشراء في النظام
   supplierInvoiceNo String? // رقم فاتورة المورد الورقية الفعلية
   invoiceImage      String? // صورة فاتورة المورد المرفقة (data URL)
   supplierId        String
-  totalAmount       Decimal     @db.Decimal(12, 2)
-  paymentMethod     String      @default("نقدي") // اسم طريقة السداد الفعلية من النظام (نقدي/إنستا باي/محفظة/شبكة) أو "آجل"
-  paidAmount        Decimal     @default(0) @db.Decimal(12, 2) // المدفوع للمورد وقت الشراء
+  totalAmount       Decimal               @db.Decimal(12, 2)
+  paymentMethod     String                @default("نقدي") // ملخّص نصي لعرض آخر طريقة سداد (تاريخي — التفاصيل الفعلية في vouchers)
+  paidAmount        Decimal               @default(0) @db.Decimal(12, 2) // إجمالي المدفوع للمورد = مجموع سندات الصرف المعتمدة
+  paymentStatus     PurchasePaymentStatus @default(UNPAID) // بتتحدث تلقائي مع كل سند صرف
   notes             String?
-  status            OrderStatus @default(COMPLETED)
-  createdAt         DateTime    @default(now())
+  status            OrderStatus           @default(COMPLETED)
+  createdAt         DateTime              @default(now())
   createdById       String
 
   // Relations
-  supplier Supplier       @relation(fields: [supplierId], references: [id])
+  supplier Supplier          @relation(fields: [supplierId], references: [id])
   items    PurchaseItem[]
-  creator  User           @relation(fields: [createdById], references: [id])
+  vouchers PurchaseVoucher[]
+  creator  User              @relation(fields: [createdById], references: [id])
 
   @@map("purchases")
+}
+
+// سند صرف لسداد فاتورة شراء — بيدعم توزيع مبلغ السداد على أكتر من وسيلة دفع دفعة واحدة
+// (كاش من خزنة + إنستا باي من حساب بنكي + محفظة... إلخ) — كل وسيلة بسطر منفصل في PurchaseVoucherLine
+model PurchaseVoucher {
+  id          String   @id @default(cuid())
+  voucherNo   String   @unique // PPV-YYYYMMDD-001
+  purchaseId  String
+  supplierId  String
+  amount      Decimal  @db.Decimal(12, 2) // إجمالي السند = مجموع مبالغ السطور بالضبط
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  purchase  Purchase              @relation(fields: [purchaseId], references: [id])
+  supplier  Supplier              @relation(fields: [supplierId], references: [id])
+  createdBy User                  @relation("PurchaseVoucherCreator", fields: [createdById], references: [id])
+  lines     PurchaseVoucherLine[]
+
+  @@map("purchase_vouchers")
+}
+
+// سطر سداد واحد داخل سند الصرف: وسيلة دفع + الحساب/الخزنة المخصوم منها + المبلغ + رقم مرجعي (إجباري للوسائل غير الكاش)
+model PurchaseVoucherLine {
+  id                   String  @id @default(cuid())
+  purchaseVoucherId    String
+  paymentMethodId      String
+  treasuryId           String
+  amount               Decimal @db.Decimal(12, 2)
+  transactionReference String? // إجباري لو الوسيلة مش نقدي (إنستا باي/محفظة/شبكة) — لمنع التكرار وضبط المطابقة لاحقًا
+  attachment           String? // صورة إيصال/تحويل (data URL)
+
+  purchaseVoucher PurchaseVoucher @relation(fields: [purchaseVoucherId], references: [id], onDelete: Cascade)
+  paymentMethod   PaymentMethod   @relation(fields: [paymentMethodId], references: [id])
+  treasury        Treasury        @relation(fields: [treasuryId], references: [id])
+
+  @@map("purchase_voucher_lines")
 }
 
 model PurchaseItem {
@@ -1257,7 +1304,8 @@ model PaymentMethod {
   isActive  Boolean           @default(true)
   createdAt DateTime          @default(now())
 
-  collections Collection[]
+  collections          Collection[]
+  purchaseVoucherLines PurchaseVoucherLine[]
 
   @@map("payment_methods")
 }
@@ -1272,10 +1320,11 @@ model Treasury {
   isActive                 Boolean      @default(true)
   createdAt                DateTime     @default(now())
 
-  delegate     Delegate?             @relation(fields: [delegateId], references: [id])
-  transactions TreasuryTransaction[]
-  collections  Collection[]
-  vouchers     PaymentVoucher[]
+  delegate             Delegate?             @relation(fields: [delegateId], references: [id])
+  transactions         TreasuryTransaction[]
+  collections          Collection[]
+  vouchers             PaymentVoucher[]
+  purchaseVoucherLines PurchaseVoucherLine[]
 
   @@map("treasuries")
 }

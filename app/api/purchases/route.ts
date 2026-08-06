@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
-import { getDefaultWarehouseId, adjustStock } from '@/lib/warehouse'
+import { adjustStock } from '@/lib/warehouse'
 import { warehouseForStage } from '@/lib/stock-stages'
+import { createPurchaseVoucher } from '@/lib/purchase-vouchers'
 
 export async function GET() {
   const auth = await requirePermission('purchases', 'view')
@@ -28,10 +29,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { supplierId, items, notes } = body
     const manualWarehouse = body.warehouseId || null
-    const paymentTiming = ['فوري', 'جزئي', 'آجل'].includes(body.paymentTiming) ? body.paymentTiming : 'فوري'
-    const paymentMethod = body.paymentMethod?.trim() || (paymentTiming === 'آجل' ? 'آجل' : 'نقدي')
     const supplierInvoiceNo = body.supplierInvoiceNo?.trim() || null
     const invoiceImage = body.invoiceImage || null
+    // سطور السداد الفوري (اختياري) — كل سطر: وسيلة دفع + خزنة + مبلغ + مرجع — لدعم توزيع الدفعة على أكتر من وسيلة
+    const paymentLines = Array.isArray(body.paymentLines) ? body.paymentLines : []
 
     if (!supplierId || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'اختار المورد وأدخل صنف واحد على الأقل' }, { status: 400 })
@@ -47,11 +48,6 @@ export async function POST(req: NextRequest) {
       manualWarehouse || (await warehouseForStage(stageOf.get(productId)))
 
     const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.unitPrice, 0)
-    // المدفوع للمورد حسب توقيت الدفع (فوري بالكامل / جزئي / آجل)
-    let paidAmount = totalAmount
-    if (paymentTiming === 'آجل') paidAmount = 0
-    else if (paymentTiming === 'جزئي') paidAmount = Math.max(0, Math.min(totalAmount, Number(body.paidAmount) || 0))
-    const owed = totalAmount - paidAmount // المستحق للمورد
 
     const purchase = await prisma.$transaction(async (tx) => {
       const created = await tx.purchase.create({
@@ -61,8 +57,9 @@ export async function POST(req: NextRequest) {
           invoiceImage,
           supplierId,
           totalAmount,
-          paymentMethod,
-          paidAmount,
+          paymentMethod: 'آجل',
+          paidAmount: 0,
+          paymentStatus: 'UNPAID',
           notes,
           createdById: session.user.id,
           items: {
@@ -95,28 +92,36 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      // الالتزام الكامل بقيمة الفاتورة يُسجَّل على المورد فورًا — أي سداد بعدها بيقلّله
       await tx.supplier.update({
         where: { id: supplierId },
-        data: {
-          totalPurchases: { increment: totalAmount },
-          ...(owed > 0 ? { balance: { increment: owed } } : {}),
-        },
+        data: { totalPurchases: { increment: totalAmount }, balance: { increment: totalAmount } },
       })
 
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
           action: 'شراء',
-          description: `فاتورة شراء ${created.invoiceNo}${supplierInvoiceNo ? ` (فاتورة مورد ${supplierInvoiceNo})` : ''} — ${paymentMethod}`,
-          impact: `إجمالي ${totalAmount} · مدفوع ${paidAmount}${owed > 0 ? ` · مستحق ${owed}` : ''}`,
+          description: `فاتورة شراء ${created.invoiceNo}${supplierInvoiceNo ? ` (فاتورة مورد ${supplierInvoiceNo})` : ''}`,
+          impact: `إجمالي ${totalAmount.toLocaleString('ar-EG')} ج.م`,
         },
       })
+
+      // لو المستخدم سجّل دفعة فورية (كامل أو جزئي بأي عدد وسائل)، تتنفّذ في نفس الـ transaction
+      if (paymentLines.length > 0) {
+        await createPurchaseVoucher(tx, {
+          purchaseId: created.id,
+          lines: paymentLines,
+          notes: 'سداد فوري وقت الشراء',
+          createdById: session.user.id,
+        })
+      }
 
       return created
     })
 
     return NextResponse.json(purchase, { status: 201 })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to create purchase' }, { status: 500 })
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || 'Failed to create purchase' }, { status: 500 })
   }
 }
