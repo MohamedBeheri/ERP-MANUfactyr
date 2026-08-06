@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { X, Banknote, History, CheckCircle2 } from 'lucide-react'
 import { PaymentLinesEditor, emptyPaymentLine, type PaymentLine } from '@/components/payment-lines-editor'
 
-interface TreasuryOption { id: string; name: string; balance: number }
+interface TreasuryOption { id: string; name: string }
 interface MethodOption { id: string; name: string; type: 'CASH' | 'ELECTRONIC' | 'BANK' }
 interface VoucherLine { id: string; amount: number; transactionReference: string | null; paymentMethod: { name: string }; treasury: { name: string } }
 interface Voucher { id: string; voucherNo: string; amount: number; createdAt: string; createdBy: { name: string }; lines: VoucherLine[] }

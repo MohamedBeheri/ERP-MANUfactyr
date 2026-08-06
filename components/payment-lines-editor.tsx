@@ -10,7 +10,7 @@ export interface PaymentLine {
   attachment: string
 }
 
-interface TreasuryOption { id: string; name: string; balance: number }
+interface TreasuryOption { id: string; name: string }
 interface MethodOption { id: string; name: string; type: 'CASH' | 'ELECTRONIC' | 'BANK' }
 
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
@@ -77,7 +77,6 @@ export function PaymentLinesEditor({
       {lines.map((l, i) => {
         const method = paymentMethods.find((m) => m.id === l.paymentMethodId)
         const needsRef = method && method.type !== 'CASH'
-        const treasury = treasuries.find((t) => t.id === l.treasuryId)
         return (
           <div key={i} className="border border-gray-200 rounded-lg p-2.5 space-y-2 bg-gray-50/50">
             <div className="grid grid-cols-2 gap-2">
@@ -99,7 +98,6 @@ export function PaymentLinesEditor({
                   onChange={(e) => update(i, 'amount', e.target.value)}
                   className={`${inputCls} tabular-nums`}
                 />
-                {treasury && <p className="text-[10px] text-gray-400 mt-0.5">رصيد {treasury.name}: {treasury.balance.toLocaleString('ar-EG')} ج.م</p>}
               </div>
               <div>
                 <input

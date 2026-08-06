@@ -39,8 +39,12 @@ export default async function PurchasesPage() {
     prisma.supplier.aggregate({ _sum: { balance: true } }),
     prisma.stockStage.findMany({ select: { id: true, warehouseId: true } }),
     prisma.paymentMethod.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } }),
-    // خزائن مسموح الصرف منها بس — دي اللي ممكن يتسدد للموردين منها
-    prisma.treasury.findMany({ where: { isActive: true, allowExpenseDisbursement: true }, orderBy: { name: 'asc' } }),
+    // خزائن مسموح الصرف منها بس — دي اللي ممكن يتسدد للموردين منها (بدون الرصيد — مش من شأن شاشة المشتريات)
+    prisma.treasury.findMany({
+      where: { isActive: true, allowExpenseDisbursement: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
   ])
 
   // مخزن كل صنف = مخزن مرحلته المخزنية (نفس منطق التوريد التلقائي وقت الحفظ) — يستخدم لفلترة الأصناف حسب المخزن المختار
@@ -120,7 +124,7 @@ export default async function PurchasesPage() {
                         paymentStatus={pur.paymentStatus}
                         paymentMethod={pur.paymentMethod}
                         canEdit={canEdit}
-                        treasuries={treasuries.map((t) => ({ id: t.id, name: t.name, balance: Number(t.balance) }))}
+                        treasuries={treasuries}
                         paymentMethods={paymentMethods.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
                       />
                     </td>
@@ -156,7 +160,7 @@ export default async function PurchasesPage() {
               suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
               warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
               paymentMethods={paymentMethods.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
-              treasuries={treasuries.map((t) => ({ id: t.id, name: t.name, balance: Number(t.balance) }))}
+              treasuries={treasuries}
             />
           )}
 

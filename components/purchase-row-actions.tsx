@@ -25,7 +25,7 @@ export function PurchaseStatusCell({
   paymentStatus: string
   paymentMethod: string
   canEdit: boolean
-  treasuries: { id: string; name: string; balance: number }[]
+  treasuries: { id: string; name: string }[]
   paymentMethods: { id: string; name: string; type: 'CASH' | 'ELECTRONIC' | 'BANK' }[]
 }) {
   const [open, setOpen] = useState(false)

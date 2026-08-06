@@ -7,7 +7,7 @@ import { PaymentLinesEditor, emptyPaymentLine, type PaymentLine } from '@/compon
 
 interface WarehouseOption { id: string; name: string; isDefault: boolean }
 interface PaymentMethodOption { id: string; name: string; type: 'CASH' | 'ELECTRONIC' | 'BANK' }
-interface TreasuryOption { id: string; name: string; balance: number }
+interface TreasuryOption { id: string; name: string }
 interface Props {
   products: { id: string; name: string; unit: string; itemKind?: string; warehouseId: string }[]
   suppliers: { id: string; name: string }[]
