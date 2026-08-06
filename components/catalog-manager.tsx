@@ -285,10 +285,10 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
         )}
 
         {/* الأسعار حسب النوع:
-            - خامات (أخضر/عطارة/نكهات): سعر شراء فقط — بتتشرى ومبتتبعش
+            - خامات (أخضر/عطارة/نكهات) ومواد التغليف: سعر شراء فقط — بتتشرى ومبتتباعش
             - توليفات: بدون أسعار — التكلفة محسوبة من المكونات
-            - تغليف/محمص/منتجات نهائية: كل الأسعار (بيع وشراء) */}
-        {['GREEN', 'SPICE', 'FLAVOR'].includes(kind) && (
+            - محمص/منتجات نهائية: كل الأسعار (بيع وشراء) */}
+        {['GREEN', 'SPICE', 'FLAVOR', 'PACKAGING'].includes(kind) && (
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الشراء</label>
@@ -310,7 +310,7 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
             </select>
           </div>
         )}
-        {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+        {['ROASTED', 'FINISHED'].includes(kind) && (
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">سعر التكلفة</label>
@@ -344,7 +344,7 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
         )}
 
         {/* أماكن ظهور الصنف للبيع */}
-        {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+        {['ROASTED', 'FINISHED'].includes(kind) && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1.5">أماكن الظهور للبيع</label>
             <div className="flex flex-wrap gap-4">
@@ -417,16 +417,16 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
                     {kind === 'FINISHED' && <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold tabular-nums">{fmt(it.gramsPerPiece)}جم × {it.piecesPerBox}</span>}
                     {kind === 'FINISHED' && it.packagingName && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold">{it.packagingName}</span>}
                     {it.quantity !== 0 && <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">رصيد {fmt(it.quantity)} {it.unit}</span>}
-                    {['GREEN', 'SPICE', 'FLAVOR'].includes(kind) && it.costPrice > 0 && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">شراء {fmt(it.costPrice)}</span>}
-                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && it.sellPrice > 0 && <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">قطاعي {fmt(it.sellPrice)}</span>}
-                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && it.wholesalePrice > 0 && <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">جملة {fmt(it.wholesalePrice)}</span>}
+                    {['GREEN', 'SPICE', 'FLAVOR', 'PACKAGING'].includes(kind) && it.costPrice > 0 && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">شراء {fmt(it.costPrice)}</span>}
+                    {['ROASTED', 'FINISHED'].includes(kind) && it.sellPrice > 0 && <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">قطاعي {fmt(it.sellPrice)}</span>}
+                    {['ROASTED', 'FINISHED'].includes(kind) && it.wholesalePrice > 0 && <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">جملة {fmt(it.wholesalePrice)}</span>}
                     {it.minStock > 0 && <span className="bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded font-semibold tabular-nums">حد أدنى {it.minStock}</span>}
-                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+                    {['ROASTED', 'FINISHED'].includes(kind) && (
                       it.showInPos
                         ? <span className="bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded font-semibold">نقطة البيع ✓</span>
                         : <span className="bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-semibold">مخفي من نقطة البيع</span>
                     )}
-                    {['ROASTED', 'PACKAGING', 'FINISHED'].includes(kind) && (
+                    {['ROASTED', 'FINISHED'].includes(kind) && (
                       it.showOnline
                         ? <span className="bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded font-semibold">أونلاين ✓</span>
                         : <span className="bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-semibold">مخفي من الأونلاين</span>
