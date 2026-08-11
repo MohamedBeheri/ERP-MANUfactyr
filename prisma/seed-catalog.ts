@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { ensureStockStages } from '../lib/stock-stages'
-import { ROAST_DEGREES } from '../lib/manufacturing'
+import { ROAST_DEGREES, stripGreenPrefix } from '../lib/manufacturing'
 
 const prisma = new PrismaClient()
 
@@ -119,10 +119,17 @@ async function main() {
   for (const g of GREEN) await upsert(g.name, 'GREEN', { roastLossPercent: g.roastLoss, unit: 'كجم' }, rawStage)
 
   // محمصات جاهزة لكل بن أخضر × كل درجة تحميص (5 × 4 = 20 صنف)
+  // إعادة تسمية المحمصات القديمة اللي لسه شايلة بادئة "بن أخضر" (اتزرعت قبل التصحيح)
+  const oldRoasted = await prisma.product.findMany({ where: { itemKind: 'ROASTED', name: { contains: 'بن أخضر' } } })
+  for (const p of oldRoasted) {
+    const newName = stripGreenPrefix(p.name)
+    if (newName !== p.name) await prisma.product.update({ where: { id: p.id }, data: { name: newName } })
+  }
+
   const roastedStage = stageBy('محمّص')
   for (const g of GREEN) {
     for (const degree of ROAST_DEGREES) {
-      await upsert(`${g.name} — محمص (${degree})`, 'ROASTED', { unit: 'كجم' }, roastedStage)
+      await upsert(`${stripGreenPrefix(g.name)} — محمص (${degree})`, 'ROASTED', { unit: 'كجم' }, roastedStage)
     }
   }
   for (const s of SPICE) await upsert(s, 'SPICE', { unit: 'كجم' }, spiceStage)

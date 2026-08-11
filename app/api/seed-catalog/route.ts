@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ensureStockStages } from '@/lib/stock-stages'
-import { ROAST_DEGREES } from '@/lib/manufacturing'
+import { ROAST_DEGREES, stripGreenPrefix } from '@/lib/manufacturing'
 
 // كتالوج مصنع البدر الحقيقي المستخرج من شيت Operation — نفس بيانات prisma/seed-catalog.ts
 // مكشوف كـ API عشان نقدر نزرعه في قاعدة بيانات الإنتاج مباشرة (بروتوكول Postgres الخام مش متاح من بيئات تانية).
@@ -113,10 +113,17 @@ export async function POST(req: NextRequest) {
 
     for (const g of GREEN) await upsert(g.name, 'GREEN', { roastLossPercent: g.roastLoss, unit: 'كجم' }, rawStage)
 
+    // إعادة تسمية المحمصات القديمة اللي لسه شايلة بادئة "بن أخضر" (اتزرعت قبل التصحيح)
+    const oldRoasted = await prisma.product.findMany({ where: { itemKind: 'ROASTED', name: { contains: 'بن أخضر' } } })
+    for (const p of oldRoasted) {
+      const newName = stripGreenPrefix(p.name)
+      if (newName !== p.name) await prisma.product.update({ where: { id: p.id }, data: { name: newName } })
+    }
+
     const roastedStage = stageBy('محمّص')
     for (const g of GREEN) {
       for (const degree of ROAST_DEGREES) {
-        await upsert(`${g.name} — محمص (${degree})`, 'ROASTED', { unit: 'كجم' }, roastedStage)
+        await upsert(`${stripGreenPrefix(g.name)} — محمص (${degree})`, 'ROASTED', { unit: 'كجم' }, roastedStage)
       }
     }
     for (const s of SPICE) await upsert(s, 'SPICE', { unit: 'كجم' }, spiceStage)

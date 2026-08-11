@@ -17,10 +17,15 @@ export async function stageByName(tx: Tx, kw: string) {
   return (tx as typeof prisma).stockStage.findFirst({ where: { name: { contains: kw } } })
 }
 
+// بيشيل بادئة "بن أخضر" من اسم الأصل عشان اسم المحمص ما يفضلش شايل "أخضر" وهو بقى محمص
+export function stripGreenPrefix(name: string) {
+  return name.replace(/^بن\s*أخضر\s*—?\s*/, '')
+}
+
 // منتج وسيط "محمص بدرجة" لكل أصل أخضر — يتعمل تلقائي أول تحميصة
 // الاسم: "{الأصل} — محمص ({الدرجة})" | itemKind=ROASTED | مرحلة بن محمّص
 export async function ensureRoastedVariant(tx: Tx, green: { id: string; name: string }, degree: string) {
-  const name = `${green.name} — محمص (${degree})`
+  const name = `${stripGreenPrefix(green.name)} — محمص (${degree})`
   const ex = await (tx as typeof prisma).product.findFirst({ where: { name } })
   if (ex) return ex
   const roastedStage = await stageByName(tx, 'محمّص')
