@@ -3,16 +3,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { TreasuriesHub } from '@/components/treasuries-hub'
+import { CustodyPanel } from '@/components/custody-panel'
 import {
   Vault, Plus, AlertTriangle, Clock,
   CreditCard, Landmark, Bell, BellOff, ChevronDown, ChevronUp,
   FileText, Banknote, TrendingDown, TrendingUp, Calendar,
   CircleDollarSign, CheckCircle2, XCircle, Filter,
   Receipt, Users, BarChart3, ArrowDownCircle, ArrowUpCircle,
-  Settings2, Pencil, Trash2, ToggleLeft, ToggleRight, FolderTree,
+  Settings2, Pencil, Trash2, ToggleLeft, ToggleRight, FolderTree, HandCoins,
 } from 'lucide-react'
 
-type Tab = 'treasuries' | 'settlements' | 'vouchers' | 'collections' | 'liabilities' | 'cashflow' | 'notifications' | 'fin-settings'
+type Tab = 'treasuries' | 'settlements' | 'vouchers' | 'collections' | 'custodies' | 'liabilities' | 'cashflow' | 'notifications' | 'fin-settings'
 
 const num = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 
@@ -258,6 +259,7 @@ export default function TreasuryPage() {
     { key: 'settlements', label: 'تسويات الخزنة', icon: Banknote },
     { key: 'vouchers', label: 'سندات الصرف', icon: Receipt },
     { key: 'collections', label: 'تحصيلات العملاء', icon: Users },
+    { key: 'custodies', label: 'عُهد الموظفين', icon: HandCoins },
     { key: 'liabilities', label: 'الالتزامات المالية', icon: Landmark },
     { key: 'cashflow', label: 'تقرير التدفقات', icon: BarChart3 },
     { key: 'notifications', label: 'الإشعارات', icon: Bell, count: unreadNotifications },
@@ -1010,6 +1012,8 @@ export default function TreasuryPage() {
             </div>
           )}
           {/* ===== FINANCIAL SETTINGS TAB ===== */}
+          {tab === 'custodies' && <CustodyPanel mode="manage" />}
+
           {tab === 'fin-settings' && (
             <div className="space-y-6">
               {/* بنود المصروفات */}

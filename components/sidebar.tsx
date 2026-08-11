@@ -21,6 +21,7 @@ import {
   Cookie,
   Users,
   UserCog,
+  HandCoins,
   Building2,
   ShieldCheck,
   Settings,
@@ -33,7 +34,10 @@ import { effectivePermissions } from '@/lib/permissions'
 const menuGroups: { title: string | null; items: { href: string; label: string; Icon: any; perm: string | null }[] }[] = [
   {
     title: null,
-    items: [{ href: '/dashboard', label: 'لوحة التحكم', Icon: LayoutDashboard, perm: null }],
+    items: [
+      { href: '/dashboard', label: 'لوحة التحكم', Icon: LayoutDashboard, perm: null },
+      { href: '/my-custody', label: 'عُهدتي', Icon: HandCoins, perm: null },
+    ],
   },
   {
     title: 'التصنيع والمخازن',

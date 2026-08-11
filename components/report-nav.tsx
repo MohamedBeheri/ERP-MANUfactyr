@@ -6,7 +6,7 @@ import {
   BarChart3, ShoppingCart, TrendingUp, Package, Tags, Truck, RotateCcw,
   BookOpen, Landmark, CreditCard, Receipt, Clock, FileSpreadsheet,
   Users, Building2, Factory as FactoryIcon, ArrowDownUp, Scale, Boxes,
-  ArrowLeftRight, Warehouse, Coffee, Vault,
+  ArrowLeftRight, Warehouse, Coffee, Vault, HandCoins,
 } from 'lucide-react'
 
 const GROUPS: { title: string; items: { href: string; label: string; icon: React.ElementType }[] }[] = [
@@ -38,6 +38,7 @@ const GROUPS: { title: string; items: { href: string; label: string; icon: React
       { href: '/finance/expenses', label: 'المصروفات', icon: FileSpreadsheet },
       { href: '/finance/receivables', label: 'المستحقات والآجل', icon: Clock },
       { href: '/finance/liabilities', label: 'الالتزامات والأقساط', icon: Scale },
+      { href: '/finance/custodies', label: 'عُهد الموظفين', icon: HandCoins },
     ],
   },
   {

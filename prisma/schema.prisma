@@ -118,6 +118,13 @@ model User {
   unloadsConfirmed            UnloadOrder[]          @relation("UnloadConfirmer")
   purchaseVouchersCreated     PurchaseVoucher[]      @relation("PurchaseVoucherCreator")
   preparedDeliveryOrders      DeliveryOrder[]        @relation("DeliveryOrderPreparer")
+  custodies                   Custody[]              @relation("CustodyEmployee")
+  custodiesCreated            Custody[]              @relation("CustodyCreator")
+  custodiesApproved           Custody[]              @relation("CustodyApprover")
+  custodiesDisbursed          Custody[]              @relation("CustodyDisburser")
+  custodiesSettled            Custody[]              @relation("CustodySettler")
+  custodyExpensesCreated      CustodyExpense[]       @relation("CustodyExpenseCreator")
+  custodyExpensesApproved     CustodyExpense[]       @relation("CustodyExpenseApprover")
 
   @@map("users")
 }
@@ -1315,6 +1322,8 @@ model PaymentMethod {
 
   collections          Collection[]
   purchaseVoucherLines PurchaseVoucherLine[]
+  custodyDisbursements Custody[]             @relation("CustodyDisburseMethod")
+  custodyReturns       Custody[]             @relation("CustodyReturnMethod")
 
   @@map("payment_methods")
 }
@@ -1334,6 +1343,8 @@ model Treasury {
   collections          Collection[]
   vouchers             PaymentVoucher[]
   purchaseVoucherLines PurchaseVoucherLine[]
+  custodyDisbursements Custody[]             @relation("CustodyDisburseTreasury")
+  custodyReturns       Custody[]             @relation("CustodyReturnTreasury")
 
   @@map("treasuries")
 }
@@ -1394,9 +1405,10 @@ model ExpenseCategory {
   sortOrder Int              @default(0)
   createdAt DateTime         @default(now())
 
-  parent   ExpenseCategory?  @relation("SubCategories", fields: [parentId], references: [id])
-  children ExpenseCategory[] @relation("SubCategories")
-  vouchers PaymentVoucher[]
+  parent          ExpenseCategory?  @relation("SubCategories", fields: [parentId], references: [id])
+  children        ExpenseCategory[] @relation("SubCategories")
+  vouchers        PaymentVoucher[]
+  custodyExpenses CustodyExpense[]
 
   @@map("expense_categories")
 }
@@ -1520,4 +1532,70 @@ model StoreBlock {
   createdAt DateTime @default(now())
 
   @@map("store_blocks")
+}
+
+// ============== EMPLOYEE CUSTODIES (عُهد الموظفين النقدية) ==============
+// دورة العهدة: طلب (موظف) → اعتماد (أدمن) → صرف (خزنة بوسيلة دفع) → مصروفات بإثبات → تسوية ورد المتبقي
+model Custody {
+  id              String   @id @default(cuid())
+  custodyNo       String   @unique // CUS-YYYYMMDD-NNN
+  userId          String // الموظف صاحب العهدة
+  purpose         String // الغرض من العهدة
+  requestedAmount Decimal  @db.Decimal(12, 2)
+  approvedAmount  Decimal? @db.Decimal(12, 2) // ممكن الأدمن يعدّل المبلغ عند الاعتماد
+  status          String   @default("PENDING") // PENDING | APPROVED | REJECTED | DISBURSED | SETTLED
+  rejectReason    String?
+  notes           String?
+
+  approvedById String?
+  approvedAt   DateTime?
+
+  // بيانات الصرف — الوسيلة بتحدد الخزنة اللي بيتخصم منها (كاش من العمومية / إنستا من خزنة الإنستا...)
+  paymentMethodId String?
+  treasuryId      String?
+  disbursedById   String?
+  disbursedAt     DateTime?
+
+  // بيانات التسوية — المتبقي بيرجع للخزنة بوسيلته
+  returnedAmount   Decimal?  @db.Decimal(12, 2)
+  returnMethodId   String?
+  returnTreasuryId String?
+  settledById      String?
+  settledAt        DateTime?
+
+  createdAt   DateTime @default(now())
+  createdById String // مين سجّل الطلب (الموظف نفسه أو الأدمن نيابة عنه)
+
+  user           User             @relation("CustodyEmployee", fields: [userId], references: [id])
+  creator        User             @relation("CustodyCreator", fields: [createdById], references: [id])
+  approvedBy     User?            @relation("CustodyApprover", fields: [approvedById], references: [id])
+  disbursedBy    User?            @relation("CustodyDisburser", fields: [disbursedById], references: [id])
+  settledBy      User?            @relation("CustodySettler", fields: [settledById], references: [id])
+  paymentMethod  PaymentMethod?   @relation("CustodyDisburseMethod", fields: [paymentMethodId], references: [id])
+  returnMethod   PaymentMethod?   @relation("CustodyReturnMethod", fields: [returnMethodId], references: [id])
+  treasury       Treasury?        @relation("CustodyDisburseTreasury", fields: [treasuryId], references: [id])
+  returnTreasury Treasury?        @relation("CustodyReturnTreasury", fields: [returnTreasuryId], references: [id])
+  expenses       CustodyExpense[]
+
+  @@map("custodies")
+}
+
+model CustodyExpense {
+  id           String   @id @default(cuid())
+  custodyId    String
+  amount       Decimal  @db.Decimal(12, 2)
+  categoryId   String? // بند المصروف
+  description  String
+  attachment   String? // صورة الفاتورة/الإيصال (إثبات إجباري)
+  status       String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdById  String
+  approvedById String?
+  createdAt    DateTime @default(now())
+
+  custody    Custody          @relation(fields: [custodyId], references: [id], onDelete: Cascade)
+  category   ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  creator    User             @relation("CustodyExpenseCreator", fields: [createdById], references: [id])
+  approvedBy User?            @relation("CustodyExpenseApprover", fields: [approvedById], references: [id])
+
+  @@map("custody_expenses")
 }
