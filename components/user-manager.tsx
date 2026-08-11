@@ -74,6 +74,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
     phone: '', email: '', jobTitle: '', nationalId: '', address: '', hireDate: '', notes: '',
     commissionRate: '', monthlyTarget: '',
     matrix: permsToMatrix(ROLE_DEFAULTS['SALES'] || []),
+    customPerms: false, // false = الصلاحيات بتتبع الدور الوظيفي تلقائيًا (الافتراضي)
   }
   const [form, setForm] = useState<any>(empty)
   const [editId, setEditId] = useState<string | null>(null)
@@ -105,7 +106,8 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
 
   const startEdit = (u: UserRow) => {
     setEditId(u.id)
-    const eff = u.permissions.length > 0 ? u.permissions : (ROLE_DEFAULTS[u.role] || [])
+    const hasCustom = u.permissions.length > 0
+    const eff = hasCustom ? u.permissions : (ROLE_DEFAULTS[u.role] || [])
     setForm({
       name: u.name, username: u.username, password: '',
       role: u.role,
@@ -114,6 +116,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
       hireDate: u.hireDate ? u.hireDate.slice(0, 10) : '', notes: u.notes || '',
       commissionRate: u.commissionRate ? String(u.commissionRate) : '', monthlyTarget: u.monthlyTarget ? String(u.monthlyTarget) : '',
       matrix: permsToMatrix(eff),
+      customPerms: hasCustom,
     })
     setOpen(true); setError('')
   }
@@ -124,9 +127,11 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
     if (!form.phone || !/^\d{11}$/.test(form.phone)) { setError('رقم التليفون لازم يكون 11 رقم'); return }
     if (!form.nationalId || !/^\d{14}$/.test(form.nationalId)) { setError('الرقم القومي لازم يكون 14 رقم'); return }
     setLoading(true)
-    const permissions = form.role === 'ADMIN' ? [] : matrixToPerms(form.matrix)
+    // لو الأدمن ما فعّلش تخصيص يدوي، منبعتش permissions صريحة — الصلاحيات هتتبع الدور تلقائيًا (effectivePermissions)
+    const permissions = form.role === 'ADMIN' || !form.customPerms ? [] : matrixToPerms(form.matrix)
     const body = { ...form, permissions }
     delete body.matrix
+    delete body.customPerms
     const res = await fetch(editId ? `/api/users/${editId}` : '/api/users', {
       method: editId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })
@@ -241,12 +246,30 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
             </div>
           </div>
 
-          {/* ===== مصفوفة الصلاحيات ===== */}
+          {/* ===== الصلاحيات ===== */}
           <div className="p-5 pt-2 border-t border-gray-100">
-            <h5 className="text-xs font-bold text-[#0f3460] flex items-center gap-1.5 border-b border-gray-100 pb-1.5 mb-3"><Shield className="w-3.5 h-3.5" /> مصفوفة الصلاحيات لكل شاشة</h5>
+            <h5 className="text-xs font-bold text-[#0f3460] flex items-center gap-1.5 border-b border-gray-100 pb-1.5 mb-3"><Shield className="w-3.5 h-3.5" /> الصلاحيات</h5>
             {form.role === 'ADMIN' ? (
               <div className="bg-red-50 border border-red-100 rounded-lg p-4 text-sm text-red-700 flex items-center gap-2"><Shield className="w-4 h-4" /> مدير النظام له كل الصلاحيات تلقائيًا (كل الشاشات + كل الأفعال).</div>
             ) : (
+              <>
+                <label className="flex items-center gap-2 text-sm text-gray-700 mb-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.customPerms}
+                    onChange={(e) => setForm({ ...form, customPerms: e.target.checked })}
+                    className="w-4 h-4 accent-[#0f3460] cursor-pointer"
+                  />
+                  تخصيص صلاحيات يدوي (غير افتراضيات الوظيفة)
+                </label>
+                {!form.customPerms ? (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700">
+                    الصلاحيات هتتبع الدور الوظيفي "{ROLE_LABEL[form.role]}" تلقائيًا — أي تغيير في الدور بعدين هيغيّر صلاحياته معاه.
+                    <p className="text-xs text-blue-600/80 mt-1.5">
+                      الشاشات المتاحة حاليًا: {(ROLE_DEFAULTS[form.role] || []).map((k: string) => PERMISSIONS.find((p) => p.key === k.split(':')[0])?.label || k).join('، ') || 'لا شيء'}
+                    </p>
+                  </div>
+                ) : (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50/70">
@@ -289,6 +312,8 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
                   </tbody>
                 </table>
               </div>
+                )}
+              </>
             )}
           </div>
 

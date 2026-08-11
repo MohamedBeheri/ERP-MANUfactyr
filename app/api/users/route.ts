@@ -5,7 +5,7 @@ import { requirePermission } from '@/lib/api-auth'
 import { parseNum } from '@/lib/numbers'
 
 export async function GET() {
-  const auth = await requirePermission('governance', 'view')
+  const auth = await requirePermission('employees', 'view')
   if ('response' in auth) return auth.response
 
   try {
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requirePermission('governance', 'add')
+  const auth = await requirePermission('employees', 'add')
   if ('response' in auth) return auth.response
   const { session } = auth
 

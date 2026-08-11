@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ExportButtons } from '@/components/export-buttons'
-import { UserManager } from '@/components/user-manager'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,17 +10,11 @@ export default async function GovernancePage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/')
 
-  const [auditLogs, users] = await Promise.all([
-    prisma.auditLog.findMany({
-      include: { user: true },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    }),
-    prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true, phone: true, email: true, jobTitle: true, nationalId: true, address: true, hireDate: true, avatarUrl: true, notes: true, commissionRate: true, monthlyTarget: true },
-    }),
-  ])
+  const auditLogs = await prisma.auditLog.findMany({
+    include: { user: true },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
 
   const auditRows = auditLogs.map((log) => [
     log.action,
@@ -34,28 +27,11 @@ export default async function GovernancePage() {
   return (
     <div className="p-4 sm:p-6 space-y-6 print-area">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-[#1a1a2e]">الحوكمة</h1>
+        <h1 className="text-2xl font-bold text-[#1a1a2e]">الحوكمة — سجل المراجعة</h1>
         <ExportButtons
           fileName="سجل-المراجعة"
           headers={['العملية', 'المستخدم', 'الوصف', 'التأثير', 'التاريخ']}
           rows={auditRows}
-        />
-      </div>
-
-      <div className="no-print">
-        <UserManager
-          users={users.map((u) => ({
-            id: u.id, name: u.name, username: u.username, role: u.role,
-            permissions: u.permissions, status: u.status,
-            lastLogin: u.lastLogin ? u.lastLogin.toISOString() : null,
-            phone: u.phone, email: u.email, jobTitle: u.jobTitle,
-            nationalId: u.nationalId, address: u.address,
-            hireDate: u.hireDate ? u.hireDate.toISOString() : null,
-            commissionRate: Number(u.commissionRate),
-            monthlyTarget: Number(u.monthlyTarget),
-            avatarUrl: u.avatarUrl, notes: u.notes,
-          }))}
-          currentUserId={session.user.id}
         />
       </div>
 

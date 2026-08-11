@@ -13,7 +13,8 @@ export const PERMISSIONS = [
   { key: 'finance', label: 'التقارير الشاملة', path: '/finance' },
   { key: 'store', label: 'موقع العميل أونلاين وطلباته', path: '/store-settings' },
   { key: 'cafe', label: 'الكافيه (خامات ومنتجات وتوليفات)', path: '/cafe' },
-  { key: 'governance', label: 'الحوكمة وإدارة المستخدمين', path: '/governance' },
+  { key: 'employees', label: 'الموظفين وصلاحياتهم', path: '/employees' },
+  { key: 'governance', label: 'الحوكمة (سجل المراجعة)', path: '/governance' },
   { key: 'settings', label: 'الإعدادات والبيانات الأساسية', path: '/settings' },
 ] as const
 
@@ -44,6 +45,7 @@ const PATH_PERMS: { prefix: string; key: string }[] = [
   { prefix: '/store-settings', key: 'store' },
   { prefix: '/online-orders', key: 'store' },
   { prefix: '/cafe', key: 'cafe' },
+  { prefix: '/employees', key: 'employees' },
   { prefix: '/governance', key: 'governance' },
   { prefix: '/settings', key: 'settings' },
 ]

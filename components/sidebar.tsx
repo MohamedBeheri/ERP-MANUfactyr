@@ -20,6 +20,7 @@ import {
   PackageOpen,
   Cookie,
   Users,
+  UserCog,
   Building2,
   ShieldCheck,
   Settings,
@@ -67,6 +68,7 @@ const menuGroups: { title: string | null; items: { href: string; label: string; 
     items: [
       { href: '/treasury', label: 'الخزنة', Icon: Vault, perm: 'treasury' },
       { href: '/finance', label: 'التقارير', Icon: Wallet, perm: 'finance' },
+      { href: '/employees', label: 'الموظفين', Icon: UserCog, perm: 'employees' },
       { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, perm: 'governance' },
       { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },
     ],

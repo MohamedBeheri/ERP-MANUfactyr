@@ -5,7 +5,7 @@ import { requirePermission } from '@/lib/api-auth'
 import { parseNum } from '@/lib/numbers'
 
 export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('governance', 'edit')
+  const auth = await requirePermission('employees', 'edit')
   if ('response' in auth) return auth.response
   const params = await rawParams;
   const { session } = auth
@@ -72,7 +72,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
 }
 
 export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('governance', 'delete')
+  const auth = await requirePermission('employees', 'delete')
   if ('response' in auth) return auth.response
   const params = await rawParams;
   const { session } = auth
