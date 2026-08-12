@@ -5,8 +5,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { effectivePermissions, hasSectionAccess } from '@/lib/permissions'
 import { PeriodSelector } from '@/components/period-selector'
-import { SalesTrendChart, PaymentMethodsPie, TopProductsBar } from '@/components/dashboard-charts'
-import { GroupBarChart } from '@/components/group-charts'
+import { PaymentMethodsPie, TopProductsBar } from '@/components/dashboard-charts'
+import { GroupBarChart, TrendLineChart } from '@/components/group-charts'
 
 export const dynamic = 'force-dynamic'
 
@@ -136,7 +136,7 @@ export default async function SalesDashboardPage({ searchParams: raw }: { search
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2"><SalesTrendChart labels={dayLabels} sales={salesByDay} expenses={salesByDay.map(() => 0)} title="اتجاه المبيعات اليومي" /></div>
+        <div className="lg:col-span-2"><TrendLineChart title="اتجاه المبيعات اليومي" subtitle="إجمالي المبيعات لكل يوم في الفترة" labels={dayLabels} primary={{ label: 'المبيعات', data: salesByDay, color: '#0f3460' }} /></div>
         <PaymentMethodsPie cash={cash} insta={insta} wallet={wallet} network={0} />
       </div>
 

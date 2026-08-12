@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
+import { GroupBarChart, TrendLineChart } from '@/components/group-charts'
 
 export interface Material {
   id: string; name: string; unit: string; costPrice: number; stock: number
@@ -429,16 +430,22 @@ function PurchasesTab({ purchases }: { purchases: CafePurchase[] }) {
 }
 
 // ========================================================================
-// صفحة لوحة تحكم الكافيه: KPIs + إدارة المنتجات والتوليفات + المشتريات
+// صفحة لوحة تحكم الكافيه: KPIs + تحليلات مبيعات + إدارة المنتجات والتوليفات + المشتريات
 // ========================================================================
-export function CafeDashboard({ cafeItems, materials, categories, purchases, units, kpis, canAdd, canEdit, canDelete }: {
+export function CafeDashboard({ cafeItems, materials, categories, purchases, units, kpis, sales, canAdd, canEdit, canDelete }: {
   cafeItems: CafeItem[]; materials: Material[]; categories: { id: string; name: string }[]
   purchases: CafePurchase[]; units: { id: string; name: string }[]
   kpis: { itemsCount: number; materialsCount: number; lowStockMaterials: number; posVisible: number }
+  sales?: { total: number; count: number; trendLabels: string[]; trend: number[]; topProducts: { label: string; value: number }[] }
   canAdd: boolean; canEdit: boolean; canDelete: boolean
 }) {
+  const money = (n: number) => `${n.toLocaleString('ar-EG', { maximumFractionDigits: 0 })} ج.م`
   const cards = [
-    { label: 'منتجات الكافيه', value: kpis.itemsCount, cls: 'text-[#0f3460]' },
+    ...(sales ? [
+      { label: 'مبيعات الكافيه (الفترة)', value: money(sales.total), cls: 'text-[#0f3460]' },
+      { label: 'عدد أصناف الكافيه المباعة', value: sales.count, cls: 'text-indigo-700' },
+    ] : []),
+    { label: 'منتجات الكافيه', value: kpis.itemsCount, cls: 'text-emerald-700' },
     { label: 'خامات في المخزن', value: kpis.materialsCount, cls: 'text-amber-700' },
     { label: 'خامات تحت الحد الأدنى', value: kpis.lowStockMaterials, cls: kpis.lowStockMaterials > 0 ? 'text-red-600' : 'text-green-700' },
     { label: 'ظاهر في نقطة البيع', value: kpis.posVisible, cls: 'text-green-700' },
@@ -453,6 +460,12 @@ export function CafeDashboard({ cafeItems, materials, categories, purchases, uni
           </div>
         ))}
       </div>
+      {sales && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TrendLineChart title="اتجاه مبيعات الكافيه" subtitle="قيمة أصناف الكافيه المباعة يوميًا" labels={sales.trendLabels} primary={{ label: 'المبيعات', data: sales.trend, color: '#e94560' }} />
+          <GroupBarChart title="أفضل منتجات الكافيه مبيعًا" subtitle="الأعلى إيرادًا في الفترة" items={sales.topProducts} color="#f59e0b" emptyText="مفيش مبيعات كافيه في الفترة" />
+        </div>
+      )}
       <div>
         <h2 className="text-sm font-bold text-[#1a1a2e] mb-3">منتجات الكافيه والتوليفات</h2>
         <ItemsTab cafeItems={cafeItems} materials={materials} categories={categories} units={units} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />

@@ -45,9 +45,11 @@ const menu: Entry[] = [
   {
     kind: 'group', id: 'factory', title: 'التصنيع والمخازن', Icon: Factory,
     items: [
-      { href: '/factory', label: 'المصنع', Icon: Factory, perm: 'factory' },
+      { href: '/factory/dashboard', label: 'لوحة تحكم التصنيع', Icon: LayoutDashboard, perm: 'factory' },
+      { href: '/factory', label: 'المصنع', Icon: Factory, perm: 'factory', exact: true },
       { href: '/catalog', label: 'بنك الأصناف', Icon: Coffee, perm: 'catalog' },
-      { href: '/purchases', label: 'المشتريات', Icon: ShoppingBag, perm: 'purchases' },
+      { href: '/purchases/dashboard', label: 'لوحة تحكم المشتريات', Icon: LayoutDashboard, perm: 'purchases' },
+      { href: '/purchases', label: 'المشتريات', Icon: ShoppingBag, perm: 'purchases', exact: true },
       { href: '/warehouse', label: 'المخزن', Icon: Warehouse, perm: 'warehouse' },
       { href: '/warehouse/transfers', label: 'تحويلات المخازن', Icon: ArrowLeftRight, perm: 'warehouse' },
     ],
