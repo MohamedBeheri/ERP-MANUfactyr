@@ -4,10 +4,26 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Phone, MapPin, Pencil, Trash2, X, MessageCircle, User, Plus,
-  ReceiptText, Globe, Scale, Wallet, Star, Building2, Eye,
+  ReceiptText, Globe, Scale, Wallet, Star, Building2, Eye, Printer, FileDown,
 } from 'lucide-react'
 import { EGYPT_GOVERNORATES } from '@/lib/governorates'
 import { LocationPicker, LocationPreview, type GeoPoint } from '@/components/location-picker'
+
+export interface OrderDetail {
+  id: string
+  no: string
+  total: number
+  paid: number | null
+  remaining: number | null
+  date: string
+  source: string
+  paymentType: string | null
+  paymentMethod: string
+  statusLabel: string
+  statusTone: string
+  items: { name: string; qty: number; unit: string }[]
+  printHref: string | null
+}
 
 export interface CustomerRow {
   id: string
@@ -28,7 +44,7 @@ export interface CustomerRow {
   createdAt: string
   invoiceCount: number
   onlineCount: number
-  lastOrders: { no: string; total: number; date: string; source: string }[]
+  lastOrders: OrderDetail[]
 }
 
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
@@ -264,6 +280,7 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                     <td className="p-3 no-print">
                       <div className="flex items-center gap-1.5 justify-end">
                         <button onClick={() => setViewing(c)} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-[#0f3460]" title="عرض التفاصيل" aria-label="عرض التفاصيل"><Eye className="w-4 h-4" /></button>
+                        <a href={`/print/customer-statement/${c.id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-[#e94560]" title="استخراج PDF" aria-label="استخراج PDF"><FileDown className="w-4 h-4" /></a>
                         {canEdit && <button onClick={() => startEdit(c)} className="p-1.5 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-[#0f3460]" title="تعديل" aria-label="تعديل"><Pencil className="w-4 h-4" /></button>}
                         {canDelete && <button onClick={() => remove(c)} className="p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600" title="حذف" aria-label="حذف"><Trash2 className="w-4 h-4" /></button>}
                       </div>
@@ -316,17 +333,42 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
 
             {viewing.lastOrders.length > 0 && (
               <div>
-                <p className="text-sm font-bold text-[#1a1a2e] mb-2">آخر الطلبات</p>
-                <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg">
+                <p className="text-sm font-bold text-[#1a1a2e] mb-2">تفاصيل الطلبات والدفع (آخر {viewing.lastOrders.length})</p>
+                <div className="space-y-2">
                   {viewing.lastOrders.map((o) => (
-                    <div key={o.no} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${o.source === 'أونلاين' ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>{o.source}</span>
-                        <span className="tabular-nums truncate">{o.no}</span>
+                    <div key={o.id} className="border border-gray-100 rounded-lg p-3 text-sm space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${o.source === 'أونلاين' ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>{o.source}</span>
+                          <span className="tabular-nums font-semibold truncate">{o.no}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
+                            o.statusTone === 'green' ? 'bg-green-50 text-green-700' : o.statusTone === 'amber' ? 'bg-amber-50 text-amber-700' : o.statusTone === 'red' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'
+                          }`}>{o.statusLabel}</span>
+                        </div>
+                        <span className="text-xs text-gray-400 tabular-nums shrink-0">{new Date(o.date).toLocaleDateString('ar-EG')}</span>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-semibold tabular-nums">{fmt(o.total)} ج.م</span>
-                        <span className="text-xs text-gray-400 tabular-nums">{new Date(o.date).toLocaleDateString('ar-EG')}</span>
+
+                      {o.items.length > 0 && (
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          {o.items.map((it) => `${it.name} ×${fmt(it.qty)}${it.unit ? ` ${it.unit}` : ''}`).join(' · ')}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-gray-50">
+                        <span className="text-xs text-gray-500">
+                          {o.paymentType ? `${o.paymentType} — ` : ''}{o.paymentMethod}
+                        </span>
+                        <div className="flex items-center gap-3 shrink-0">
+                          {o.paid != null && o.remaining != null && o.remaining > 0 && (
+                            <span className="text-[11px] text-amber-700 tabular-nums">متبقي {fmt(o.remaining)} ج.م</span>
+                          )}
+                          <span className="font-bold tabular-nums text-[#1a1a2e]">{fmt(o.total)} ج.م</span>
+                          {o.printHref && (
+                            <a href={o.printHref} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#0f3460]" title="طباعة الفاتورة" aria-label="طباعة الفاتورة">
+                              <Printer className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -340,6 +382,9 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                   <MessageCircle className="w-3.5 h-3.5" /> واتساب
                 </a>
               )}
+              <a href={`/print/customer-statement/${viewing.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#e94560] text-white text-xs font-bold hover:bg-[#d13350]">
+                <FileDown className="w-3.5 h-3.5" /> استخراج PDF
+              </a>
               {viewing.bonusPoints > 0 && (
                 <button onClick={() => redeem(viewing)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-500 text-white text-xs font-bold hover:bg-amber-600">
                   <Star className="w-3.5 h-3.5" /> استبدال بونص
