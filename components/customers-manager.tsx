@@ -235,7 +235,40 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
         {filtered.length === 0 ? (
           <div className="p-10 text-center text-gray-500 text-sm">مفيش عملاء مطابقين.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* بطاقات الموبايل */}
+            <div className="sm:hidden divide-y divide-gray-50">
+              {filtered.map((c) => (
+                <div key={c.id} className="p-4 space-y-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-[#1a1a2e] text-white flex items-center justify-center text-xs font-bold shrink-0">{c.name.charAt(0)}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-[#1a1a2e] truncate">{c.name}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${c.customerType === 'WHOLESALE' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
+                          {c.tierName || (c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي')}
+                        </span>
+                        {c.bonusPoints > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold tabular-nums">🎁 {fmt(c.bonusPoints)}</span>}
+                        {c.balance > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 font-bold tabular-nums">مديونية {fmt(c.balance)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    {c.phone && <p className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" /> <span dir="ltr" className="tabular-nums">{c.phone}</span></p>}
+                    {(c.governorate || c.area) && <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {[c.governorate, c.area].filter(Boolean).join(' — ')}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button onClick={() => setViewing(c)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-50 text-gray-600 text-xs font-bold"><Eye className="w-3.5 h-3.5" /> عرض</button>
+                    <a href={`/print/customer-statement/${c.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-50 text-gray-600 text-xs font-bold"><FileDown className="w-3.5 h-3.5" /> PDF</a>
+                    {canEdit && <button onClick={() => startEdit(c)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 text-[#0f3460] text-xs font-bold"><Pencil className="w-3.5 h-3.5" /> تعديل</button>}
+                    {canDelete && <button onClick={() => remove(c)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-50 text-red-600 text-xs font-bold"><Trash2 className="w-3.5 h-3.5" /> حذف</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* جدول الديسكتوب */}
+            <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-gray-500 text-right border-b border-gray-100 bg-gray-50/50 text-xs">
@@ -268,7 +301,7 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                     </td>
                     <td className="p-3 text-gray-600">
                       {c.governorate || c.area ? (
-                        <span className="flex items-center gap-1 text-xs">
+                        <span className="flex items-center gap-1 text-xs whitespace-nowrap">
                           <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                           {[c.governorate, c.area].filter(Boolean).join(' — ')}
                         </span>
@@ -289,7 +322,8 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 
