@@ -25,6 +25,8 @@ import {
   Building2,
   ShieldCheck,
   Settings,
+  Settings2,
+  Bell,
   BarChart3,
   LogOut,
   ChevronDown,
@@ -95,6 +97,8 @@ const menu: Entry[] = [
     items: [
       { href: '/treasury/dashboard', label: 'لوحة تحكم الخزينة', Icon: LayoutDashboard, perm: 'treasury' },
       { href: '/treasury', label: 'الخزنة والعُهد', Icon: Vault, perm: 'treasury', exact: true },
+      { href: '/treasury?tab=notifications', label: 'إشعارات المالية', Icon: Bell, perm: 'treasury' },
+      { href: '/treasury?tab=fin-settings', label: 'الإعدادات المالية', Icon: Settings2, perm: 'treasury' },
     ],
   },
   { kind: 'standalone', item: { href: '/finance', label: 'التقارير', Icon: BarChart3, perm: 'finance' } },

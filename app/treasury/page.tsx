@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { usePermissions } from '@/hooks/use-permissions'
 import { TreasuriesHub } from '@/components/treasuries-hub'
 import { CustodyPanel } from '@/components/custody-panel'
@@ -56,9 +57,27 @@ const ACTIVITY_LABELS: Record<string, { label: string; color: string; bg: string
 
 const inputCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 text-sm bg-white'
 
+const VALID_TABS: Tab[] = ['treasuries', 'settlements', 'vouchers', 'collections', 'custodies', 'liabilities', 'cashflow', 'notifications', 'fin-settings']
+
+// الصفحة ملفوفة في Suspense عشان useSearchParams (فتح تاب معيّن من القائمة الجانبية زي ?tab=fin-settings)
 export default function TreasuryPage() {
+  return (
+    <Suspense>
+      <TreasuryPageInner />
+    </Suspense>
+  )
+}
+
+function TreasuryPageInner() {
   const { can } = usePermissions()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('settlements')
+
+  // فتح التاب المطلوب من اللينك (الإشعارات/الإعدادات المالية من القائمة الجانبية)
+  useEffect(() => {
+    const t = searchParams.get('tab') as Tab | null
+    if (t && VALID_TABS.includes(t)) setTab(t)
+  }, [searchParams])
   const [settlements, setSettlements] = useState<any[]>([])
   const [liabilities, setLiabilities] = useState<any[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
@@ -262,8 +281,6 @@ export default function TreasuryPage() {
     { key: 'custodies', label: 'عُهد الموظفين', icon: HandCoins },
     { key: 'liabilities', label: 'الالتزامات المالية', icon: Landmark },
     { key: 'cashflow', label: 'تقرير التدفقات', icon: BarChart3 },
-    { key: 'notifications', label: 'الإشعارات', icon: Bell, count: unreadNotifications },
-    { key: 'fin-settings', label: 'الإعدادات المالية', icon: Settings2 },
   ]
 
   return (
