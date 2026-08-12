@@ -674,6 +674,9 @@ model Customer {
   phone          String?
   address        String?
   area           String? // منطقة/خط سير العميل (لفلترة عملاء المندوب)
+  governorate    String? // المحافظة (لفلترة خريطة العملاء)
+  lat            Decimal?     @db.Decimal(10, 7) // خط العرض (موقع العميل)
+  lng            Decimal?     @db.Decimal(10, 7) // خط الطول (موقع العميل)
   activityType   String? // نوع النشاط (كافيه / سوبر ماركت / بقالة / مطعم...)
   type           PaymentType  @default(CASH)
   customerType   CustomerType @default(RETAIL) // جملة أو قطاعي

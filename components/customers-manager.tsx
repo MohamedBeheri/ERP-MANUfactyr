@@ -4,8 +4,9 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Phone, MapPin, Pencil, Trash2, X, MessageCircle, ChevronDown, User,
-  ReceiptText, Globe, Scale, Wallet, Star, Building2,
+  ReceiptText, Globe, Scale, Wallet, Star, Building2, LoaderCircle,
 } from 'lucide-react'
+import { EGYPT_GOVERNORATES } from '@/lib/governorates'
 
 export interface CustomerRow {
   id: string
@@ -13,6 +14,9 @@ export interface CustomerRow {
   phone: string | null
   address: string | null
   area: string | null
+  governorate: string | null
+  lat: number | null
+  lng: number | null
   customerType: string
   tierId: string | null
   tierName: string | null
@@ -40,9 +44,23 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
   const [typeFilter, setTypeFilter] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState<CustomerRow | null>(null)
-  const [form, setForm] = useState({ name: '', phone: '', address: '', area: '', customerType: 'RETAIL', tierId: '', creditLimit: '0' })
+  const [form, setForm] = useState({ name: '', phone: '', address: '', area: '', governorate: '', customerType: 'RETAIL', tierId: '', creditLimit: '0' })
+  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null)
+  const [geoLoading, setGeoLoading] = useState(false)
+  const [geoError, setGeoError] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const captureLocation = () => {
+    setGeoError('')
+    if (!navigator.geolocation) { setGeoError('الجهاز مش بيدعم تحديد الموقع'); return }
+    setGeoLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGeoLoading(false) },
+      () => { setGeoError('محتاجين إذن الوصول للموقع من إعدادات المتصفح'); setGeoLoading(false) },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
 
   const filtered = useMemo(() => {
     const term = q.trim()
@@ -55,7 +73,9 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
 
   const startEdit = (c: CustomerRow) => {
     setEditing(c)
-    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', area: c.area || '', customerType: c.customerType, tierId: c.tierId || '', creditLimit: String(c.creditLimit) })
+    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', area: c.area || '', governorate: c.governorate || '', customerType: c.customerType, tierId: c.tierId || '', creditLimit: String(c.creditLimit) })
+    setGeo(c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : null)
+    setGeoError('')
     setError('')
   }
 
@@ -64,7 +84,7 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
     setSaving(true); setError('')
     const res = await fetch(`/api/customers/${editing.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, creditLimit: Number(form.creditLimit) }),
+      body: JSON.stringify({ ...form, creditLimit: Number(form.creditLimit), lat: geo?.lat, lng: geo?.lng }),
     })
     const data = await res.json().catch(() => ({}))
     setSaving(false)
@@ -270,6 +290,21 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">المنطقة / خط السير (لفلترة عملاء المندوب)</label>
               <input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} placeholder="مثال: القاهرة الجديدة" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">المحافظة (لخريطة العملاء)</label>
+              <select value={form.governorate} onChange={(e) => setForm({ ...form, governorate: e.target.value })} className={inputCls}>
+                <option value="">بدون محافظة</option>
+                {EGYPT_GOVERNORATES.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">موقع العميل الجغرافي</label>
+              <button type="button" onClick={captureLocation} disabled={geoLoading} className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition border ${geo ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                {geoLoading ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                {geoLoading ? 'جاري تحديد موقعك...' : geo ? 'الموقع مسجّل — اضغط لتحديثه بموقعك الحالي' : 'تسجيل موقعي الحالي كموقع العميل'}
+              </button>
+              {geoError && <p className="text-[11px] text-red-500 mt-1">{geoError}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الائتماني (للجملة)</label>

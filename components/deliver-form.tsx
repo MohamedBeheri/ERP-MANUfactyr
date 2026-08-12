@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gift, Plus, X, UserPlus, Percent, Star, ArrowRight, Check, Printer, MessageCircle, Banknote, Wallet, Smartphone, CheckCircle2 } from 'lucide-react'
+import { Gift, Plus, X, UserPlus, Percent, Star, ArrowRight, Check, Printer, MessageCircle, Banknote, Wallet, Smartphone, CheckCircle2, MapPin, LoaderCircle } from 'lucide-react'
+import { EGYPT_GOVERNORATES } from '@/lib/governorates'
 
 interface TierLite { priceSource: string; discountPercent: number; bonusPercent: number }
 interface Customer {
@@ -84,7 +85,10 @@ export function DeliverForm({
   const [step, setStep] = useState<Step>('items')
   const [mode, setMode] = useState<'existing' | 'new'>('existing')
   const [customerId, setCustomerId] = useState('')
-  const [nc, setNc] = useState({ name: '', phone: '', address: '', activityType: '', customerType: 'RETAIL' as 'RETAIL' | 'WHOLESALE' })
+  const [nc, setNc] = useState({ name: '', phone: '', address: '', activityType: '', customerType: 'RETAIL' as 'RETAIL' | 'WHOLESALE', governorate: '' })
+  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null)
+  const [geoLoading, setGeoLoading] = useState(false)
+  const [geoError, setGeoError] = useState('')
   const [payMethod, setPayMethod] = useState<string>('')
   const [paidAmount, setPaidAmount] = useState('')
   const [collectionMethod, setCollectionMethod] = useState('')
@@ -103,6 +107,18 @@ export function DeliverForm({
   const productName = new Map(remainingItems.map((r) => [r.productId, r.productName]))
   const unitOf = new Map(remainingItems.map((r) => [r.productId, r.unit]))
   const availableItems = remainingItems.filter((item) => item.remaining > 0)
+
+  // التقاط موقع المندوب الحالي (GPS اللايف) عشان يتسجل كموقع العميل الجديد
+  const captureLocation = () => {
+    setGeoError('')
+    if (!navigator.geolocation) { setGeoError('الجهاز مش بيدعم تحديد الموقع'); return }
+    setGeoLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGeoLoading(false) },
+      () => { setGeoError('محتاجين إذن الوصول للموقع من إعدادات المتصفح'); setGeoLoading(false) },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
 
   const addRow = () => setRows([...rows, { productId: '', quantity: '' }])
   const removeRow = (i: number) => setRows(rows.filter((_, j) => j !== i))
@@ -168,7 +184,7 @@ export function DeliverForm({
     if (mode === 'new') {
       const cRes = await fetch('/api/customers', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: nc.name.trim(), phone: nc.phone.trim() || undefined, address: nc.address.trim() || undefined, activityType: nc.activityType.trim() || undefined, customerType: nc.customerType, area: delegateArea || undefined }),
+        body: JSON.stringify({ name: nc.name.trim(), phone: nc.phone.trim() || undefined, address: nc.address.trim() || undefined, activityType: nc.activityType.trim() || undefined, customerType: nc.customerType, area: delegateArea || undefined, governorate: nc.governorate || undefined, lat: geo?.lat, lng: geo?.lng }),
       })
       const cData = await cRes.json()
       if (!cRes.ok) { setLoading(false); return setError(cData.error || 'خطأ في إضافة العميل') }
@@ -191,7 +207,8 @@ export function DeliverForm({
   }
 
   const resetAll = () => {
-    setStep('items'); setMode('existing'); setCustomerId(''); setNc({ name: '', phone: '', address: '', activityType: '', customerType: 'RETAIL' })
+    setStep('items'); setMode('existing'); setCustomerId(''); setNc({ name: '', phone: '', address: '', activityType: '', customerType: 'RETAIL', governorate: '' })
+    setGeo(null); setGeoError('')
     setPayMethod(''); setPaidAmount(''); setCollectionMethod(''); setNotes(''); setRows([{ productId: '', quantity: '' }]); setReceipt(null); setError('')
     router.refresh()
   }
@@ -267,6 +284,15 @@ export function DeliverForm({
                   <input placeholder="نوع النشاط (كافيه/سوبر ماركت)" value={nc.activityType} onChange={(e) => setNc({ ...nc, activityType: e.target.value })} className={inputCls} />
                 </div>
                 <input placeholder="العنوان" value={nc.address} onChange={(e) => setNc({ ...nc, address: e.target.value })} className={inputCls} />
+                <select value={nc.governorate} onChange={(e) => setNc({ ...nc, governorate: e.target.value })} className={inputCls}>
+                  <option value="">اختار المحافظة (اختياري)</option>
+                  {EGYPT_GOVERNORATES.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <button type="button" onClick={captureLocation} disabled={geoLoading} className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition border ${geo ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                  {geoLoading ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                  {geoLoading ? 'جاري تحديد موقعك...' : geo ? 'تم تسجيل موقعك الحالي ✓' : 'تسجيل موقعي الحالي مع العميل'}
+                </button>
+                {geoError && <p className="text-[11px] text-red-500">{geoError}</p>}
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">نوع العميل (بيحدد السعر)</label>
                   <div className="flex gap-1.5">

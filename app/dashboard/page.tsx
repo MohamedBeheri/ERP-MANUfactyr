@@ -17,6 +17,7 @@ import {
   SalesTrendChart, RevenueBreakdownChart, TopProductsBar, PaymentMethodsPie,
   ExpensesByCategoryChart, ProductionTrendChart, CashFlowChart,
 } from '@/components/dashboard-charts'
+import { CustomerMap } from '@/components/customer-map'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,7 +64,7 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
     paymentVouchers, cashFlows, liabilities, customerCount, supplierPayAgg,
     kaPayAgg, creditCollections,
     periodSettlements, periodCollections, treasuries, pendingUnloadsCount,
-    prevInvoices, prevVoucherAgg,
+    prevInvoices, prevVoucherAgg, mapCustomers,
   ] = await Promise.all([
     prisma.invoice.findMany({
       where: { createdAt: period, status: 'COMPLETED' },
@@ -102,6 +103,10 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
       where: { status: 'APPROVED', createdAt: { gte: new Date(from.getTime() - (to.getTime() - from.getTime())), lt: from } },
       _sum: { amount: true },
     }).catch(() => ({ _sum: { amount: 0 } })),
+    prisma.customer.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, phone: true, area: true, governorate: true, lat: true, lng: true, balance: true, customerType: true },
+    }).catch(() => []),
   ])
 
   // ─── KPIs ───
@@ -470,6 +475,21 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
               </table>
             </div>
           </div>
+
+          {/* ─── خريطة توزيع العملاء بالمحافظات ─── */}
+          <CustomerMap
+            customers={mapCustomers.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              phone: c.phone,
+              area: c.area,
+              governorate: c.governorate,
+              lat: c.lat != null ? Number(c.lat) : null,
+              lng: c.lng != null ? Number(c.lng) : null,
+              balance: Number(c.balance),
+              customerType: c.customerType,
+            }))}
+          />
 
           {/* ─── Bottom: Receivables + Low Stock + Activity ─── */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
