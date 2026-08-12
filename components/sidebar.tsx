@@ -55,7 +55,8 @@ const menu: Entry[] = [
   {
     kind: 'group', id: 'sales', title: 'البيع والتوزيع', Icon: ShoppingCart,
     items: [
-      { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, perm: 'sales' },
+      { href: '/sales/dashboard', label: 'لوحة تحكم البيع', Icon: LayoutDashboard, perm: 'sales' },
+      { href: '/sales', label: 'المبيعات', Icon: ShoppingCart, perm: 'sales', exact: true },
       { href: '/customers', label: 'العملاء', Icon: Users, perm: 'customers' },
       { href: '/key-accounts', label: 'كبار الموردين', Icon: Building2, perm: 'keyaccounts' },
       { href: '/delegates', label: 'إدارة المناديب', Icon: Truck, perm: 'delegates' },
