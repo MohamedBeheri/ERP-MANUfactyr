@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 import { effectivePermissions } from '@/lib/permissions'
 
-type Item = { href: string; label: string; Icon: any; perm: string | null }
+type Item = { href: string; label: string; Icon: any; perm: string | null; exact?: boolean }
 // standalone = بند مفرد بدون مجموعة (زي لوحة التحكم)
 // group = مجموعة قابلة للطي (accordion) ليها أيقونة وعنوان وبنود فرعية
 type Entry =
@@ -65,7 +65,9 @@ const menu: Entry[] = [
   {
     kind: 'group', id: 'cafe', title: 'إدارة الكافيه', Icon: Cookie,
     items: [
-      { href: '/cafe', label: 'الكافيه (نقطة البيع والمخزون)', Icon: Cookie, perm: 'cafe' },
+      { href: '/cafe', label: 'لوحة تحكم الكافيه', Icon: LayoutDashboard, perm: 'cafe', exact: true },
+      { href: '/cafe/pos', label: 'نقطة البيع (الكاشير)', Icon: ShoppingCart, perm: 'cafe_pos' },
+      { href: '/cafe/inventory', label: 'مخزن الكافيه', Icon: Warehouse, perm: 'cafe_inventory' },
     ],
   },
   {
@@ -179,8 +181,8 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
               </button>
               {isOpen && (
                 <div className="mt-1 mr-4 pr-3 border-r border-white/10 space-y-0.5">
-                  {e.items.map(({ href, label, Icon }) => {
-                    const active = isActive(pathname, href)
+                  {e.items.map(({ href, label, Icon, exact }) => {
+                    const active = exact ? pathname === href : isActive(pathname, href)
                     return (
                       <Link
                         key={href}

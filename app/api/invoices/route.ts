@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/api-auth'
+import { requirePermission, requireAnyPermission } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
 import { computeBonuses } from '@/lib/rewards'
 
 
 export async function GET() {
-  const auth = await requirePermission('sales', 'add')
+  const auth = await requireAnyPermission(['sales', 'cafe_pos'], 'add')
   if ('response' in auth) return auth.response
 
   try {
@@ -21,7 +21,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requirePermission('sales', 'add')
+  const auth = await requireAnyPermission(['sales', 'cafe_pos'], 'add')
   if ('response' in auth) return auth.response
   const { session } = auth
 

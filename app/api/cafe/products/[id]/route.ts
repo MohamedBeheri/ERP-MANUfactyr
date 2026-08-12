@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/api-auth'
+import { requirePermission, requireAnyPermission } from '@/lib/api-auth'
 
 export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('cafe', 'edit')
+  const auth = await requireAnyPermission(['cafe', 'cafe_inventory'], 'edit')
   if ('response' in auth) return auth.response
   const params = await rawParams
 
@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
 }
 
 export async function DELETE(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('cafe', 'delete')
+  const auth = await requireAnyPermission(['cafe', 'cafe_inventory'], 'delete')
   if ('response' in auth) return auth.response
   const params = await rawParams
 

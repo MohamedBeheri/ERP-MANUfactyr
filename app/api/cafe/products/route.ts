@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/api-auth'
+import { requirePermission, requireAnyPermission } from '@/lib/api-auth'
 import { getCafeStageIds } from '@/lib/cafe'
 
 export async function POST(req: NextRequest) {
-  const auth = await requirePermission('cafe', 'add')
+  const auth = await requireAnyPermission(['cafe', 'cafe_inventory'], 'add')
   if ('response' in auth) return auth.response
 
   try {

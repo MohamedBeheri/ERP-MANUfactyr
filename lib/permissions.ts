@@ -12,7 +12,9 @@ export const PERMISSIONS = [
   { key: 'treasury', label: 'الخزنة والالتزامات المالية', path: '/treasury' },
   { key: 'finance', label: 'التقارير الشاملة', path: '/finance' },
   { key: 'store', label: 'موقع العميل أونلاين وطلباته', path: '/store-settings' },
-  { key: 'cafe', label: 'الكافيه (خامات ومنتجات وتوليفات)', path: '/cafe' },
+  { key: 'cafe_pos', label: 'الكافيه — نقطة البيع (الكاشير)', path: '/cafe/pos' },
+  { key: 'cafe_inventory', label: 'الكافيه — المخزن والخامات', path: '/cafe/inventory' },
+  { key: 'cafe', label: 'الكافيه — لوحة التحكم والمنتجات والتوليفات', path: '/cafe' },
   { key: 'employees', label: 'الموظفين وصلاحياتهم', path: '/employees' },
   { key: 'governance', label: 'الحوكمة (سجل المراجعة)', path: '/governance' },
   { key: 'settings', label: 'الإعدادات والبيانات الأساسية', path: '/settings' },
@@ -44,6 +46,8 @@ const PATH_PERMS: { prefix: string; key: string }[] = [
   { prefix: '/finance', key: 'finance' },
   { prefix: '/store-settings', key: 'store' },
   { prefix: '/online-orders', key: 'store' },
+  { prefix: '/cafe/pos', key: 'cafe_pos' },
+  { prefix: '/cafe/inventory', key: 'cafe_inventory' },
   { prefix: '/cafe', key: 'cafe' },
   { prefix: '/employees', key: 'employees' },
   { prefix: '/governance', key: 'governance' },
@@ -56,7 +60,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
   ADMIN: PERMISSIONS.map((p) => p.key), // كل الأقسام بكل الأفعال
   FACTORY: ['factory', 'catalog', 'purchases', 'warehouse'],
   WAREHOUSE: ['warehouse', 'purchases'],
-  SALES: ['sales', 'customers', 'keyaccounts', 'delegates', 'drivers', 'store', 'cafe'],
+  SALES: ['sales', 'customers', 'keyaccounts', 'delegates', 'drivers', 'store', 'cafe', 'cafe_pos', 'cafe_inventory'],
   ACCOUNTANT: ['finance', 'treasury', 'customers:view', 'sales:view'],
   DELEGATE: ['drivers'],
 }

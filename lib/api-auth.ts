@@ -52,3 +52,22 @@ export async function requirePermission(
   }
   return { session }
 }
+
+// يسمح بالإجراء لو المستخدم عنده أي واحدة من عدة صلاحيات (مثلاً كاشير الكافيه أو المبيعات العامة)
+export async function requireAnyPermission(
+  sections: string[],
+  action: 'view' | 'add' | 'edit' | 'delete'
+): Promise<AuthSuccess | AuthFail> {
+  const session = await getServerSession(authOptions)
+  if (!session) {
+    return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+  }
+  if (!(await sessionUserExists(session))) {
+    return { response: STALE_SESSION() }
+  }
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  if (!sections.some((s) => canDoAction(perms, s, action))) {
+    return { response: NextResponse.json({ error: 'ليس لديك صلاحية لهذا الإجراء' }, { status: 403 }) }
+  }
+  return { session }
+}
