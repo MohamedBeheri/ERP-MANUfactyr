@@ -16,7 +16,6 @@ import {
   Truck,
   Car,
   Vault,
-  Wallet,
   Store,
   PackageOpen,
   Cookie,
@@ -26,6 +25,7 @@ import {
   Building2,
   ShieldCheck,
   Settings,
+  BarChart3,
   LogOut,
   ChevronDown,
   X,
@@ -94,9 +94,9 @@ const menu: Entry[] = [
     kind: 'group', id: 'finance', title: 'الخزينة والماليات', Icon: Vault,
     items: [
       { href: '/treasury', label: 'الخزنة والعُهد', Icon: Vault, perm: 'treasury' },
-      { href: '/finance', label: 'التقارير المالية', Icon: Wallet, perm: 'finance' },
     ],
   },
+  { kind: 'standalone', item: { href: '/finance', label: 'التقارير', Icon: BarChart3, perm: 'finance' } },
   {
     kind: 'group', id: 'admin', title: 'الإدارة', Icon: ShieldCheck,
     items: [
