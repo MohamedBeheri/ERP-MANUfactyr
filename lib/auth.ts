@@ -70,6 +70,27 @@ export const authOptions: AuthOptions = {
         token.role = user.role
         token.username = user.username
         token.permissions = (user as any).permissions || []
+        ;(token as any).dbCheckedAt = Date.now()
+        return token
+      }
+
+      // جلسات JWT بتفضل شغالة حتى لو المستخدم اتمسح أو اتعطل (زي ما حصل لما اتغيرت قاعدة البيانات) —
+      // فبنتحقق دوريًا إن صاحب الجلسة لسه موجود ونشط، وكمان بنحدّث دوره وصلاحياته لايف
+      const CHECK_MS = 60 * 1000
+      const last = Number((token as any).dbCheckedAt || 0)
+      if (token.id && Date.now() - last > CHECK_MS) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { role: true, permissions: true, status: true },
+        })
+        if (!dbUser || dbUser.status !== 'ACTIVE') {
+          ;(token as any).invalid = true // الـ middleware هيعامله كغير مسجّل ويحوّله لصفحة الدخول
+        } else {
+          ;(token as any).invalid = false
+          token.role = dbUser.role
+          ;(token as any).permissions = dbUser.permissions
+        }
+        ;(token as any).dbCheckedAt = Date.now()
       }
       return token
     },

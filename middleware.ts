@@ -18,7 +18,8 @@ export default withAuth(
   {
     callbacks: {
       authorized({ token }) {
-        return !!token
+        // جلسة بمستخدم متمسوح/معطّل (بعد فحص قاعدة البيانات الدوري) بتتعامل كغير مسجّلة → صفحة الدخول
+        return !!token && !(token as any).invalid
       },
     },
   }
