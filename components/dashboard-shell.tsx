@@ -15,7 +15,7 @@ export function DashboardShell({ user, children }: { user: any; children: React.
     <div className="min-h-dvh bg-gray-50">
       {user && <IdleLogout />}
       {/* توب بار الموبايل */}
-      <header className="lg:hidden no-print sticky top-0 z-40 bg-[#1a1a2e] text-white h-14 flex items-center justify-between px-4 shadow-md">
+      <header className="lg:hidden no-print sticky top-0 z-[60] bg-[#1a1a2e] text-white h-14 flex items-center justify-between px-4 shadow-md">
         <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => setOpen(true)} className="p-2 -mr-2 rounded-lg hover:bg-white/10" aria-label="فتح القائمة">
             <Menu className="w-6 h-6" />
@@ -28,7 +28,7 @@ export function DashboardShell({ user, children }: { user: any; children: React.
 
       {/* شريط علوي للديسكتوب فيه الجرس */}
       {user && (
-        <div className="hidden lg:flex no-print fixed top-0 left-0 right-64 z-40 h-14 bg-[#1a1a2e] items-center px-6 shadow-md">
+        <div className="hidden lg:flex no-print fixed top-0 left-0 right-64 z-[60] h-14 bg-[#1a1a2e] items-center px-6 shadow-md">
           <NotificationsBell />
         </div>
       )}
