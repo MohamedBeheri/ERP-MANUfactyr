@@ -93,7 +93,8 @@ const menu: Entry[] = [
   {
     kind: 'group', id: 'finance', title: 'الخزينة والماليات', Icon: Vault,
     items: [
-      { href: '/treasury', label: 'الخزنة والعُهد', Icon: Vault, perm: 'treasury' },
+      { href: '/treasury/dashboard', label: 'لوحة تحكم الخزينة', Icon: LayoutDashboard, perm: 'treasury' },
+      { href: '/treasury', label: 'الخزنة والعُهد', Icon: Vault, perm: 'treasury', exact: true },
     ],
   },
   { kind: 'standalone', item: { href: '/finance', label: 'التقارير', Icon: BarChart3, perm: 'finance' } },
