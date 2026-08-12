@@ -23,6 +23,22 @@ html {
   scroll-behavior: smooth;
 }
 
+/* ============ اتجاه حقول الإدخال ============
+   أي حقل نصي (بدون dir صريح) يبقى من اليمين RTL — النص العربي يبدأ من اليمين.
+   الحقول اللي عليها dir="ltr" صراحةً (أرقام/تليفون/إيميل/باسورد) بتفضل يسار زي ما هي. */
+input[type='text']:not([dir]),
+input[type='search']:not([dir]),
+input:not([type]):not([dir]),
+textarea:not([dir]),
+select:not([dir]) {
+  direction: rtl;
+  text-align: right;
+}
+input:not([dir])::placeholder,
+textarea:not([dir])::placeholder {
+  text-align: right;
+}
+
 /* ============ Kaffo scrollbar (كحلي/ذهبي بألوان البدر) ============ */
 ::-webkit-scrollbar {
   width: 10px;
