@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { normalizeDigits } from '@/lib/numbers'
 
 
 export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
@@ -13,11 +14,16 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
     if (!b.name?.trim()) {
       return NextResponse.json({ error: 'اسم العميل مطلوب' }, { status: 400 })
     }
+    // التليفون اختياري، لكن لو اتكتب لازم يكون 11 رقم (بنقبل الأرقام العربية ونوحّدها)
+    const cleanPhone = b.phone !== undefined ? (b.phone ? normalizeDigits(String(b.phone)).trim() : null) : undefined
+    if (cleanPhone && !/^\d{11}$/.test(cleanPhone)) {
+      return NextResponse.json({ error: 'رقم التليفون لازم يكون 11 رقم' }, { status: 400 })
+    }
     const customer = await prisma.customer.update({
       where: { id: params.id },
       data: {
         name: b.name.trim(),
-        phone: b.phone !== undefined ? b.phone || null : undefined,
+        phone: cleanPhone,
         address: b.address !== undefined ? b.address || null : undefined,
         area: b.area !== undefined ? b.area || null : undefined,
         governorate: b.governorate !== undefined ? b.governorate || null : undefined,

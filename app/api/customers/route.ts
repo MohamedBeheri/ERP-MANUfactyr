@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { normalizeDigits } from '@/lib/numbers'
 
 
 export async function GET() {
@@ -30,10 +31,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'اسم العميل مطلوب' }, { status: 400 })
     }
 
+    // التليفون اختياري، لكن لو اتكتب لازم يكون 11 رقم (بنقبل الأرقام العربية ونوحّدها)
+    const cleanPhone = phone ? normalizeDigits(String(phone)).trim() : null
+    if (cleanPhone && !/^\d{11}$/.test(cleanPhone)) {
+      return NextResponse.json({ error: 'رقم التليفون لازم يكون 11 رقم' }, { status: 400 })
+    }
+
     const customer = await prisma.customer.create({
       data: {
         name,
-        phone: phone || null,
+        phone: cleanPhone,
         address: address || null,
         area: area || null,
         governorate: governorate || null,

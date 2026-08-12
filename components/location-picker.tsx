@@ -63,14 +63,13 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
       if (cancelled || !mapRef.current) return
       const center: [number, number] = value ? [value.lat, value.lng] : EGYPT_CENTER
       if (!leafletMap.current) {
+        // أزرار +/- والسحب متاحين دايمًا عشان التنقل في الخريطة يبقى سهل
         leafletMap.current = L.map(mapRef.current, {
-          zoomControl: manualMode, attributionControl: false,
-          dragging: manualMode, scrollWheelZoom: false,
+          zoomControl: true, attributionControl: false,
+          dragging: true, scrollWheelZoom: false,
         }).setView(center, value ? 15 : 6)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(leafletMap.current)
       } else {
-        leafletMap.current.dragging[manualMode ? 'enable' : 'disable']()
-        if (manualMode) leafletMap.current.zoomControl?.remove?.()
         leafletMap.current.setView(center, value ? 15 : 6)
       }
       const icon = L.divIcon({
@@ -148,7 +147,7 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
             <button
               type="button"
               onClick={capture}
-              className="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur p-1.5 rounded-md shadow hover:bg-white"
+              className="absolute top-1.5 right-1.5 z-[1000] bg-white/90 backdrop-blur p-1.5 rounded-md shadow hover:bg-white"
               title="تحديث الموقع بموقعي الحالي"
               aria-label="تحديث الموقع بموقعي الحالي"
             >
@@ -170,7 +169,7 @@ export function LocationPreview({ lat, lng, height = 160 }: { lat: number; lng: 
     let cancelled = false
     import('leaflet').then((L) => {
       if (cancelled || !mapRef.current) return
-      leafletMap.current = L.map(mapRef.current, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false }).setView([lat, lng], 15)
+      leafletMap.current = L.map(mapRef.current, { zoomControl: true, attributionControl: false, dragging: true, scrollWheelZoom: false }).setView([lat, lng], 15)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(leafletMap.current)
       const icon = L.divIcon({
         className: '',

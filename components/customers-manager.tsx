@@ -91,8 +91,13 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
     setError('')
   }
 
+  // التليفون اختياري — لكن لو اتكتب لازم 11 رقم (بنقبل الأرقام العربية)
+  const phoneDigits = (p: string) => p.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\D/g, '')
+  const phoneInvalid = form.phone.trim() !== '' && phoneDigits(form.phone).length !== 11
+
   const createCustomer = async () => {
     if (!form.name.trim()) { setError('اسم العميل مطلوب'); return }
+    if (phoneInvalid) { setError('رقم التليفون لازم يكون 11 رقم'); return }
     setSaving(true); setError('')
     const res = await fetch('/api/customers', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -107,6 +112,7 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
 
   const saveEdit = async () => {
     if (!editing) return
+    if (phoneInvalid) { setError('رقم التليفون لازم يكون 11 رقم'); return }
     setSaving(true); setError('')
     const res = await fetch(`/api/customers/${editing.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -158,8 +164,9 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">التليفون</label>
-          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} dir="ltr" />
+          <label className="block text-xs font-semibold text-gray-500 mb-1">التليفون <span className="text-gray-400 font-normal">(11 رقم)</span></label>
+          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} dir="ltr" inputMode="tel" maxLength={11} placeholder="01xxxxxxxxx" />
+          {phoneInvalid && <p className="text-[10px] text-red-500 mt-0.5">{phoneDigits(form.phone).length}/11 رقم</p>}
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">النوع</label>
