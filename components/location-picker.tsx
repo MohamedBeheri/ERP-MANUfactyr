@@ -91,3 +91,28 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
     </div>
   )
 }
+
+// خريطة معاينة للقراءة فقط (بدون زرار تسجيل) — لعرض موقع مسجّل مسبقًا
+export function LocationPreview({ lat, lng, height = 160 }: { lat: number; lng: number; height?: number }) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const leafletMap = useRef<any>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    import('leaflet').then((L) => {
+      if (cancelled || !mapRef.current) return
+      leafletMap.current = L.map(mapRef.current, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false }).setView([lat, lng], 15)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(leafletMap.current)
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:16px;height:16px;border-radius:50%;background:#e94560;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+        iconSize: [16, 16], iconAnchor: [8, 8],
+      })
+      L.marker([lat, lng], { icon }).addTo(leafletMap.current)
+      setTimeout(() => leafletMap.current?.invalidateSize(), 50)
+    })
+    return () => { cancelled = true; if (leafletMap.current) { leafletMap.current.remove(); leafletMap.current = null } }
+  }, [lat, lng])
+
+  return <div ref={mapRef} style={{ height }} className="rounded-lg overflow-hidden border border-gray-200" />
+}
