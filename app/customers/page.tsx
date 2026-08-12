@@ -54,6 +54,7 @@ export default async function CustomersPage() {
   })
 
   const totalDebt = customers.reduce((s, c) => s + Number(c.balance), 0)
+  const totalPurchases = customers.reduce((s, c) => s + Number(c.totalPurchases), 0)
   const wholesale = customers.filter((c) => c.customerType === 'WHOLESALE').length
 
   return (
@@ -63,7 +64,7 @@ export default async function CustomersPage() {
         <p className="text-sm text-gray-500 mt-0.5">بروفايل كامل لكل عميل — مشترياته وطلباته ومديونيته وتواصل مباشر</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-xl shadow-sm">
           <p className="text-2xl font-bold text-[#1a1a2e] tabular-nums">{customers.length}</p>
           <p className="text-xs text-gray-500">إجمالي العملاء</p>
@@ -75,6 +76,10 @@ export default async function CustomersPage() {
         <div className="bg-white p-4 rounded-xl shadow-sm">
           <p className="text-2xl font-bold text-gray-600 tabular-nums">{customers.length - wholesale}</p>
           <p className="text-xs text-gray-500">عملاء قطاعي</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm">
+          <p className="text-2xl font-bold text-green-600 tabular-nums">{totalPurchases.toLocaleString('ar-EG')} ج.م</p>
+          <p className="text-xs text-gray-500">إجمالي المشتريات</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm">
           <p className="text-2xl font-bold text-red-600 tabular-nums">{totalDebt.toLocaleString('ar-EG')} ج.م</p>

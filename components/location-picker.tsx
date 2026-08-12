@@ -13,19 +13,33 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [blocked, setBlocked] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const leafletMap = useRef<any>(null)
   const markerRef = useRef<any>(null)
 
+  // نتحقق من حالة إذن الموقع فور تحميل الفورم — عشان نبين رسالة تفعيل واضحة من غير ما ننتظر المستخدم يضغط ويفشل
+  useEffect(() => {
+    if (!navigator.permissions?.query) return
+    let status: PermissionStatus | null = null
+    navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((s) => {
+      status = s
+      setBlocked(s.state === 'denied')
+      s.onchange = () => setBlocked(s.state === 'denied')
+    }).catch(() => {})
+    return () => { if (status) status.onchange = null }
+  }, [])
+
   const capture = () => {
     setError('')
-    if (!navigator.geolocation) { setError('المتصفح ده مش بيدعم تحديد الموقع الجغرافي'); return }
+    if (!navigator.geolocation) { setError('الجهاز/المتصفح ده مش بيدعم تحديد الموقع الجغرافي'); return }
     setLoading(true)
     navigator.geolocation.getCurrentPosition(
-      (pos) => { onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLoading(false) },
+      (pos) => { onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLoading(false); setBlocked(false); setError('') },
       (err) => {
         setLoading(false)
-        if (err.code === err.PERMISSION_DENIED) setError('الوصول للموقع متبلوك — فعّله من أيقونة القفل 🔒 بجانب شريط العنوان في المتصفح وجرب تاني')
+        if (err.code === err.PERMISSION_DENIED) { setBlocked(true); setError('الوصول للموقع متبلوك — فعّله من أيقونة القفل 🔒 بجانب شريط العنوان في المتصفح وجرب تاني') }
+        else if (err.code === err.POSITION_UNAVAILABLE) setError('خدمة الموقع (GPS) مقفولة على الجهاز — فعّلها من إعدادات الجهاز وجرب تاني')
         else if (err.code === err.TIMEOUT) setError('استنينا كتير من غير رد — جرب في مكان مفتوح واضغط تاني')
         else setError('تعذر تحديد الموقع دلوقتي — جرب تاني')
       },
@@ -60,6 +74,15 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
 
   return (
     <div className="space-y-1.5">
+      {blocked && !value && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed">
+          <p className="font-bold mb-0.5">📍 خدمة الموقع متبلوكة على المتصفح ده</p>
+          <p>
+            عشان نقدر نسجّل موقع العميل تلقائيًا: افتح إعدادات الموقع 🔒 بجانب شريط العنوان (أو إعدادات المتصفح ← أذونات الموقع)،
+            فعّل "السماح بالوصول للموقع" لهذا الموقع، وبعدين اضغط "جرب تاني" تحت.
+          </p>
+        </div>
+      )}
       <button
         type="button"
         onClick={capture}
@@ -67,7 +90,7 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
         className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition border ${value ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
       >
         {loading ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-        {loading ? 'جاري تحديد موقعك...' : value ? 'الموقع مسجّل — اضغط لتحديثه بموقعك الحالي' : label}
+        {loading ? 'جاري تحديد موقعك...' : value ? 'الموقع مسجّل — اضغط لتحديثه بموقعك الحالي' : blocked ? 'جرب تاني بعد ما تفعّل الإذن' : label}
       </button>
       {error && (
         <p className="text-[11px] text-red-500 flex items-start gap-1">
