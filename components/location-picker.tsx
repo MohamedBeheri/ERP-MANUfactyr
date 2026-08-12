@@ -38,8 +38,8 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
       (pos) => { onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLoading(false); setBlocked(false); setError('') },
       (err) => {
         setLoading(false)
-        if (err.code === err.PERMISSION_DENIED) { setBlocked(true); setError('الوصول للموقع متبلوك — فعّله من أيقونة القفل 🔒 بجانب شريط العنوان في المتصفح وجرب تاني') }
-        else if (err.code === err.POSITION_UNAVAILABLE) setError('خدمة الموقع (GPS) مقفولة على الجهاز — فعّلها من إعدادات الجهاز وجرب تاني')
+        if (err.code === err.PERMISSION_DENIED) { setBlocked(true); setError('الوصول للموقع مرفوض — شوف خطوات التفعيل فوق وجرب تاني') }
+        else if (err.code === err.POSITION_UNAVAILABLE) setError('تعذر تحديد الموقع — تأكد إن خدمة الموقع مفعّلة على جهازك وإن عندك اتصال بالإنترنت وجرب تاني')
         else if (err.code === err.TIMEOUT) setError('استنينا كتير من غير رد — جرب في مكان مفتوح واضغط تاني')
         else setError('تعذر تحديد الموقع دلوقتي — جرب تاني')
       },
@@ -75,12 +75,14 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
   return (
     <div className="space-y-1.5">
       {blocked && !value && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed">
-          <p className="font-bold mb-0.5">📍 خدمة الموقع متبلوكة على المتصفح ده</p>
-          <p>
-            عشان نقدر نسجّل موقع العميل تلقائيًا: افتح إعدادات الموقع 🔒 بجانب شريط العنوان (أو إعدادات المتصفح ← أذونات الموقع)،
-            فعّل "السماح بالوصول للموقع" لهذا الموقع، وبعدين اضغط "جرب تاني" تحت.
-          </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed space-y-1.5">
+          <p className="font-bold">📍 مش قادرين ناخد موقعك — جرب بالترتيب:</p>
+          <ol className="list-decimal pr-4 space-y-1">
+            <li>افتح أيقونة القفل 🔒 (أو الإعدادات) بجانب شريط العنوان، وتأكد إن "الموقع" مسموح لهذا الموقع.</li>
+            <li>لو دوس أو موبايل: افتح إعدادات النظام ← الخصوصية والأمان ← خدمات الموقع، وتأكد إنها مفعّلة بشكل عام وإن المتصفح (Chrome/Safari) مسموح له من القائمة.</li>
+            <li>لو لسه مش شغال: من إعدادات المتصفح نفسه (Settings ← Privacy ← Location)، تأكد إن الموقع مش مضاف في قائمة "Not allowed" وسيبه على "Ask before accessing".</li>
+          </ol>
+          <p>بعد كده اضغط "جرب تاني" تحت.</p>
         </div>
       )}
       <button
