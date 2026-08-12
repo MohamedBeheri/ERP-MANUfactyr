@@ -256,13 +256,22 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                           {c.tierName || (c.customerType === 'WHOLESALE' ? 'جملة' : 'قطاعي')}
                         </span>
                         {c.bonusPoints > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold tabular-nums">🎁 {fmt(c.bonusPoints)}</span>}
-                        {c.balance > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 font-bold tabular-nums">مديونية {fmt(c.balance)}</span>}
                       </div>
                     </div>
                   </div>
                   <div className="text-xs text-gray-500 space-y-1">
                     {c.phone && <p className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" /> <span dir="ltr" className="tabular-nums">{c.phone}</span></p>}
                     {(c.governorate || c.area) && <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {[c.governorate, c.area].filter(Boolean).join(' — ')}</p>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-green-50 rounded-lg px-2.5 py-1.5">
+                      <p className="text-[10px] text-gray-500">إجمالي المشتريات</p>
+                      <p className="text-xs font-bold tabular-nums text-green-700">{fmt(c.totalPurchases)} ج.م</p>
+                    </div>
+                    <div className={`rounded-lg px-2.5 py-1.5 ${c.balance > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] text-gray-500">المديونية</p>
+                      <p className={`text-xs font-bold tabular-nums ${c.balance > 0 ? 'text-red-600' : 'text-gray-400'}`}>{c.balance > 0 ? `${fmt(c.balance)} ج.م` : 'لا يوجد'}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 pt-1">
                     <button onClick={() => setViewing(c)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-50 text-gray-600 text-xs font-bold"><Eye className="w-3.5 h-3.5" /> عرض</button>
@@ -283,6 +292,8 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                   <th className="p-3 font-medium">النوع</th>
                   <th className="p-3 font-medium">المنطقة</th>
                   <th className="p-3 font-medium">التليفون</th>
+                  <th className="p-3 font-medium">إجمالي المشتريات</th>
+                  <th className="p-3 font-medium">المديونية</th>
                   <th className="p-3 font-medium no-print"></th>
                 </tr>
               </thead>
@@ -296,7 +307,6 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                           <p className="font-semibold text-[#1a1a2e] truncate">{c.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {c.bonusPoints > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold tabular-nums">🎁 {fmt(c.bonusPoints)}</span>}
-                            {c.balance > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 font-bold tabular-nums">مديونية {fmt(c.balance)}</span>}
                           </div>
                         </div>
                       </div>
@@ -316,6 +326,14 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
                     </td>
                     <td className="p-3 text-gray-600">
                       {c.phone ? <span dir="ltr" className="tabular-nums text-xs">{c.phone}</span> : <span className="text-gray-300 text-xs">—</span>}
+                    </td>
+                    <td className="p-3">
+                      <span className="text-xs font-bold tabular-nums text-green-700 whitespace-nowrap">{fmt(c.totalPurchases)} ج.م</span>
+                    </td>
+                    <td className="p-3">
+                      {c.balance > 0
+                        ? <span className="text-xs font-bold tabular-nums text-red-600 whitespace-nowrap">{fmt(c.balance)} ج.م</span>
+                        : <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">لا يوجد</span>}
                     </td>
                     <td className="p-3 no-print">
                       <div className="flex items-center gap-1.5 justify-end">
