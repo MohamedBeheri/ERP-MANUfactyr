@@ -31,6 +31,16 @@ import {
   X,
 } from 'lucide-react'
 import { effectivePermissions } from '@/lib/permissions'
+import { useNotifications } from '@/hooks/use-notifications'
+
+function Badge({ count }: { count: number }) {
+  if (!count) return null
+  return (
+    <span className="mr-auto min-w-[18px] h-[18px] px-1 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
 
 type Item = { href: string; label: string; Icon: any; perm: string | null; exact?: boolean }
 // standalone = بند مفرد بدون مجموعة (زي لوحة التحكم)
@@ -81,10 +91,15 @@ const menu: Entry[] = [
     ],
   },
   {
-    kind: 'group', id: 'admin', title: 'المالية والإدارة', Icon: Wallet,
+    kind: 'group', id: 'finance', title: 'الخزينة والماليات', Icon: Vault,
     items: [
       { href: '/treasury', label: 'الخزنة والعُهد', Icon: Vault, perm: 'treasury' },
-      { href: '/finance', label: 'التقارير', Icon: Wallet, perm: 'finance' },
+      { href: '/finance', label: 'التقارير المالية', Icon: Wallet, perm: 'finance' },
+    ],
+  },
+  {
+    kind: 'group', id: 'admin', title: 'الإدارة', Icon: ShieldCheck,
+    items: [
       { href: '/employees', label: 'الموظفين', Icon: UserCog, perm: 'employees' },
       { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, perm: 'governance' },
       { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },
@@ -98,6 +113,13 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
   const pathname = usePathname()
   const allowed = effectivePermissions(user?.role, user?.permissions)
   const hasPerm = (perm: string | null) => !perm || allowed.includes(perm) || allowed.some((p) => p.startsWith(perm + ':'))
+
+  // عدّاد الإشعارات لكل قسم (section) — للعلامة على التاب اللي فيه أكشن
+  const { groups: notifGroups } = useNotifications()
+  const countFor = (perm: string | null) => {
+    if (!perm) return 0
+    return notifGroups.filter((g) => g.section === perm).reduce((s, g) => s + g.count, 0)
+  }
 
   // فلترة البنود حسب الصلاحيات + استبعاد المجموعات الفاضية
   const entries: Entry[] = menu
@@ -170,6 +192,9 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
           const GroupIcon = e.Icon
           const groupActive = e.items.some((it) => isActive(pathname, it.href))
           const isOpen = openGroups[e.id] ?? groupActive
+          // مجموع فريد حسب القسم (عشان مايتعدّش مرتين لو نفس الصلاحية في أكتر من بند)
+          const groupPerms = Array.from(new Set(e.items.map((it) => it.perm).filter(Boolean)))
+          const groupCount = groupPerms.reduce((s, p) => s + countFor(p as string), 0)
           return (
             <div key={e.id}>
               <button
@@ -180,12 +205,14 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
               >
                 <GroupIcon className="w-5 h-5 shrink-0" strokeWidth={groupActive ? 2.2 : 1.8} />
                 <span className="font-semibold text-sm">{e.title}</span>
-                <ChevronDown className={`mr-auto w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                {groupCount > 0 && !isOpen && <Badge count={groupCount} />}
+                <ChevronDown className={`${groupCount > 0 && !isOpen ? '' : 'mr-auto'} w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
               </button>
               {isOpen && (
                 <div className="mt-1 mr-4 pr-3 border-r border-white/10 space-y-0.5">
-                  {e.items.map(({ href, label, Icon, exact }) => {
+                  {e.items.map(({ href, label, Icon, exact, perm }) => {
                     const active = exact ? pathname === href : isActive(pathname, href)
+                    const cnt = countFor(perm)
                     return (
                       <Link
                         key={href}
@@ -197,7 +224,7 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
                       >
                         <Icon className="w-4 h-4 shrink-0" strokeWidth={active ? 2.2 : 1.8} />
                         <span className="font-medium text-[13px]">{label}</span>
-                        {active && <span className="mr-auto w-1.5 h-1.5 rounded-full bg-[#e94560]" />}
+                        {cnt > 0 ? <Badge count={cnt} /> : active ? <span className="mr-auto w-1.5 h-1.5 rounded-full bg-[#e94560]" /> : null}
                       </Link>
                     )
                   })}
