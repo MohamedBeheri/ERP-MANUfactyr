@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { MapPin, LoaderCircle, RefreshCw } from 'lucide-react'
+import { MapPin, LoaderCircle, RefreshCw, MousePointerClick } from 'lucide-react'
 
 export interface GeoPoint { lat: number; lng: number }
 
+const EGYPT_CENTER: [number, number] = [26.8, 30.8]
+
 // زرار تسجيل الموقع اللايف + خريطة معاينة صغيرة تتأكد بيها إن الإحداثيات صح
+// + بديل يدوي (تحديد بالنقر على الخريطة) لو الـ GPS مش شغال لأي سبب
 export function LocationPicker({ value, onChange, label = 'تسجيل موقعي الحالي' }: {
   value: GeoPoint | null
   onChange: (p: GeoPoint | null) => void
@@ -14,6 +17,7 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [blocked, setBlocked] = useState(false)
+  const [manualMode, setManualMode] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const leafletMap = useRef<any>(null)
   const markerRef = useRef<any>(null)
@@ -32,85 +36,120 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
 
   const capture = () => {
     setError('')
-    if (!navigator.geolocation) { setError('الجهاز/المتصفح ده مش بيدعم تحديد الموقع الجغرافي'); return }
+    if (!navigator.geolocation) { setError('الجهاز/المتصفح ده مش بيدعم تحديد الموقع الجغرافي — استخدم التحديد اليدوي تحت'); return }
     setLoading(true)
     navigator.geolocation.getCurrentPosition(
-      (pos) => { onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLoading(false); setBlocked(false); setError('') },
+      (pos) => { onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLoading(false); setBlocked(false); setError(''); setManualMode(false) },
       (err) => {
         setLoading(false)
-        if (err.code === err.PERMISSION_DENIED) { setBlocked(true); setError('الوصول للموقع مرفوض — شوف خطوات التفعيل فوق وجرب تاني') }
-        else if (err.code === err.POSITION_UNAVAILABLE) setError('تعذر تحديد الموقع — تأكد إن خدمة الموقع مفعّلة على جهازك وإن عندك اتصال بالإنترنت وجرب تاني')
-        else if (err.code === err.TIMEOUT) setError('استنينا كتير من غير رد — جرب في مكان مفتوح واضغط تاني')
-        else setError('تعذر تحديد الموقع دلوقتي — جرب تاني')
+        if (err.code === err.PERMISSION_DENIED) { setBlocked(true); setError('الوصول للموقع مرفوض — شوف خطوات التفعيل فوق، أو استخدم التحديد اليدوي على الخريطة تحت') }
+        else if (err.code === err.POSITION_UNAVAILABLE) setError('تعذر تحديد الموقع تلقائيًا (مفيش إشارة GPS/واي فاي كفاية) — استخدم "تحديد يدوي على الخريطة" تحت وحدد مكانك بنفسك')
+        else if (err.code === err.TIMEOUT) setError('استنينا كتير من غير رد — جرب تاني أو استخدم التحديد اليدوي تحت')
+        else setError('تعذر تحديد الموقع دلوقتي — استخدم التحديد اليدوي تحت')
       },
       { enableHighAccuracy: true, timeout: 12000 }
     )
   }
 
+  // خريطة تفاعلية: تعرض الموقع الحالي، وتسمح بالنقر/السحب لتحديد نقطة يدويًا لما وضع التحديد اليدوي مفعّل
   useEffect(() => {
-    if (!value || !mapRef.current) return
+    if (!mapRef.current) return
+    if (!value && !manualMode) return
     let cancelled = false
     import('leaflet').then((L) => {
       if (cancelled || !mapRef.current) return
+      const center: [number, number] = value ? [value.lat, value.lng] : EGYPT_CENTER
       if (!leafletMap.current) {
-        leafletMap.current = L.map(mapRef.current, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false }).setView([value.lat, value.lng], 15)
+        leafletMap.current = L.map(mapRef.current, {
+          zoomControl: manualMode, attributionControl: false,
+          dragging: manualMode, scrollWheelZoom: false,
+        }).setView(center, value ? 15 : 6)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(leafletMap.current)
       } else {
-        leafletMap.current.setView([value.lat, value.lng], 15)
+        leafletMap.current.dragging[manualMode ? 'enable' : 'disable']()
+        if (manualMode) leafletMap.current.zoomControl?.remove?.()
+        leafletMap.current.setView(center, value ? 15 : 6)
       }
-      if (markerRef.current) markerRef.current.remove()
       const icon = L.divIcon({
         className: '',
         html: `<div style="width:16px;height:16px;border-radius:50%;background:#e94560;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
         iconSize: [16, 16], iconAnchor: [8, 8],
       })
-      markerRef.current = L.marker([value.lat, value.lng], { icon }).addTo(leafletMap.current)
+      if (markerRef.current) { markerRef.current.remove(); markerRef.current = null }
+      if (value) {
+        markerRef.current = L.marker([value.lat, value.lng], { icon, draggable: manualMode }).addTo(leafletMap.current)
+        if (manualMode) markerRef.current.on('dragend', (e: any) => { const p = e.target.getLatLng(); onChange({ lat: p.lat, lng: p.lng }) })
+      }
+      if (manualMode) {
+        leafletMap.current.off('click')
+        leafletMap.current.on('click', (e: any) => { onChange({ lat: e.latlng.lat, lng: e.latlng.lng }); setError(''); setBlocked(false) })
+      } else {
+        leafletMap.current.off('click')
+      }
       setTimeout(() => leafletMap.current?.invalidateSize(), 50)
     })
     return () => { cancelled = true }
-  }, [value])
+  }, [value, manualMode])
 
   useEffect(() => () => { if (leafletMap.current) { leafletMap.current.remove(); leafletMap.current = null } }, [])
+
+  const showMap = !!value || manualMode
 
   return (
     <div className="space-y-1.5">
       {blocked && !value && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed space-y-1.5">
-          <p className="font-bold">📍 مش قادرين ناخد موقعك — جرب بالترتيب:</p>
+          <p className="font-bold">📍 مش قادرين ناخد موقعك تلقائيًا — جرب بالترتيب:</p>
           <ol className="list-decimal pr-4 space-y-1">
             <li>افتح أيقونة القفل 🔒 (أو الإعدادات) بجانب شريط العنوان، وتأكد إن "الموقع" مسموح لهذا الموقع.</li>
-            <li>لو دوس أو موبايل: افتح إعدادات النظام ← الخصوصية والأمان ← خدمات الموقع، وتأكد إنها مفعّلة بشكل عام وإن المتصفح (Chrome/Safari) مسموح له من القائمة.</li>
-            <li>لو لسه مش شغال: من إعدادات المتصفح نفسه (Settings ← Privacy ← Location)، تأكد إن الموقع مش مضاف في قائمة "Not allowed" وسيبه على "Ask before accessing".</li>
+            <li>لو دوس أو موبايل: افتح إعدادات النظام ← الخصوصية والأمان ← خدمات الموقع، وتأكد إنها مفعّلة بشكل عام وإن المتصفح مسموح له من القائمة.</li>
+            <li>لو الإعدادات كلها شغالة ولسه مش قادر: استخدم "تحديد يدوي على الخريطة" تحت — بيشتغل مية بالمية.</li>
           </ol>
-          <p>بعد كده اضغط "جرب تاني" تحت.</p>
         </div>
       )}
-      <button
-        type="button"
-        onClick={capture}
-        disabled={loading}
-        className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition border ${value ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
-      >
-        {loading ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-        {loading ? 'جاري تحديد موقعك...' : value ? 'الموقع مسجّل — اضغط لتحديثه بموقعك الحالي' : blocked ? 'جرب تاني بعد ما تفعّل الإذن' : label}
-      </button>
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={capture}
+          disabled={loading}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition border ${value ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
+        >
+          {loading ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+          {loading ? 'جاري تحديد موقعك...' : value ? 'تحديث بموقعي الحالي' : label}
+        </button>
+        <button
+          type="button"
+          onClick={() => setManualMode((m) => !m)}
+          className={`shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition border ${manualMode ? 'bg-[#0f3460] border-[#0f3460] text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
+          title="تحديد يدوي على الخريطة"
+        >
+          <MousePointerClick className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {manualMode && (
+        <p className="text-[11px] text-[#0f3460] bg-blue-50 border border-blue-100 rounded-lg p-2">
+          دوس على مكان العميل بالظبط على الخريطة تحت (أو اسحب الدبوس) عشان تسجّل موقعه يدويًا.
+        </p>
+      )}
       {error && (
         <p className="text-[11px] text-red-500 flex items-start gap-1">
           <span>{error}</span>
         </p>
       )}
-      {value && (
+      {showMap && (
         <div className="relative">
-          <div ref={mapRef} className="h-32 rounded-lg overflow-hidden border border-gray-200" />
-          <button
-            type="button"
-            onClick={capture}
-            className="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur p-1.5 rounded-md shadow hover:bg-white"
-            title="تحديث الموقع"
-            aria-label="تحديث الموقع"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-gray-600" />
-          </button>
+          <div ref={mapRef} className="h-40 rounded-lg overflow-hidden border border-gray-200" />
+          {value && !manualMode && (
+            <button
+              type="button"
+              onClick={capture}
+              className="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur p-1.5 rounded-md shadow hover:bg-white"
+              title="تحديث الموقع بموقعي الحالي"
+              aria-label="تحديث الموقع بموقعي الحالي"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-gray-600" />
+            </button>
+          )}
         </div>
       )}
     </div>
