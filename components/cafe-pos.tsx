@@ -86,6 +86,7 @@ export function CafePos({
   const [categoryFilter, setCategoryFilter] = useState('')
   const [customerId, setCustomerId] = useState('')
   const [newCustomer, setNewCustomer] = useState('')
+  const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerType, setNewCustomerType] = useState<'RETAIL' | 'WHOLESALE'>('RETAIL')
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
@@ -160,10 +161,15 @@ export function CafePos({
   const discountPct = Math.min(100, Math.max(0, Number(discount) || 0))
   const net = subtotal - (subtotal * discountPct) / 100
 
+  // التليفون إجباري للعميل الجديد ولازم 11 رقم (بنقبل الأرقام العربية)
+  const phoneDigits = (p: string) => p.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\D/g, '')
+  const newPhoneInvalid = phoneDigits(newCustomerPhone).length !== 11
+
   const openPay = () => {
     setError('')
     if (cart.length === 0) return setError('السلة فاضية — اختار منتجات الأول')
     if (!customerId && !newCustomer.trim()) return setError('اختار عميل أو سجّل عميل جديد')
+    if (!customerId && newCustomer.trim() && newPhoneInvalid) return setError('رقم تليفون العميل الجديد مطلوب ولازم يكون 11 رقم')
     setPayOpen(true)
   }
 
@@ -173,7 +179,7 @@ export function CafePos({
       const res = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newCustomer.trim(), type, customerType: newCustomerType }),
+        body: JSON.stringify({ name: newCustomer.trim(), phone: newCustomerPhone.trim(), type, customerType: newCustomerType }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'فشل تسجيل العميل')
@@ -199,6 +205,7 @@ export function CafePos({
     setCart([])
     setCustomerId('')
     setNewCustomer('')
+    setNewCustomerPhone('')
     setDiscount('0')
     setPayOpen(false)
     router.refresh()
@@ -332,7 +339,7 @@ export function CafePos({
               <label className="text-xs font-semibold text-gray-600">العميل</label>
               <button
                 type="button"
-                onClick={() => { setShowNewCustomer(!showNewCustomer); setCustomerId(''); setNewCustomer('') }}
+                onClick={() => { setShowNewCustomer(!showNewCustomer); setCustomerId(''); setNewCustomer(''); setNewCustomerPhone('') }}
                 className="flex items-center gap-1 text-xs text-[#0f3460] font-medium hover:underline"
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -340,21 +347,30 @@ export function CafePos({
               </button>
             </div>
             {showNewCustomer ? (
-              <div className="flex gap-2">
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    value={newCustomer}
+                    onChange={(e) => setNewCustomer(e.target.value)}
+                    placeholder="اسم العميل الجديد"
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+                  />
+                  <select
+                    value={newCustomerType}
+                    onChange={(e) => { const v = e.target.value as 'RETAIL' | 'WHOLESALE'; setNewCustomerType(v); repriceCart(null, v === 'WHOLESALE') }}
+                    className="w-24 shrink-0 px-2 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+                  >
+                    <option value="RETAIL">قطاعي</option>
+                    <option value="WHOLESALE">جملة</option>
+                  </select>
+                </div>
                 <input
-                  value={newCustomer}
-                  onChange={(e) => setNewCustomer(e.target.value)}
-                  placeholder="اسم العميل الجديد"
-                  className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
+                  value={newCustomerPhone}
+                  onChange={(e) => setNewCustomerPhone(e.target.value)}
+                  placeholder="رقم التليفون * (11 رقم)"
+                  dir="ltr" inputMode="tel" maxLength={11}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm ${newPhoneInvalid && newCustomerPhone.trim() !== '' ? 'border-red-300' : 'border-gray-200'}`}
                 />
-                <select
-                  value={newCustomerType}
-                  onChange={(e) => { const v = e.target.value as 'RETAIL' | 'WHOLESALE'; setNewCustomerType(v); repriceCart(null, v === 'WHOLESALE') }}
-                  className="w-24 shrink-0 px-2 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
-                >
-                  <option value="RETAIL">قطاعي</option>
-                  <option value="WHOLESALE">جملة</option>
-                </select>
               </div>
             ) : (
               <SearchableSelect

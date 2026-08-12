@@ -144,16 +144,16 @@ export function DeliverForm({
   const paidNow = payMethod === 'آجل' ? 0 : payMethod === 'نقدي جزئي' ? Math.min(netAmount, Number(paidAmount) || 0) : netAmount
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
 
-  // التليفون اختياري — لكن لو اتكتب لازم 11 رقم (بنقبل الأرقام العربية)
+  // التليفون إجباري ولازم يكون 11 رقم (بنقبل الأرقام العربية)
   const phoneDigits = (p: string) => p.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\D/g, '')
-  const ncPhoneInvalid = nc.phone.trim() !== '' && phoneDigits(nc.phone).length !== 11
+  const ncPhoneInvalid = phoneDigits(nc.phone).length !== 11
 
   // ===== الانتقال بين الخطوات =====
   const toPayment = () => {
     setError('')
     if (mode === 'existing' && !customerId) return setError('اختار العميل الأول')
     if (mode === 'new' && !nc.name.trim()) return setError('اكتب اسم العميل الجديد')
-    if (mode === 'new' && ncPhoneInvalid) return setError('رقم التليفون لازم يكون 11 رقم')
+    if (mode === 'new' && ncPhoneInvalid) return setError('رقم التليفون مطلوب ولازم يكون 11 رقم')
     if (validLines.length === 0) return setError('اختار صنف واحد على الأقل')
     setStep('payment')
   }
@@ -272,7 +272,7 @@ export function DeliverForm({
               <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
                 <input placeholder="اسم العميل *" value={nc.name} onChange={(e) => setNc({ ...nc, name: e.target.value })} className={inputCls} />
                 <div className="grid grid-cols-2 gap-2">
-                  <input placeholder="رقم التليفون (11 رقم)" value={nc.phone} onChange={(e) => setNc({ ...nc, phone: e.target.value })} className={`${inputCls} ${ncPhoneInvalid ? 'border-red-300' : ''}`} inputMode="tel" maxLength={11} dir="ltr" />
+                  <input placeholder="رقم التليفون * (11 رقم)" value={nc.phone} onChange={(e) => setNc({ ...nc, phone: e.target.value })} className={`${inputCls} ${ncPhoneInvalid && nc.phone.trim() !== '' ? 'border-red-300' : ''}`} inputMode="tel" maxLength={11} dir="ltr" />
                   <input placeholder="نوع النشاط (كافيه/سوبر ماركت)" value={nc.activityType} onChange={(e) => setNc({ ...nc, activityType: e.target.value })} className={inputCls} />
                 </div>
                 <input placeholder="العنوان" value={nc.address} onChange={(e) => setNc({ ...nc, address: e.target.value })} className={inputCls} />

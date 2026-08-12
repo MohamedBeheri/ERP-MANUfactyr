@@ -14,10 +14,10 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
     if (!b.name?.trim()) {
       return NextResponse.json({ error: 'اسم العميل مطلوب' }, { status: 400 })
     }
-    // التليفون اختياري، لكن لو اتكتب لازم يكون 11 رقم (بنقبل الأرقام العربية ونوحّدها)
-    const cleanPhone = b.phone !== undefined ? (b.phone ? normalizeDigits(String(b.phone)).trim() : null) : undefined
-    if (cleanPhone && !/^\d{11}$/.test(cleanPhone)) {
-      return NextResponse.json({ error: 'رقم التليفون لازم يكون 11 رقم' }, { status: 400 })
+    // التليفون إجباري ولازم يكون 11 رقم (بنقبل الأرقام العربية ونوحّدها)
+    const cleanPhone = b.phone ? normalizeDigits(String(b.phone)).trim() : ''
+    if (!/^\d{11}$/.test(cleanPhone)) {
+      return NextResponse.json({ error: 'رقم التليفون مطلوب ولازم يكون 11 رقم' }, { status: 400 })
     }
     const customer = await prisma.customer.update({
       where: { id: params.id },
