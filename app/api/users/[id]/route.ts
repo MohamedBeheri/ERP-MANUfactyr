@@ -30,14 +30,12 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
       return NextResponse.json({ error: 'الرقم القومي لازم يكون 14 رقم' }, { status: 400 })
     }
 
-    // منع تصعيد الصلاحيات: المستخدم مايقدرش يعدّل دوره/صلاحياته/حالته لنفسه (يمنع ترقية الذات لأدمن)
+    // منع تصعيد الصلاحيات: المستخدم بيقدر يعدّل بياناته وباسورده لنفسه،
+    // لكن الدور/الصلاحيات/الحالة بتتجاهل بصمت للنفس (مايقدرش يرقّي نفسه) — مش رفض للطلب كله
     const editingSelf = params.id === session.user.id
-    if (editingSelf && (role !== undefined || permissions !== undefined || status !== undefined)) {
-      return NextResponse.json({ error: 'مينفعش تعدّل دورك أو صلاحياتك أو حالتك بنفسك' }, { status: 403 })
-    }
-    // منح/تعديل صلاحية إدارة الموظفين نفسها من صلاحية الأدمن فقط
+    // منح/تعديل دور الأدمن أو صلاحية إدارة الموظفين لحساب تاني — من صلاحية الأدمن فقط
     const grantsEmployees = Array.isArray(permissions) && permissions.some((p: string) => p === 'employees' || p.startsWith('employees:'))
-    if ((role === 'ADMIN' || grantsEmployees) && session.user.role !== 'ADMIN') {
+    if (!editingSelf && (role === 'ADMIN' || grantsEmployees) && session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'منح دور الأدمن أو صلاحية إدارة الموظفين من صلاحية مدير النظام فقط' }, { status: 403 })
     }
 
