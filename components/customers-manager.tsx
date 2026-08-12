@@ -4,9 +4,10 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Phone, MapPin, Pencil, Trash2, X, MessageCircle, ChevronDown, User,
-  ReceiptText, Globe, Scale, Wallet, Star, Building2, LoaderCircle,
+  ReceiptText, Globe, Scale, Wallet, Star, Building2,
 } from 'lucide-react'
 import { EGYPT_GOVERNORATES } from '@/lib/governorates'
+import { LocationPicker, type GeoPoint } from '@/components/location-picker'
 
 export interface CustomerRow {
   id: string
@@ -45,22 +46,9 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
   const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState<CustomerRow | null>(null)
   const [form, setForm] = useState({ name: '', phone: '', address: '', area: '', governorate: '', customerType: 'RETAIL', tierId: '', creditLimit: '0' })
-  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null)
-  const [geoLoading, setGeoLoading] = useState(false)
-  const [geoError, setGeoError] = useState('')
+  const [geo, setGeo] = useState<GeoPoint | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-
-  const captureLocation = () => {
-    setGeoError('')
-    if (!navigator.geolocation) { setGeoError('الجهاز مش بيدعم تحديد الموقع'); return }
-    setGeoLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGeoLoading(false) },
-      () => { setGeoError('محتاجين إذن الوصول للموقع من إعدادات المتصفح'); setGeoLoading(false) },
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }
 
   const filtered = useMemo(() => {
     const term = q.trim()
@@ -75,7 +63,6 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
     setEditing(c)
     setForm({ name: c.name, phone: c.phone || '', address: c.address || '', area: c.area || '', governorate: c.governorate || '', customerType: c.customerType, tierId: c.tierId || '', creditLimit: String(c.creditLimit) })
     setGeo(c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : null)
-    setGeoError('')
     setError('')
   }
 
@@ -300,11 +287,7 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">موقع العميل الجغرافي</label>
-              <button type="button" onClick={captureLocation} disabled={geoLoading} className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition border ${geo ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                {geoLoading ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-                {geoLoading ? 'جاري تحديد موقعك...' : geo ? 'الموقع مسجّل — اضغط لتحديثه بموقعك الحالي' : 'تسجيل موقعي الحالي كموقع العميل'}
-              </button>
-              {geoError && <p className="text-[11px] text-red-500 mt-1">{geoError}</p>}
+              <LocationPicker value={geo} onChange={setGeo} label="تسجيل موقعي الحالي كموقع العميل" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الائتماني (للجملة)</label>

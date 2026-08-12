@@ -10,7 +10,7 @@ const PRESETS = [
   { days: 30, label: '30 يوم' },
 ]
 
-export function PeriodSelector({ current, basePath }: { current: number; basePath: string }) {
+export function PeriodSelector({ current, basePath, theme = 'dark' }: { current: number; basePath: string; theme?: 'dark' | 'light' }) {
   const router = useRouter()
   const params = useSearchParams()
   const fromVal = params.get('from') || ''
@@ -22,17 +22,19 @@ export function PeriodSelector({ current, basePath }: { current: number; basePat
     router.push(`${basePath}?${sp.toString()}`)
   }
 
+  const isDark = theme === 'dark'
+
   return (
     <div className="no-print flex flex-col items-end gap-2">
-      <div className="inline-flex bg-white/10 backdrop-blur rounded-lg p-1 gap-1">
+      <div className={`inline-flex rounded-lg p-1 gap-1 ${isDark ? 'bg-white/10 backdrop-blur' : 'bg-gray-100 border border-gray-200'}`}>
         {PRESETS.map((p) => (
           <button
             key={p.days}
             onClick={() => push({ days: String(p.days) })}
             className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               current === p.days && !fromVal
-                ? 'bg-white text-[#1a1a2e]'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
+                ? isDark ? 'bg-white text-[#1a1a2e]' : 'bg-white text-[#1a1a2e] shadow-sm'
+                : isDark ? 'text-white/70 hover:bg-white/10 hover:text-white' : 'text-gray-500 hover:bg-white hover:text-[#1a1a2e]'
             }`}
           >
             {p.label}
@@ -40,19 +42,19 @@ export function PeriodSelector({ current, basePath }: { current: number; basePat
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <CalendarDays className="w-4 h-4 text-white/50" />
+        <CalendarDays className={`w-4 h-4 ${isDark ? 'text-white/50' : 'text-gray-400'}`} />
         <input
           type="date"
           defaultValue={fromVal}
           onChange={e => push({ from: e.target.value, to: toVal || new Date().toISOString().slice(0, 10) })}
-          className="bg-white/10 backdrop-blur text-white text-xs rounded-md px-2 py-1.5 border-0 outline-none [color-scheme:dark]"
+          className={`text-xs rounded-md px-2 py-1.5 border-0 outline-none ${isDark ? 'bg-white/10 backdrop-blur text-white [color-scheme:dark]' : 'bg-gray-100 border border-gray-200 text-[#1a1a2e] [color-scheme:light]'}`}
         />
-        <span className="text-white/40 text-xs">إلى</span>
+        <span className={`text-xs ${isDark ? 'text-white/40' : 'text-gray-400'}`}>إلى</span>
         <input
           type="date"
           defaultValue={toVal}
           onChange={e => push({ from: fromVal || '2024-01-01', to: e.target.value })}
-          className="bg-white/10 backdrop-blur text-white text-xs rounded-md px-2 py-1.5 border-0 outline-none [color-scheme:dark]"
+          className={`text-xs rounded-md px-2 py-1.5 border-0 outline-none ${isDark ? 'bg-white/10 backdrop-blur text-white [color-scheme:dark]' : 'bg-gray-100 border border-gray-200 text-[#1a1a2e] [color-scheme:light]'}`}
         />
       </div>
     </div>

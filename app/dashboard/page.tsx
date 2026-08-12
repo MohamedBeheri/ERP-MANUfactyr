@@ -332,6 +332,21 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
         </div>
       )}
 
+      {/* ─── خريطة توزيع العملاء بالمحافظات ─── */}
+      <CustomerMap
+        customers={mapCustomers.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          area: c.area,
+          governorate: c.governorate,
+          lat: c.lat != null ? Number(c.lat) : null,
+          lng: c.lng != null ? Number(c.lng) : null,
+          balance: Number(c.balance),
+          customerType: c.customerType,
+        }))}
+      />
+
       {showOps && (
         <>
           {/* ─── KPI Cards — صف أول: المالية الرئيسية ─── */}
@@ -475,21 +490,6 @@ export default async function DashboardPage({ searchParams: rawSearchParams }: {
               </table>
             </div>
           </div>
-
-          {/* ─── خريطة توزيع العملاء بالمحافظات ─── */}
-          <CustomerMap
-            customers={mapCustomers.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              phone: c.phone,
-              area: c.area,
-              governorate: c.governorate,
-              lat: c.lat != null ? Number(c.lat) : null,
-              lng: c.lng != null ? Number(c.lng) : null,
-              balance: Number(c.balance),
-              customerType: c.customerType,
-            }))}
-          />
 
           {/* ─── Bottom: Receivables + Low Stock + Activity ─── */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">

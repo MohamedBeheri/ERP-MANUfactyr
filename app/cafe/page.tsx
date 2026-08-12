@@ -116,7 +116,7 @@ export default async function CafePage({ searchParams: raw }: { searchParams: Pr
           </div>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <PeriodSelector current={sp.from && sp.to ? 0 : days} basePath="/cafe" />
+          <PeriodSelector current={sp.from && sp.to ? 0 : days} basePath="/cafe" theme="light" />
           {canPos && <Link href="/cafe/pos" className="flex items-center gap-2 px-4 py-2 bg-[#e94560] text-white rounded-lg text-sm font-semibold hover:bg-[#d13350]"><ShoppingCart className="w-4 h-4" /> نقطة البيع</Link>}
           {canInv && <Link href="/cafe/inventory" className="flex items-center gap-2 px-4 py-2 bg-white ring-1 ring-gray-200 text-[#0f3460] rounded-lg text-sm font-semibold hover:bg-gray-50"><Boxes className="w-4 h-4" /> مخزن الكافيه</Link>}
         </div>

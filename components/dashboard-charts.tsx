@@ -228,10 +228,14 @@ export function ExpensesByCategoryChart({ items }: { items: { name: string; amou
 
 /* ─── خط الإنتاج اليومي ─── */
 export function ProductionTrendChart({ labels, produced, orders }: { labels: string[]; produced: number[]; orders: number[] }) {
+  const isEmpty = produced.every((v) => !v) && orders.every((v) => !v)
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5">
       <h3 className="text-sm font-bold text-[#1a1a2e] mb-1">حركة التصنيع</h3>
       <p className="text-[11px] text-gray-400 mb-4">الكمية المنتجة وعدد الأوامر</p>
+      {isEmpty ? (
+        <p className="h-56 flex items-center justify-center text-center text-gray-400 text-sm">مفيش تشغيلات تصنيع في الفترة دي</p>
+      ) : (
       <div className="h-56">
         <Bar
           data={{
@@ -256,16 +260,21 @@ export function ProductionTrendChart({ labels, produced, orders }: { labels: str
           }}
         />
       </div>
+      )}
     </div>
   )
 }
 
 /* ─── تدفقات نقدية (وارد/منصرف) ─── */
 export function CashFlowChart({ labels, inflows, outflows }: { labels: string[]; inflows: number[]; outflows: number[] }) {
+  const isEmpty = inflows.every((v) => !v) && outflows.every((v) => !v)
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5">
       <h3 className="text-sm font-bold text-[#1a1a2e] mb-1">التدفقات النقدية</h3>
       <p className="text-[11px] text-gray-400 mb-4">الوارد مقابل المنصرف</p>
+      {isEmpty ? (
+        <p className="h-56 flex items-center justify-center text-center text-gray-400 text-sm">مفيش حركة نقدية في الفترة دي</p>
+      ) : (
       <div className="h-56">
         <Bar
           data={{
@@ -289,6 +298,7 @@ export function CashFlowChart({ labels, inflows, outflows }: { labels: string[];
           }}
         />
       </div>
+      )}
     </div>
   )
 }

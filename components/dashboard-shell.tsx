@@ -16,16 +16,14 @@ export function DashboardShell({ user, children }: { user: any; children: React.
       {user && <IdleLogout />}
       {/* توب بار الموبايل */}
       <header className="lg:hidden no-print sticky top-0 z-40 bg-[#1a1a2e] text-white h-14 flex items-center justify-between px-4 shadow-md">
-        <button onClick={() => setOpen(true)} className="p-2 -mr-2 rounded-lg hover:bg-white/10" aria-label="فتح القائمة">
-          <Menu className="w-6 h-6" />
-        </button>
-        <div className="flex items-center gap-1">
-          {user && <NotificationsBell />}
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="font-bold text-sm truncate">شركة البدر</span>
-            <AlBadrLogo className="w-8 h-8 shrink-0 text-white" />
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <button onClick={() => setOpen(true)} className="p-2 -mr-2 rounded-lg hover:bg-white/10" aria-label="فتح القائمة">
+            <Menu className="w-6 h-6" />
+          </button>
+          <span className="font-bold text-sm truncate">شركة البدر</span>
+          <AlBadrLogo className="w-8 h-8 shrink-0 text-white" />
         </div>
+        {user && <NotificationsBell />}
       </header>
 
       {/* شريط علوي للديسكتوب فيه الجرس */}

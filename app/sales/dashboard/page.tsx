@@ -120,7 +120,7 @@ export default async function SalesDashboardPage({ searchParams: raw }: { search
           <h1 className="text-2xl font-bold text-[#1a1a2e]">لوحة تحكم البيع والتوزيع</h1>
           <p className="text-sm text-gray-500 mt-0.5">متابعة المبيعات والمناديب والعملاء برسومات وفلتر فترة</p>
         </div>
-        <PeriodSelector current={sp.from && sp.to ? 0 : days} basePath="/sales/dashboard" />
+        <PeriodSelector current={sp.from && sp.to ? 0 : days} basePath="/sales/dashboard" theme="light" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
