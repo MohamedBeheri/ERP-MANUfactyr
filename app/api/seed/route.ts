@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Database already seeded!' })
     }
 
-    const hashedPassword = await bcrypt.hash('123456', 10)
+    // كلمة السر الأولية بتتاخد من env لو متضبطة، وإلا 123456 مؤقتة — لازم تتغير فورًا بعد أول دخول
+    const hashedPassword = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || '123456', 10)
 
     // Create users
     const users = await Promise.all([
@@ -135,6 +136,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: 'Database seeded successfully!' })
   } catch (error) {
     console.error('Seed error:', error)
-    return NextResponse.json({ error: 'Failed to seed database', details: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to seed database' }, { status: 500 })
   }
 }

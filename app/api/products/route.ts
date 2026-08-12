@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { attachmentTooLarge } from '@/lib/security'
 
 
 export async function GET() {
@@ -36,6 +37,9 @@ export async function POST(req: NextRequest) {
       const stage = await prisma.stockStage.findUnique({ where: { id: stageId } })
       if (stage?.purchasable) derivedType = 'RAW'
     }
+
+    { const _e = attachmentTooLarge(imageUrl); if (_e) return NextResponse.json({ error: _e }, { status: 413 }) }
+
 
     const product = await prisma.product.create({
       data: {

@@ -3,7 +3,9 @@ services:
     name: golden-coffee-erp
     runtime: node
     plan: free
-    buildCommand: npm install && npx prisma db push --accept-data-loss && npx prisma generate && npm run build
+    # شِلنا --accept-data-loss: أي تعديل سكيما بيمسح بيانات هيوقف النشر بدل ما يمسح داتا حقيقية بصمت.
+    # لو احتجت تطبّق تغيير فيه حذف عمود عن قصد، اعمله يدويًا مرة واحدة وارجّع الأمر لـ db push العادي.
+    buildCommand: npm install && npx prisma db push && npx prisma generate && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV

@@ -62,6 +62,7 @@ export const authOptions: AuthOptions = {
   ],
   session: {
     strategy: 'jwt',
+    maxAge: 12 * 60 * 60, // الجلسة تنتهي إجباريًا بعد 12 ساعة حتى لو المتصفح فاضل فاتح (كان الافتراضي 30 يوم)
   },
   callbacks: {
     async jwt({ token, user }) {

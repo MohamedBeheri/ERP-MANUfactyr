@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/api-auth'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { ensureUnits } from '@/lib/units'
 import { validateBlendPercents } from '@/lib/manufacturing'
+import { attachmentTooLarge } from '@/lib/security'
 
 // المرحلة المخزنية المناسبة لكل نوع صنف (عشان الجرد والإنتاج يفضلوا شغالين)
 async function stageForKind(kind: string): Promise<string | null> {
@@ -97,6 +98,9 @@ export async function POST(req: NextRequest) {
       const invalid = validateBlendPercents(clean)
       if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
     }
+
+    { const _e = attachmentTooLarge(b.imageUrl); if (_e) return NextResponse.json({ error: _e }, { status: 413 }) }
+
 
     const product = await prisma.product.create({
       data: {

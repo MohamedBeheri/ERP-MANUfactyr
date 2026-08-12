@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 import { parseNum } from '@/lib/numbers'
+import { attachmentTooLarge } from '@/lib/security'
 
 export async function GET() {
   const auth = await requirePermission('employees', 'view')
@@ -46,6 +47,8 @@ export async function POST(req: NextRequest) {
     }
 
     const hashed = await bcrypt.hash(password, 10)
+    { const _e = attachmentTooLarge(b.avatarUrl); if (_e) return NextResponse.json({ error: _e }, { status: 413 }) }
+
     const user = await prisma.user.create({
       data: {
         name: name.trim(),

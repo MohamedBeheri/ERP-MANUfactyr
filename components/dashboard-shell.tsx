@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Menu } from 'lucide-react'
 import { Sidebar } from '@/components/sidebar'
 import { AlBadrLogo } from '@/components/albadr-logo'
+import { IdleLogout } from '@/components/idle-logout'
 
 // غلاف الداشبورد المتجاوب: سايدبار ثابت على الشاشات الكبيرة، درج منزلق على الموبايل
 export function DashboardShell({ user, children }: { user: any; children: React.ReactNode }) {
@@ -11,6 +12,7 @@ export function DashboardShell({ user, children }: { user: any; children: React.
 
   return (
     <div className="min-h-dvh bg-gray-50">
+      {user && <IdleLogout />}
       {/* توب بار الموبايل */}
       <header className="lg:hidden no-print sticky top-0 z-40 bg-[#1a1a2e] text-white h-14 flex items-center justify-between px-4 shadow-md">
         <button onClick={() => setOpen(true)} className="p-2 -mr-2 rounded-lg hover:bg-white/10" aria-label="فتح القائمة">

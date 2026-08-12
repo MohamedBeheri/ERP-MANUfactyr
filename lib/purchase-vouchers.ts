@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { applyTreasuryTxn } from '@/lib/treasuries'
+import { attachmentTooLarge } from '@/lib/security'
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -33,6 +34,8 @@ export async function createPurchaseVoucher(
     if (!l.paymentMethodId || !l.treasuryId || !(l.amount > 0)) {
       throw new Error('كل سطر سداد لازم يكون له وسيلة دفع وحساب ومبلغ أكبر من صفر')
     }
+    const sizeErr = attachmentTooLarge(l.attachment)
+    if (sizeErr) throw new Error(sizeErr)
   }
 
   const purchase = await db.purchase.findUnique({ where: { id: purchaseId } })

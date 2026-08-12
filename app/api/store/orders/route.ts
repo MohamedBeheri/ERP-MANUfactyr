@@ -3,10 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { getStoreSettings } from '@/lib/store'
 import { warehouseForStage } from '@/lib/stock-stages'
 import { getStock } from '@/lib/warehouse'
+import { rateLimited, clientIp } from '@/lib/security'
 
 // طلب أونلاين من العميل (عام — من غير تسجيل دخول موظف)
 export async function POST(req: NextRequest) {
   try {
+    // حد معدل: أقصى 10 طلبات في الدقيقة لكل IP — يمنع إغراق المتجر بطلبات وهمية
+    if (rateLimited(`store:${clientIp(req)}`, 10, 60_000)) {
+      return NextResponse.json({ error: 'طلبات كتير في وقت قصير — استنى شوية وحاول تاني' }, { status: 429 })
+    }
     const settings = await getStoreSettings()
     if (!settings.isOpen) {
       return NextResponse.json({ error: 'المتجر مقفول حاليًا، حاول لاحقًا' }, { status: 400 })
@@ -37,6 +42,9 @@ export async function POST(req: NextRequest) {
     }
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'السلة فاضية' }, { status: 400 })
+    }
+    if (items.length > 50) {
+      return NextResponse.json({ error: 'عدد الأصناف في الطلب كبير جدًا' }, { status: 400 })
     }
 
     // مخزن البيع أونلاين

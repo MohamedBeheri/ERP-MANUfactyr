@@ -30,15 +30,26 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
       return NextResponse.json({ error: 'الرقم القومي لازم يكون 14 رقم' }, { status: 400 })
     }
 
+    // منع تصعيد الصلاحيات: المستخدم مايقدرش يعدّل دوره/صلاحياته/حالته لنفسه (يمنع ترقية الذات لأدمن)
+    const editingSelf = params.id === session.user.id
+    if (editingSelf && (role !== undefined || permissions !== undefined || status !== undefined)) {
+      return NextResponse.json({ error: 'مينفعش تعدّل دورك أو صلاحياتك أو حالتك بنفسك' }, { status: 403 })
+    }
+    // منح/تعديل صلاحية إدارة الموظفين نفسها من صلاحية الأدمن فقط
+    const grantsEmployees = Array.isArray(permissions) && permissions.some((p: string) => p === 'employees' || p.startsWith('employees:'))
+    if ((role === 'ADMIN' || grantsEmployees) && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'منح دور الأدمن أو صلاحية إدارة الموظفين من صلاحية مدير النظام فقط' }, { status: 403 })
+    }
+
     const user = await prisma.user.update({
       where: { id: params.id },
       data: {
         name: name.trim(),
         username: username.trim().toLowerCase(),
         ...(password ? { password: await bcrypt.hash(password, 10) } : {}),
-        role: role || undefined,
-        permissions: Array.isArray(permissions) ? permissions : undefined,
-        status: status || undefined,
+        role: editingSelf ? undefined : role || undefined,
+        permissions: editingSelf ? undefined : Array.isArray(permissions) ? permissions : undefined,
+        status: editingSelf ? undefined : status || undefined,
         phone: b.phone !== undefined ? b.phone?.trim() || null : undefined,
         email: b.email !== undefined ? b.email?.trim() || null : undefined,
         jobTitle: b.jobTitle !== undefined ? b.jobTitle?.trim() || null : undefined,

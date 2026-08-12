@@ -4,10 +4,10 @@ import { prisma } from '@/lib/prisma'
 // يتم استدعاؤه يومياً (cron) لفحص الأقساط المستحقة وإنشاء إشعارات
 // يمكن استدعاؤه يدوياً من الداشبورد أو عبر cron job خارجي
 export async function GET(req: NextRequest) {
-  // حماية بسيطة — مفتاح سري أو من الداشبورد
+  // حماية بمفتاح سري — بيرفض دايمًا لو المفتاح مش متضبط (fail-closed مش fail-open)
   const secret = req.nextUrl.searchParams.get('secret')
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && secret !== cronSecret) {
+  if (!cronSecret || secret !== cronSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

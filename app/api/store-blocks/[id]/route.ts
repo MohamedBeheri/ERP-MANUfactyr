@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { attachmentTooLarge } from '@/lib/security'
 
 
 export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
@@ -9,6 +10,8 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
   const params = await rawParams;
   try {
     const b = await req.json()
+    { const _e = attachmentTooLarge(b.imageUrl); if (_e) return NextResponse.json({ error: _e }, { status: 413 }) }
+
     const block = await prisma.storeBlock.update({
       where: { id: params.id },
       data: {

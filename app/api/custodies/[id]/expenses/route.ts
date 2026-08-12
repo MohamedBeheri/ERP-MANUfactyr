@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { parseNum } from '@/lib/numbers'
+import { attachmentTooLarge } from '@/lib/security'
 
 // POST: تسجيل مصروف على العهدة بإثبات — صاحب العهدة نفسه أو صلاحية الخزنة
 export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     if (!attachment) {
       return NextResponse.json({ error: 'صورة الفاتورة/الإيصال إجبارية كإثبات للمصروف' }, { status: 400 })
     }
+    const sizeErr = attachmentTooLarge(attachment)
+    if (sizeErr) return NextResponse.json({ error: sizeErr }, { status: 413 })
 
     // مينفعش مجموع المصروفات (المعتمد + المعلق) يعدي مبلغ العهدة
     const used = custody.expenses

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
+import { attachmentTooLarge } from '@/lib/security'
 
 const KINDS = ['ROAST_CARD', 'BRAND_CARD', 'LOYALTY_STEP', 'REVIEW']
 
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
     if (!b.title?.trim()) {
       return NextResponse.json({ error: 'العنوان مطلوب' }, { status: 400 })
     }
+    { const _e = attachmentTooLarge(b.imageUrl); if (_e) return NextResponse.json({ error: _e }, { status: 413 }) }
+
     const block = await prisma.storeBlock.create({
       data: {
         kind: b.kind,

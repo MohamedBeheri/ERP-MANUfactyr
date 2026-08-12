@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 import { validateBlendPercents } from '@/lib/manufacturing'
+import { attachmentTooLarge } from '@/lib/security'
 
 export async function PUT(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('catalog', 'edit')
@@ -19,6 +20,9 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
       }
     }
+
+    { const _e = attachmentTooLarge(b.imageUrl); if (_e) return NextResponse.json({ error: _e }, { status: 413 }) }
+
 
     await prisma.product.update({
       where: { id: params.id },
