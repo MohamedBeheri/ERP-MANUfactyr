@@ -26,9 +26,9 @@ export function DashboardShell({ user, children }: { user: any; children: React.
         {user && <NotificationsBell />}
       </header>
 
-      {/* شريط علوي للديسكتوب فيه الجرس */}
+      {/* شريط علوي للديسكتوب فيه الجرس — ثابت أقصى الشمال بعيد عن السايدبار */}
       {user && (
-        <div className="hidden lg:flex no-print fixed top-0 left-0 right-64 z-[60] h-14 bg-[#1a1a2e] items-center px-6 shadow-md">
+        <div className="hidden lg:flex no-print fixed top-0 left-0 right-64 z-[60] h-14 bg-[#1a1a2e] items-center justify-end px-4 shadow-md">
           <NotificationsBell />
         </div>
       )}
