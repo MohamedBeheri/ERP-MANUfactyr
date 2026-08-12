@@ -115,7 +115,7 @@ export default async function PurchasesDashboardPage({ searchParams: raw }: { se
         secondary={{ label: 'المدفوع', data: paidByDay, color: '#22c55e' }}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <GroupBarChart title="المشتريات حسب المورد" subtitle="أعلى الموردين شراءً في الفترة" items={bySupplier} color="#0f3460" emptyText="مفيش مشتريات في الفترة" />
         <GroupBarChart title="مديونية الموردين الحالية" subtitle="المستحق لكل مورد (مطلوب دفعه)" items={supplierDebt} color="#ef4444" emptyText="مفيش مديونية موردين" />
       </div>

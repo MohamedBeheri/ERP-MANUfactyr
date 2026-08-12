@@ -135,12 +135,12 @@ export default async function SalesDashboardPage({ searchParams: raw }: { search
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         <div className="lg:col-span-2"><TrendLineChart title="اتجاه المبيعات اليومي" subtitle="إجمالي المبيعات لكل يوم في الفترة" labels={dayLabels} primary={{ label: 'المبيعات', data: salesByDay, color: '#0f3460' }} /></div>
         <PaymentMethodsPie cash={cash} insta={insta} wallet={wallet} network={0} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <GroupBarChart title="أداء المناديب" subtitle="إجمالي مبيعات كل مندوب في الفترة" items={delegatePerf} color="#f59e0b" emptyText="مفيش مبيعات مناديب في الفترة" />
         <GroupBarChart title="أفضل العملاء" subtitle="أعلى العملاء شراءً في الفترة" items={topCustomers} color="#8b5cf6" emptyText="مفيش مبيعات في الفترة" />
       </div>

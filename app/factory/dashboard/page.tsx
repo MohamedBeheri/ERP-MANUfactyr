@@ -120,7 +120,7 @@ export default async function FactoryDashboardPage({ searchParams: raw }: { sear
 
       <ProductionTrendChart labels={dayLabels} produced={producedByDay} orders={ordersByDay} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <GroupBarChart title="قيمة المخزون حسب المخزن" subtitle="تكلفة الأصناف في كل مخزن" items={warehouseValues} color="#6366f1" emptyText="مفيش أرصدة" />
         <GroupBarChart title="الهدر حسب المرحلة" subtitle="إجمالي الهدر (كجم) لكل مرحلة إنتاج في الفترة" items={wasteList} color="#ef4444" money={false} emptyText="مفيش هدر مسجّل في الفترة" />
       </div>

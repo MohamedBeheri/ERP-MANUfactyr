@@ -26,7 +26,7 @@ export function TrendLineChart({ title, subtitle, labels, primary, secondary }: 
     <div className="bg-white rounded-2xl shadow-sm p-5">
       <h3 className="text-sm font-bold text-[#1a1a2e] mb-0.5">{title}</h3>
       {subtitle && <p className="text-[11px] text-gray-400 mb-4">{subtitle}</p>}
-      <div className="h-72">
+      <div className="h-60">
         <Line
           data={{ labels, datasets }}
           options={{
@@ -60,7 +60,9 @@ export function GroupBarChart({ title, subtitle, items, color = '#0f3460', empty
       <h3 className="text-sm font-bold text-[#1a1a2e] mb-0.5">{title}</h3>
       {subtitle && <p className="text-[11px] text-gray-400 mb-4">{subtitle}</p>}
       {items.length === 0 ? (
-        <p className="py-12 text-center text-gray-400 text-sm">{emptyText}</p>
+        <div className="min-h-[200px] flex items-center justify-center">
+          <p className="text-center text-gray-400 text-sm">{emptyText}</p>
+        </div>
       ) : (
         <div style={{ height: Math.max(200, items.length * 38) }}>
           <Bar

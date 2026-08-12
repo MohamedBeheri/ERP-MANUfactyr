@@ -161,7 +161,7 @@ export function TopProductsBar({ items }: { items: { name: string; qty: number; 
     <div className="bg-white rounded-2xl shadow-sm p-5">
       <h3 className="text-sm font-bold text-[#1a1a2e] mb-1">الأكثر مبيعًا</h3>
       <p className="text-[11px] text-gray-400 mb-4">بالكمية والإيراد</p>
-      <div className="h-64">
+      <div style={{ height: items.length === 0 ? 160 : Math.min(256, Math.max(160, items.length * 40)) }}>
         {items.length === 0 ? (
           <p className="text-sm text-gray-400 h-full flex items-center justify-center">لا توجد مبيعات</p>
         ) : (

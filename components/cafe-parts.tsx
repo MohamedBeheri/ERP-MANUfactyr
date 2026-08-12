@@ -452,7 +452,7 @@ export function CafeDashboard({ cafeItems, materials, categories, purchases, uni
   ]
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={`grid grid-cols-2 gap-3 ${sales ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
         {cards.map((c) => (
           <div key={c.label} className="bg-white rounded-xl shadow-sm p-4">
             <p className="text-[11px] text-gray-500">{c.label}</p>
@@ -461,7 +461,7 @@ export function CafeDashboard({ cafeItems, materials, categories, purchases, uni
         ))}
       </div>
       {sales && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <TrendLineChart title="اتجاه مبيعات الكافيه" subtitle="قيمة أصناف الكافيه المباعة يوميًا" labels={sales.trendLabels} primary={{ label: 'المبيعات', data: sales.trend, color: '#e94560' }} />
           <GroupBarChart title="أفضل منتجات الكافيه مبيعًا" subtitle="الأعلى إيرادًا في الفترة" items={sales.topProducts} color="#f59e0b" emptyText="مفيش مبيعات كافيه في الفترة" />
         </div>
