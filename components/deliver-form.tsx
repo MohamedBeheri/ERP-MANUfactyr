@@ -275,7 +275,7 @@ export function DeliverForm({
                   <option value="">اختار المحافظة (اختياري)</option>
                   {EGYPT_GOVERNORATES.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
-                <LocationPicker value={geo} onChange={setGeo} label="تسجيل موقعي الحالي مع العميل" />
+                <LocationPicker value={geo} onChange={setGeo} label="تسجيل موقعي الحالي مع العميل" allowManual={false} />
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">نوع العميل (بيحدد السعر)</label>
                   <div className="flex gap-1.5">

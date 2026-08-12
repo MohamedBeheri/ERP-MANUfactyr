@@ -8,11 +8,13 @@ export interface GeoPoint { lat: number; lng: number }
 const EGYPT_CENTER: [number, number] = [26.8, 30.8]
 
 // زرار تسجيل الموقع اللايف + خريطة معاينة صغيرة تتأكد بيها إن الإحداثيات صح
-// + بديل يدوي (تحديد بالنقر على الخريطة) لو الـ GPS مش شغال لأي سبب
-export function LocationPicker({ value, onChange, label = 'تسجيل موقعي الحالي' }: {
+// + بديل يدوي اختياري (تحديد بالنقر على الخريطة) لو الـ GPS مش شغال لأي سبب —
+// اتقفل افتراضيًا في فورم تسليم المندوب عشان الموقع لازم يفضل لايف حقيقي ومينفعش يتزوّر
+export function LocationPicker({ value, onChange, label = 'تسجيل موقعي الحالي', allowManual = true }: {
   value: GeoPoint | null
   onChange: (p: GeoPoint | null) => void
   label?: string
+  allowManual?: boolean
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -36,16 +38,17 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
 
   const capture = () => {
     setError('')
-    if (!navigator.geolocation) { setError('الجهاز/المتصفح ده مش بيدعم تحديد الموقع الجغرافي — استخدم التحديد اليدوي تحت'); return }
+    const manualHint = allowManual ? ' — استخدم التحديد اليدوي تحت' : ''
+    if (!navigator.geolocation) { setError(`الجهاز/المتصفح ده مش بيدعم تحديد الموقع الجغرافي${manualHint}`); return }
     setLoading(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => { onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLoading(false); setBlocked(false); setError(''); setManualMode(false) },
       (err) => {
         setLoading(false)
-        if (err.code === err.PERMISSION_DENIED) { setBlocked(true); setError('الوصول للموقع مرفوض — شوف خطوات التفعيل فوق، أو استخدم التحديد اليدوي على الخريطة تحت') }
-        else if (err.code === err.POSITION_UNAVAILABLE) setError('تعذر تحديد الموقع تلقائيًا (مفيش إشارة GPS/واي فاي كفاية) — استخدم "تحديد يدوي على الخريطة" تحت وحدد مكانك بنفسك')
-        else if (err.code === err.TIMEOUT) setError('استنينا كتير من غير رد — جرب تاني أو استخدم التحديد اليدوي تحت')
-        else setError('تعذر تحديد الموقع دلوقتي — استخدم التحديد اليدوي تحت')
+        if (err.code === err.PERMISSION_DENIED) { setBlocked(true); setError(`الوصول للموقع مرفوض — شوف خطوات التفعيل فوق${manualHint}`) }
+        else if (err.code === err.POSITION_UNAVAILABLE) setError(`تعذر تحديد الموقع تلقائيًا (مفيش إشارة GPS/واي فاي كفاية)${manualHint}`)
+        else if (err.code === err.TIMEOUT) setError(`استنينا كتير من غير رد — جرب تاني${manualHint}`)
+        else setError(`تعذر تحديد الموقع دلوقتي${manualHint}`)
       },
       { enableHighAccuracy: true, timeout: 12000 }
     )
@@ -103,7 +106,7 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
           <ol className="list-decimal pr-4 space-y-1">
             <li>افتح أيقونة القفل 🔒 (أو الإعدادات) بجانب شريط العنوان، وتأكد إن "الموقع" مسموح لهذا الموقع.</li>
             <li>لو دوس أو موبايل: افتح إعدادات النظام ← الخصوصية والأمان ← خدمات الموقع، وتأكد إنها مفعّلة بشكل عام وإن المتصفح مسموح له من القائمة.</li>
-            <li>لو الإعدادات كلها شغالة ولسه مش قادر: استخدم "تحديد يدوي على الخريطة" تحت — بيشتغل مية بالمية.</li>
+            {allowManual && <li>لو الإعدادات كلها شغالة ولسه مش قادر: استخدم "تحديد يدوي على الخريطة" تحت — بيشتغل مية بالمية.</li>}
           </ol>
         </div>
       )}
@@ -117,16 +120,18 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
           {loading ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
           {loading ? 'جاري تحديد موقعك...' : value ? 'تحديث بموقعي الحالي' : label}
         </button>
-        <button
-          type="button"
-          onClick={() => setManualMode((m) => !m)}
-          className={`shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition border ${manualMode ? 'bg-[#0f3460] border-[#0f3460] text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
-          title="تحديد يدوي على الخريطة"
-        >
-          <MousePointerClick className="w-3.5 h-3.5" />
-        </button>
+        {allowManual && (
+          <button
+            type="button"
+            onClick={() => setManualMode((m) => !m)}
+            className={`shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition border ${manualMode ? 'bg-[#0f3460] border-[#0f3460] text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
+            title="تحديد يدوي على الخريطة"
+          >
+            <MousePointerClick className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
-      {manualMode && (
+      {allowManual && manualMode && (
         <p className="text-[11px] text-[#0f3460] bg-blue-50 border border-blue-100 rounded-lg p-2">
           دوس على مكان العميل بالظبط على الخريطة تحت (أو اسحب الدبوس) عشان تسجّل موقعه يدويًا.
         </p>
