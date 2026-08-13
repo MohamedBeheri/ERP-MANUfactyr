@@ -50,6 +50,18 @@ export const authOptions: AuthOptions = {
           data: { lastLogin: new Date() },
         })
 
+        // تسجيل الدخول في سجل المراجعة — بيُستخدم في الحوكمة لحصر الحضور والانصراف
+        try {
+          await prisma.auditLog.create({
+            data: {
+              userId: user.id,
+              action: 'تسجيل دخول',
+              description: `تسجيل دخول "${user.name}" (${user.username})`,
+              impact: 'بداية جلسة على النظام',
+            },
+          })
+        } catch { /* فشل تسجيل اللوج مايمنعش الدخول */ }
+
         return {
           id: user.id,
           name: user.name,
