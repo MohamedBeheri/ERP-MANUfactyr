@@ -18,6 +18,8 @@ interface Item {
   quantity: number
   roastLossPercent: number
   tareWeight: number
+  rollWeight: number
+  estTareWeight: number
   blendId: string | null
   blendName: string | null
   packagingId: string | null
@@ -110,7 +112,7 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
   const filteredList = search.trim() ? list.filter((it) => it.name.includes(search.trim())) : list
   const empty: any = {
     name: '', unit: units[0]?.name || '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '',
-    roastLossPercent: '', tareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1',
+    roastLossPercent: '', tareWeight: '', rollWeight: '', estTareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1',
     categoryId: '', stageId: '', minStock: '0', imageUrl: '',
     showInPos: false, showOnline: true,
   }
@@ -131,7 +133,8 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
       name: it.name, unit: it.unit, costPrice: String(it.costPrice || ''), sellPrice: String(it.sellPrice || ''),
       oldPrice: it.oldPrice ? String(it.oldPrice) : '', wholesalePrice: String(it.wholesalePrice || ''),
       minKeyPrice: String(it.minKeyPrice || ''), roastLossPercent: String(it.roastLossPercent || ''),
-      tareWeight: String(it.tareWeight || ''), blendId: it.blendId || '', packagingId: it.packagingId || '',
+      tareWeight: String(it.tareWeight || ''), rollWeight: String(it.rollWeight || ''), estTareWeight: String(it.estTareWeight || ''),
+      blendId: it.blendId || '', packagingId: it.packagingId || '',
       gramsPerPiece: String(it.gramsPerPiece || ''), piecesPerBox: String(it.piecesPerBox || 1),
       categoryId: it.categoryId || '', stageId: it.stageId || '', minStock: String(it.minStock || 0),
       imageUrl: it.imageUrl || '',
@@ -212,9 +215,22 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
         )}
 
         {kind === 'PACKAGING' && (
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">وزن الفارغ للقطعة (جرام)</label>
-            <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.tareWeight} onChange={(e) => setForm({ ...form, tareWeight: e.target.value })} className={inputCls} placeholder="1.6" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">وزن الرول (كجم)</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={form.rollWeight} onChange={(e) => setForm({ ...form, rollWeight: e.target.value })} className={inputCls} placeholder="مثال 5" />
+              <p className="text-[10px] text-gray-400 mt-1">وزن الرول الكامل — بيتسحب تلقائي في التعبئة</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">وزن القطعة (جرام)</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.tareWeight} onChange={(e) => setForm({ ...form, tareWeight: e.target.value })} className={inputCls} placeholder="1.6" />
+              <p className="text-[10px] text-gray-400 mt-1">عدد الأكياس = وزن الرول ÷ وزن القطعة</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">وزن الفارغة التقديري (جرام)</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.estTareWeight} onChange={(e) => setForm({ ...form, estTareWeight: e.target.value })} className={inputCls} placeholder="اختياري — افتراضي = وزن القطعة" />
+              <p className="text-[10px] text-gray-400 mt-1">يُستخدم في حساب الهدر عند الإقفال</p>
+            </div>
           </div>
         )}
 

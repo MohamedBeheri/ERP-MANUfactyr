@@ -110,7 +110,9 @@ export default async function ProducePage() {
           id: p.id,
           name: p.name,
           quantity: Number(p.quantity),
-          tare: Number(p.tareWeight),
+          tare: Number(p.tareWeight), // وزن القطعة (جرام) — للقسمة
+          rollWeight: Number(p.rollWeight), // وزن الرول (كجم) — للسحب التلقائي
+          estTare: Number(p.estTareWeight), // وزن الفارغة التقديري
           unit: p.unit,
         }))}
         availableIngredients={[

@@ -36,6 +36,8 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         minKeyPrice: b.minKeyPrice !== undefined ? Number(b.minKeyPrice) || 0 : undefined,
         roastLossPercent: b.roastLossPercent !== undefined ? Number(b.roastLossPercent) || 0 : undefined,
         tareWeight: b.tareWeight !== undefined ? Number(b.tareWeight) || 0 : undefined,
+        rollWeight: b.rollWeight !== undefined ? Number(b.rollWeight) || 0 : undefined,
+        estTareWeight: b.estTareWeight !== undefined ? Number(b.estTareWeight) || 0 : undefined,
         blendId: b.blendId !== undefined ? b.blendId || null : undefined,
         packagingId: b.packagingId !== undefined ? b.packagingId || null : undefined,
         gramsPerPiece: b.gramsPerPiece !== undefined ? Number(b.gramsPerPiece) || 0 : undefined,

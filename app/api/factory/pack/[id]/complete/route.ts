@@ -45,7 +45,11 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const rollProduct = production.rollProductId
       ? await prisma.product.findUnique({ where: { id: production.rollProductId } })
       : finProduct.packaging
-    const estimatedTare = Number(rollProduct?.tareWeight || finProduct.packaging?.tareWeight || 0)
+    // الفارغة التقديرية: من حقل «وزن الفارغة التقديري» لو موجود، وإلا وزن القطعة
+    const estimatedTare = Number(
+      rollProduct?.estTareWeight || rollProduct?.tareWeight ||
+      finProduct.packaging?.estTareWeight || finProduct.packaging?.tareWeight || 0
+    )
     const actualTareRaw = b.actualTareWeight !== undefined && b.actualTareWeight !== null && String(b.actualTareWeight).trim() !== ''
       ? Number(b.actualTareWeight) : null
     if (actualTareRaw !== null && !(actualTareRaw >= 0 && isFinite(actualTareRaw))) {

@@ -245,7 +245,9 @@ model Product {
   // GREEN (بن أخضر) | SPICE (عطارة/توابل) | FLAVOR (أساس نكهة) | BLEND (توليفة) | PACKAGING (مادة تغليف) | FINISHED (منتج نهائي)
   itemKind         String   @default("FINISHED")
   roastLossPercent Decimal  @default(0) @db.Decimal(5, 2) // نسبة خسران التحميص (للبن الأخضر)
-  tareWeight       Decimal  @default(0) @db.Decimal(8, 3) // وزن الفارغ للقطعة بالجرام (لمواد التغليف)
+  tareWeight       Decimal  @default(0) @db.Decimal(8, 3) // وزن القطعة بالجرام (لمواد التغليف) — يُقسَم عليه وزن الرول لحساب عدد الأكياس تلقائياً
+  rollWeight       Decimal  @default(0) @db.Decimal(10, 3) // وزن الرول الكامل بالكجم (لمواد التغليف) — يُسحب تلقائياً في التعبئة
+  estTareWeight    Decimal  @default(0) @db.Decimal(8, 3) // وزن الفارغة التقديري بالجرام — يُستخدم في حساب الهدر عند الإقفال لو المشغّل ماقاسش
   // مواصفات المنتج النهائي المعبّأ
   blendId          String? // التوليفة المستخدمة في التعبئة
   gramsPerPiece    Decimal  @default(0) @db.Decimal(8, 2) // وزن القطعة بالجرام

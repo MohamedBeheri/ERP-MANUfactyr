@@ -10,7 +10,7 @@ interface BlendComp { name: string; kind: string; percent: number; roastDegree: 
 interface BlendT { id: string; name: string; quantity: number; components: BlendComp[] }
 interface FinishedT { id: string; name: string; blendName: string | null; hasBlend: boolean; gramsPerPiece: number; piecesPerBox: number; tare: number; packagingName: string | null; packagingId: string | null }
 interface IngredientT { id: string; name: string; quantity: number; kind: 'ROASTED' | 'FLAVOR' | 'SPICE' }
-interface PackagingT { id: string; name: string; quantity: number; tare: number; unit: string }
+interface PackagingT { id: string; name: string; quantity: number; tare: number; rollWeight: number; estTare: number; unit: string }
 
 interface ProdT {
   id: string; orderNo: string; batchNo: string | null; stage: string; stageDetail: string
@@ -738,6 +738,12 @@ function PackForm({ blends, finished, packagings, onDone }: {
   }, [fin?.packagingId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const roll = packagings.find((p) => p.id === rollId)
+
+  // لما يختار الرول، نسحب وزن الرول تلقائي من بنك الأصناف (لو المشغّل ماكتبش كمية بعد)
+  useEffect(() => {
+    if (roll && roll.rollWeight > 0 && !rollPullKg) setRollPullKg(String(roll.rollWeight))
+  }, [rollId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const rollN = Number(rollPullKg) || 0
   const rollTare = roll?.tare || fin?.tare || 0 // وزن الوحدة الواحدة (الكيس الفارغ) جم
 
