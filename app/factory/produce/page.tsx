@@ -15,7 +15,7 @@ export default async function ProducePage() {
   if (!session) redirect('/')
   await ensureStockStages()
 
-  const [greens, blends, finished, roastedAll, flavorAll, spiceAll, , productions, kpiAgg] = await Promise.all([
+  const [greens, blends, finished, roastedAll, flavorAll, spiceAll, packagingAll, productions, kpiAgg] = await Promise.all([
     // بن أخضر (مدخل التحميص)
     prisma.product.findMany({ where: { isActive: true, itemKind: 'GREEN' }, orderBy: { name: 'asc' } }),
     prisma.product.findMany({
@@ -41,7 +41,7 @@ export default async function ProducePage() {
       where: { OR: [{ orderNo: { startsWith: 'RST-' } }, { orderNo: { startsWith: 'BLD-' } }, { orderNo: { startsWith: 'GRD-' } }, { orderNo: { startsWith: 'PACK-' } }, { orderNo: { startsWith: 'BLND-' } }] },
       orderBy: { createdAt: 'desc' },
       take: 25,
-      include: { items: { include: { product: true } }, inputs: { include: { product: true } } },
+      include: { items: { include: { product: { include: { packaging: true } } } }, inputs: { include: { product: true } } },
     }),
     // KPI تراكمي لكل مرحلة (BLD = طحن وتوليف مندمجين، GRD القديم بيتجمّع كمان لو موجود)
     Promise.all([
@@ -104,6 +104,14 @@ export default async function ProducePage() {
           piecesPerBox: f.piecesPerBox,
           tare: Number(f.packaging?.tareWeight || 0),
           packagingName: f.packaging?.name || null,
+          packagingId: f.packagingId || null,
+        }))}
+        packagings={packagingAll.map((p) => ({
+          id: p.id,
+          name: p.name,
+          quantity: Number(p.quantity),
+          tare: Number(p.tareWeight),
+          unit: p.unit,
         }))}
         availableIngredients={[
           ...roastedAll.map((p) => ({ id: p.id, name: p.name, quantity: Number(p.quantity), kind: 'ROASTED' as const })),
@@ -128,6 +136,13 @@ export default async function ProducePage() {
           createdAt: p.createdAt.toISOString(),
           status: p.status,
           outputProductName: p.items[0]?.product?.name || null,
+          // بيانات التعبئة اللازمة للإقفال (بن + رول)
+          gramsPerPiece: Number(p.items[0]?.product?.gramsPerPiece || 0),
+          rollInputKg: p.rollInputKg != null ? Number(p.rollInputKg) : null,
+          rollName: p.rollProductId ? (packagingAll.find((k) => k.id === p.rollProductId)?.name || null) : (p.items[0]?.product?.packaging?.name || null),
+          rollTare: p.rollProductId
+            ? Number(packagingAll.find((k) => k.id === p.rollProductId)?.tareWeight || 0)
+            : Number(p.items[0]?.product?.packaging?.tareWeight || 0),
         }))}
         kpi={kpi}
       />

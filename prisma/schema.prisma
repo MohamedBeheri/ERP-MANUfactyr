@@ -465,6 +465,11 @@ model Production {
   wasteExceeded Boolean     @default(false) // الهدر عدّى الحد المسموح للعملية — تشغيلة متعلّمة + إشعار للأدمن
   actualUnits   Int? // عدد الوحدات الفعلي اللي بلّغ عنه المشغّل عند الإقفال (للتعبئة)
   actualTareWeight Decimal? @db.Decimal(8, 3) // وزن الفارغ الفعلي للقطعة (جرام) المقاس على الماكينة — بديل التقديري من بنك الأصناف
+  // ===== تفاصيل الرول (مادة التغليف) في التعبئة — بتتسحب بالوزن كجم =====
+  rollProductId    String?  // مادة التغليف/الرول المستخدمة
+  rollInputKg      Decimal? @db.Decimal(12, 3) // كمية الرول المسحوبة عند فتح التشغيلة (كجم)
+  rollRemainingKg  Decimal? @db.Decimal(12, 3) // وزن الرول المتبقي الراجع للمخزن عند الإقفال (كجم)
+  coffeeRemainingKg Decimal? @db.Decimal(12, 3) // وزن البن المتبقي الراجع للمخزن عند الإقفال (كجم)
   expiryDate    DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
   recipeId      String? // الوصفة المستخدمة (BOM)
   operationId   String? // عملية التصنيع المستخدمة

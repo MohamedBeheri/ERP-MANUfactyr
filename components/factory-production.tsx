@@ -8,14 +8,16 @@ import { SearchableSelect } from '@/components/searchable-select'
 interface GreenT { id: string; name: string; quantity: number; roastLoss: number }
 interface BlendComp { name: string; kind: string; percent: number; roastDegree: string | null; perKilo: number; unit: string }
 interface BlendT { id: string; name: string; quantity: number; components: BlendComp[] }
-interface FinishedT { id: string; name: string; blendName: string | null; hasBlend: boolean; gramsPerPiece: number; piecesPerBox: number; tare: number; packagingName: string | null }
+interface FinishedT { id: string; name: string; blendName: string | null; hasBlend: boolean; gramsPerPiece: number; piecesPerBox: number; tare: number; packagingName: string | null; packagingId: string | null }
 interface IngredientT { id: string; name: string; quantity: number; kind: 'ROASTED' | 'FLAVOR' | 'SPICE' }
+interface PackagingT { id: string; name: string; quantity: number; tare: number; unit: string }
 
 interface ProdT {
   id: string; orderNo: string; batchNo: string | null; stage: string; stageDetail: string
   roastLevel: string | null; grindType: string | null; output: string
   inputWeight: number; outputWeight: number; wasteWeight: number; wastePercent: number; wasteExceeded: boolean; channel: string; createdAt: string
   status: string; outputProductName: string | null
+  gramsPerPiece?: number; rollInputKg?: number | null; rollName?: string | null; rollTare?: number
 }
 interface KpiT {
   greenIn: number; roastedOut: number; roastWaste: number; roastCount: number
@@ -70,9 +72,9 @@ function FullScreenModal({ open, onClose, children }: { open: boolean; onClose: 
   )
 }
 
-export function FactoryProduction({ greens, blends, finished, availableIngredients, productions, kpi }: {
+export function FactoryProduction({ greens, blends, finished, availableIngredients, packagings, productions, kpi }: {
   greens: GreenT[]; blends: BlendT[]; finished: FinishedT[]
-  availableIngredients: IngredientT[]
+  availableIngredients: IngredientT[]; packagings: PackagingT[]
   productions: ProdT[]; kpi: KpiT
 }) {
   const router = useRouter()
@@ -285,7 +287,7 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
       </FullScreenModal>
 
       <FullScreenModal open={activeModal === 'pack'} onClose={() => setActiveModal(null)}>
-        <PackForm blends={blends} finished={finished} onDone={onDone} />
+        <PackForm blends={blends} finished={finished} packagings={packagings} onDone={onDone} />
       </FullScreenModal>
     </div>
   )
@@ -295,6 +297,8 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
 function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
   const [out, setOut] = useState('')
   const [tare, setTare] = useState('') // وزن الفارغ الفعلي للقطعة (جرام) — المشغّل بيقيسه على الماكينة
+  const [remCoffee, setRemCoffee] = useState('') // وزن البن المتبقي الراجع للمخزن (كجم)
+  const [remRoll, setRemRoll] = useState('')     // وزن الرول المتبقي الراجع للمخزن (كجم)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const outN = Number(out) || 0
@@ -303,14 +307,31 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
   const isPack = p.stage === 'تعبئة'
   const endpoint = p.stage === 'تحميص' ? 'roast' : isPack ? 'pack' : 'blend'
 
+  const rollInputKg = p.rollInputKg || 0
+  const remCoffeeN = Number(remCoffee) || 0
+  const remRollN = Number(remRoll) || 0
+  // البن المستهلك فعلاً = المسحوب − المتبقي · اللي دخل الأكياس = عدد × وزن الكيس الصافي
+  const coffeeConsumed = Math.max(0, p.inputWeight - remCoffeeN)
+  const coffeeInBags = outN > 0 && p.gramsPerPiece ? (outN * p.gramsPerPiece) / 1000 : 0
+  const bagsFromRoll = rollInputKg > 0 && p.rollTare ? Math.floor((rollInputKg * 1000) / (p.rollTare || 1)) : 0
+
   const complete = async () => {
     setErr('')
     if (!(outN > 0)) return setErr(isPack ? 'اكتب عدد الأكياس/العبوات الفعلية' : 'اكتب الوزن الفعلي للناتج')
     if (!isPack && outN > p.inputWeight) return setErr(`الوزن الخارج مينفعش يزيد عن الداخل (${p.inputWeight})`)
-    if (isPack && tare.trim() !== '' && !(Number(tare) >= 0)) return setErr('وزن الفارغ الفعلي لازم يكون رقم بالجرام')
+    if (isPack) {
+      if (tare.trim() !== '' && !(Number(tare) >= 0)) return setErr('وزن الفارغ الفعلي لازم يكون رقم بالجرام')
+      if (remCoffee.trim() !== '' && Number(remCoffee) > p.inputWeight) return setErr(`البن المتبقي مينفعش يزيد عن المسحوب (${p.inputWeight} كجم)`)
+      if (remRoll.trim() !== '' && rollInputKg > 0 && Number(remRoll) > rollInputKg) return setErr(`الرول المتبقي مينفعش يزيد عن المسحوب (${rollInputKg} كجم)`)
+    }
     setLoading(true)
     const body = isPack
-      ? { actualBags: outN, ...(tare.trim() !== '' ? { actualTareWeight: Number(tare) } : {}) }
+      ? {
+          actualBags: outN,
+          remainingCoffeeKg: remCoffee.trim() !== '' ? Number(remCoffee) : 0,
+          remainingRollKg: remRoll.trim() !== '' ? Number(remRoll) : 0,
+          ...(tare.trim() !== '' ? { actualTareWeight: Number(tare) } : {}),
+        }
       : { outputKg: outN }
     const res = await fetch(`/api/factory/${endpoint}/${p.id}/complete`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -349,36 +370,61 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
 
       {err && <div className="bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{err}</div>}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="text" inputMode="decimal" dir="ltr" min="1" step="1" max={isPack ? undefined : p.inputWeight}
-          value={out} onChange={(e) => setOut(e.target.value)}
-          placeholder={isPack ? 'عدد الأكياس الفعلية' : 'وزن الناتج الفعلي (كجم)'}
-          className="flex-1 min-w-[160px] px-3 py-2.5 border border-amber-300 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        />
-        {outN > 0 && !isPack && (
-          <div className={`px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums ${wastePct > 20 ? 'bg-red-50 text-red-700' : wastePct > 10 ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>
-            هدر: {fmt(waste)} كجم ({fmt(wastePct)}%)
+      {isPack ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-600">عدد الأكياس الفعلية *</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="1" step="1" value={out} onChange={(e) => setOut(e.target.value)} placeholder="عدد" className="w-full px-3 py-2.5 border border-amber-300 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-600">وزن البن المتبقي (كجم)</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={remCoffee} onChange={(e) => setRemCoffee(e.target.value)} placeholder="راجع للمخزن" title="البن اللي فضل بعد التعبئة — بيرجع لمخزن المطحون" className="w-full px-3 py-2.5 border border-green-200 rounded-xl text-sm tabular-nums bg-green-50/40 focus:outline-none focus:ring-2 focus:ring-green-500" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-600">وزن الرول المتبقي (كجم)</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={remRoll} onChange={(e) => setRemRoll(e.target.value)} placeholder="راجع للمخزن" title="الرول اللي فضل بعد التعبئة — بيرجع لمخزن الرول" className="w-full px-3 py-2.5 border border-amber-200 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-600">وزن الفارغة/قطعة (جم)</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={tare} onChange={(e) => setTare(e.target.value)} placeholder="اختياري" title="لو سبته فاضي هيتحسب بالوزن التقديري من بنك الأصناف" className="w-full px-3 py-2.5 border border-blue-200 rounded-xl text-sm tabular-nums bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
           </div>
-        )}
-        {isPack && (
+          {(outN > 0 || rollInputKg > 0) && (
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              {rollInputKg > 0 && (
+                <span className="px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 font-semibold tabular-nums">رول مسحوب {fmt(rollInputKg)} كجم{p.rollTare ? ` · ~${bagsFromRoll} كيس` : ''}</span>
+              )}
+              {outN > 0 && (
+                <span className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-semibold tabular-nums">{outN} كيس · بن دخل الأكياس {fmt(coffeeInBags)} كجم</span>
+              )}
+              {outN > 0 && (
+                <span className="px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-600 font-semibold tabular-nums">بن مستهلك {fmt(coffeeConsumed)} كجم</span>
+              )}
+            </div>
+          )}
+          <button onClick={complete} disabled={loading || outN <= 0} className="w-full sm:w-auto bg-green-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 transition-colors">
+            {loading ? 'جاري...' : 'إقفال التشغيلة'}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
           <input
-            type="text" inputMode="decimal" dir="ltr" min="0"
-            value={tare} onChange={(e) => setTare(e.target.value)}
-            placeholder="وزن الفارغ الفعلي/قطعة (جم) — اختياري"
-            title="لو سبته فاضي هيتحسب الهدر بالوزن التقديري من بنك الأصناف"
-            className="w-56 shrink-0 px-3 py-2.5 border border-blue-200 rounded-xl text-sm tabular-nums bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            type="text" inputMode="decimal" dir="ltr" min="1" step="1" max={p.inputWeight}
+            value={out} onChange={(e) => setOut(e.target.value)}
+            placeholder="وزن الناتج الفعلي (كجم)"
+            className="flex-1 min-w-[160px] px-3 py-2.5 border border-amber-300 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
-        )}
-        {outN > 0 && isPack && (
-          <div className="px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums bg-blue-50 text-blue-700">
-            {outN} كيس
-          </div>
-        )}
-        <button onClick={complete} disabled={loading || outN <= 0} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 shrink-0 transition-colors">
-          {loading ? 'جاري...' : 'إقفال'}
-        </button>
-      </div>
+          {outN > 0 && (
+            <div className={`px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums ${wastePct > 20 ? 'bg-red-50 text-red-700' : wastePct > 10 ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>
+              هدر: {fmt(waste)} كجم ({fmt(wastePct)}%)
+            </div>
+          )}
+          <button onClick={complete} disabled={loading || outN <= 0} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 shrink-0 transition-colors">
+            {loading ? 'جاري...' : 'إقفال'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -669,12 +715,14 @@ function GrindAndBlendForm({ blends, availableIngredients, onDone }: { blends: B
 }
 
 /* ===== المرحلة ٣: التعبئة والتغليف ===== */
-function PackForm({ blends, finished, onDone }: {
-  blends: BlendT[]; finished: FinishedT[]; onDone: () => void
+function PackForm({ blends, finished, packagings, onDone }: {
+  blends: BlendT[]; finished: FinishedT[]; packagings: PackagingT[]; onDone: () => void
 }) {
   const [sourceId, setSourceId] = useState('')
   const [pullKg, setPullKg] = useState('')
   const [finishedId, setFinishedId] = useState('')
+  const [rollId, setRollId] = useState('')
+  const [rollPullKg, setRollPullKg] = useState('')
   const [channel, setChannel] = useState(CHANNELS[0])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -684,24 +732,36 @@ function PackForm({ blends, finished, onDone }: {
   const pullN = Number(pullKg) || 0
   const fin = finished.find((f) => f.id === finishedId)
 
-  const expectedBags = fin && pullN > 0 && fin.gramsPerPiece > 0
-    ? Math.floor((pullN * 1000) / (fin.gramsPerPiece + fin.tare))
-    : 0
+  // لما يختار المنتج النهائي، نختار الرول الافتراضي المربوط بيه (مادة التغليف)
+  useEffect(() => {
+    if (fin?.packagingId && !rollId) setRollId(fin.packagingId)
+  }, [fin?.packagingId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const roll = packagings.find((p) => p.id === rollId)
+  const rollN = Number(rollPullKg) || 0
+  const rollTare = roll?.tare || fin?.tare || 0 // وزن الوحدة الواحدة (الكيس الفارغ) جم
+
+  // عدد الأكياس من البن = كمية البن ÷ وزن الكيس الصافي
+  const bagsFromCoffee = fin && pullN > 0 && fin.gramsPerPiece > 0 ? Math.floor((pullN * 1000) / fin.gramsPerPiece) : 0
+  // عدد الأكياس من الرول = وزن الرول ÷ وزن الوحدة الواحدة
+  const bagsFromRoll = rollN > 0 && rollTare > 0 ? Math.floor((rollN * 1000) / rollTare) : 0
+  const expectedBags = rollN > 0 ? Math.min(bagsFromCoffee, bagsFromRoll) : bagsFromCoffee
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
     if (!sourceId || pullN <= 0) { setError('اختار المنتج المطحون واكتب الكمية المسحوبة'); return }
     if (!finishedId) { setError('اختار المنتج النهائي'); return }
     if (source && pullN > source.quantity) { setError(`الكمية المسحوبة أكبر من المتاح (${source.quantity} كجم)`); return }
+    if (roll && rollN > 0 && rollN > roll.quantity) { setError(`كمية الرول المسحوبة أكبر من المتاح (${roll.quantity} كجم)`); return }
 
     setLoading(true)
     const res = await fetch('/api/factory/pack', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceProductId: sourceId, pullKg: pullN, finishedId, channel }),
+      body: JSON.stringify({ sourceProductId: sourceId, pullKg: pullN, finishedId, rollProductId: rollId || undefined, rollPullKg: rollN || undefined, channel }),
     })
     const data = await res.json(); setLoading(false)
     if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
-    setSourceId(''); setPullKg(''); setFinishedId(''); onDone()
+    setSourceId(''); setPullKg(''); setFinishedId(''); setRollId(''); setRollPullKg(''); onDone()
   }
 
   return (
@@ -752,20 +812,25 @@ function PackForm({ blends, finished, onDone }: {
         />
       </div>
 
-      {fin && (
-        <div className="rounded-xl bg-gray-50 p-4 text-sm space-y-1.5">
-          <div className="flex justify-between"><span className="text-gray-500">وزن الكيس الصافي</span><span className="font-semibold tabular-nums">{fin.gramsPerPiece} جم</span></div>
-          {fin.tare > 0 && <div className="flex justify-between"><span className="text-gray-500">وزن الفارغة (التغليف)</span><span className="tabular-nums">{fin.tare} جم</span></div>}
-          {fin.packagingName && <div className="flex justify-between"><span className="text-gray-500">مادة التغليف</span><span className="tabular-nums">{fin.packagingName}</span></div>}
-          {fin.blendName && <div className="flex justify-between"><span className="text-gray-500">التوليفة الأساسية</span><span className="tabular-nums">{fin.blendName}</span></div>}
-          {pullN > 0 && (
-            <div className="flex justify-between border-t border-gray-200 pt-1.5 font-bold text-blue-700">
-              <span>عدد الأكياس المتوقع</span>
-              <span className="tabular-nums">~{expectedBags} كيس</span>
-            </div>
-          )}
-        </div>
-      )}
+      {/* ٣. الرول (مادة التغليف) — بيتسحب بالوزن كجم */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+        <label className="text-sm font-bold text-amber-700">٣. سحب من الرول (مادة التغليف)</label>
+        <SearchableSelect
+          value={rollId}
+          onChange={setRollId}
+          placeholder="اختار الرول / مادة التغليف"
+          emptyText="مفيش مواد تغليف مسجّلة"
+          className={inputCls}
+          options={packagings.map((p) => ({ value: p.id, label: p.name, sublabel: `متاح ${fmt(p.quantity)} كجم · وزن الوحدة ${p.tare} جم` }))}
+        />
+        <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={rollPullKg} onChange={(e) => setRollPullKg(e.target.value)} placeholder="الكمية المسحوبة من الرول (كجم)" className={inputCls} />
+        {roll && rollN > 0 && rollN <= roll.quantity && (
+          <p className="text-xs text-green-600">✓ متاح {fmt(roll.quantity)} كجم — هيتبقى {fmt(roll.quantity - rollN)} كجم · وزن الوحدة {roll.tare} جم</p>
+        )}
+        {roll && rollN > roll.quantity && (
+          <p className="text-xs text-red-600">✗ الكمية أكبر من المتاح ({fmt(roll.quantity)} كجم)</p>
+        )}
+      </div>
 
       <div className="space-y-1.5">
         <label className="text-sm font-semibold text-gray-700">القناة</label>
@@ -774,7 +839,33 @@ function PackForm({ blends, finished, onDone }: {
         </select>
       </div>
 
-      <p className="text-xs text-gray-400">المدخلات (مطحون + تغليف) بتتخصم فور البدء. عدد الأكياس الفعلي بيتحدد بعد ما خط التعبئة يخلص وتقفل التشغيلة — الهدر بيتحسب أوتوماتيك.</p>
+      {/* الشرح التفصيلي / البيان */}
+      {fin && (pullN > 0 || rollN > 0) && (
+        <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-sm space-y-2">
+          <p className="font-bold text-gray-700 text-xs mb-1">الشرح التفصيلي (البيان)</p>
+          <div className="flex justify-between"><span className="text-gray-500">وزن الكيس الصافي (بن)</span><span className="font-semibold tabular-nums">{fin.gramsPerPiece} جم</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">وزن الوحدة الواحدة (الرول/الفارغة)</span><span className="tabular-nums">{rollTare} جم</span></div>
+          {fin.blendName && <div className="flex justify-between"><span className="text-gray-500">التوليفة الأساسية</span><span className="tabular-nums">{fin.blendName}</span></div>}
+          {pullN > 0 && (
+            <div className="flex justify-between border-t border-gray-200 pt-1.5">
+              <span className="text-gray-500">أكياس من البن = {pullN} كجم ÷ {fin.gramsPerPiece} جم</span>
+              <span className="tabular-nums font-semibold text-blue-700">~{bagsFromCoffee} كيس</span>
+            </div>
+          )}
+          {rollN > 0 && rollTare > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">أكياس من الرول = {rollN} كجم ÷ {rollTare} جم</span>
+              <span className="tabular-nums font-semibold text-amber-700">~{bagsFromRoll} كيس</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-gray-200 pt-1.5 font-bold text-[#0f3460]">
+            <span>عدد الأكياس المتوقع {rollN > 0 ? '(الأقل بين البن والرول)' : ''}</span>
+            <span className="tabular-nums">~{expectedBags} كيس</span>
+          </div>
+        </div>
+      )}
+
+      <p className="text-xs text-gray-400">المدخلات (مطحون + رول) بتتخصم بالوزن فور البدء. عند الإقفال المشغّل بيبلّغ عدد الأكياس الفعلية ووزن البن والرول المتبقي (بيرجعوا للمخزن) ووزن الفارغة — والهدر بيتحسب أوتوماتيك.</p>
 
       <button type="submit" disabled={loading} className="w-full bg-[#0f3460] text-white py-3.5 rounded-xl font-bold text-base hover:bg-[#0a2545] disabled:opacity-50 shadow-lg transition">
         {loading ? 'جاري البدء...' : 'بدء التعبئة (فتح تشغيلة)'}

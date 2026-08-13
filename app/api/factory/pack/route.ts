@@ -44,12 +44,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `المنتج "${fin.name}" مفيهوش وزن كيس محدد — عدّله في بنك الأصناف` }, { status: 400 })
       }
 
-      // حساب العدد المتوقع
-      const pullGrams = pullKg * 1000
-      const tareWeight = Number(fin.packaging?.tareWeight || 0)
-      const netPerBag = gramsPerPiece // وزن البن الصافي في الكيس
-      const expectedBags = Math.floor(pullGrams / (netPerBag + tareWeight))
-
       const fallbackWh = await getDefaultWarehouseId()
       const sourceWh = source.stageId ? await warehouseForStage(source.stageId) : fallbackWh
       const sourceStock = await getStock(sourceWh, source.id)
@@ -57,13 +51,29 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `رصيد "${source.name}" غير كافي (متاح ${sourceStock} كجم، مطلوب ${pullKg})` }, { status: 400 })
       }
 
-      // تحقق رصيد التغليف (لو المنتج مربوط بمادة تغليف)
-      let packaging = fin.packaging
-      if (packaging) {
-        const pkgWh = packaging.stageId ? await warehouseForStage(packaging.stageId) : fallbackWh
-        const pkgStock = await getStock(pkgWh, packaging.id)
-        if (pkgStock < expectedBags) {
-          return NextResponse.json({ error: `رصيد التغليف "${packaging.name}" غير كافي (متاح ${pkgStock}، مطلوب ~${expectedBags})` }, { status: 400 })
+      // ===== الرول (مادة التغليف) — بيتسحب بالوزن كجم =====
+      // الرول اختياري: لو المنتج مربوط بتغليف بنستخدمه افتراضياً، والمشغّل يقدر يختار رول تاني ويحدد كمية بالكجم
+      let roll = fin.packaging
+      if (b.rollProductId && b.rollProductId !== roll?.id) {
+        roll = await prisma.product.findUnique({ where: { id: b.rollProductId } })
+        if (!roll || roll.itemKind !== 'PACKAGING') {
+          return NextResponse.json({ error: 'الرول/مادة التغليف المختارة غير صحيحة' }, { status: 400 })
+        }
+      }
+      const rollPullKg = Number(b.rollPullKg) || 0
+      const rollTare = Number(roll?.tareWeight || 0) // وزن الوحدة (الكيس الفارغ) بالجرام
+      // عدد الأكياس المتوقّع من الرول = وزن الرول بالكجم ÷ وزن الوحدة الواحدة
+      const bagsFromRoll = roll && rollPullKg > 0 && rollTare > 0 ? Math.floor((rollPullKg * 1000) / rollTare) : 0
+      // عدد الأكياس المتوقّع من البن = كمية البن ÷ وزن الكيس الصافي
+      const bagsFromCoffee = Math.floor((pullKg * 1000) / gramsPerPiece)
+      const expectedBags = roll && rollPullKg > 0 ? Math.min(bagsFromCoffee, bagsFromRoll) : bagsFromCoffee
+
+      // تحقق رصيد الرول (بالكجم) لو المشغّل حدّد كمية رول
+      if (roll && rollPullKg > 0) {
+        const rollWh = roll.stageId ? await warehouseForStage(roll.stageId) : fallbackWh
+        const rollStock = await getStock(rollWh, roll.id)
+        if (rollStock < rollPullKg) {
+          return NextResponse.json({ error: `رصيد الرول "${roll.name}" غير كافي (متاح ${rollStock} كجم، مطلوب ${rollPullKg})` }, { status: 400 })
         }
       }
 
@@ -84,12 +94,14 @@ export async function POST(req: NextRequest) {
             status: 'PENDING',
             rawProductId: source.id,
             rawUsed: pullKg,
+            rollProductId: roll && rollPullKg > 0 ? roll.id : null,
+            rollInputKg: roll && rollPullKg > 0 ? rollPullKg : null,
             notes: b.notes?.trim() || null,
             createdById: session.user.id,
             inputs: {
               create: [
                 { productId: source.id, quantity: pullKg, percentage: 100 },
-                ...(packaging ? [{ productId: packaging.id, quantity: expectedBags, percentage: 0 }] : []),
+                ...(roll && rollPullKg > 0 ? [{ productId: roll.id, quantity: rollPullKg, percentage: 0 }] : []),
               ],
             },
             items: { create: [{ productId: fin.id, quantity: 0 }] },
@@ -102,20 +114,20 @@ export async function POST(req: NextRequest) {
         await adjustStock(tx, sourceWh, source.id, -pullKg)
         await tx.warehouseOut.create({ data: { productId: source.id, warehouseId: sourceWh, quantity: pullKg, target: 'تعبئة', reason: `أمر ${created.orderNo}`, createdById: session.user.id } })
 
-        // خصم التغليف فوراً (بعدد الأكياس المتوقع)
-        if (packaging) {
-          const pkgWh = packaging.stageId ? await warehouseForStage(packaging.stageId) : fallbackWh
-          await tx.product.update({ where: { id: packaging.id }, data: { quantity: { decrement: expectedBags } } })
-          await adjustStock(tx, pkgWh, packaging.id, -expectedBags)
-          await tx.warehouseOut.create({ data: { productId: packaging.id, warehouseId: pkgWh, quantity: expectedBags, target: 'تعبئة', reason: `أمر ${created.orderNo}`, createdById: session.user.id } })
+        // خصم الرول فوراً (بالكجم)
+        if (roll && rollPullKg > 0) {
+          const rollWh = roll.stageId ? await warehouseForStage(roll.stageId) : fallbackWh
+          await tx.product.update({ where: { id: roll.id }, data: { quantity: { decrement: rollPullKg } } })
+          await adjustStock(tx, rollWh, roll.id, -rollPullKg)
+          await tx.warehouseOut.create({ data: { productId: roll.id, warehouseId: rollWh, quantity: rollPullKg, target: 'تعبئة', reason: `أمر ${created.orderNo}`, createdById: session.user.id } })
         }
 
         await tx.auditLog.create({
           data: {
             userId: session.user.id,
             action: 'بدء تعبئة',
-            description: `تشغيلة ${batchNo}: بدء تعبئة ${fin.name} — سحب ${pullKg} كجم من ${source.name} — متوقع ~${expectedBags} كيس`,
-            impact: `−${pullKg} كجم مطحون${packaging ? ` · −${expectedBags} ${packaging.name}` : ''} · بانتظار إقفال التشغيلة`,
+            description: `تشغيلة ${batchNo}: بدء تعبئة ${fin.name} — سحب ${pullKg} كجم بن${roll && rollPullKg > 0 ? ` + ${rollPullKg} كجم رول (${roll.name})` : ''} — متوقع ~${expectedBags} كيس`,
+            impact: `−${pullKg} كجم مطحون${roll && rollPullKg > 0 ? ` · −${rollPullKg} كجم رول ${roll.name}` : ''} · بانتظار إقفال التشغيلة`,
           },
         })
         return created
