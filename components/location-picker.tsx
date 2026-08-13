@@ -19,6 +19,7 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [blocked, setBlocked] = useState(false)
+  const [insecure, setInsecure] = useState(false)
   const [manualMode, setManualMode] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const leafletMap = useRef<any>(null)
@@ -26,6 +27,8 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
 
   // نتحقق من حالة إذن الموقع فور تحميل الفورم — عشان نبين رسالة تفعيل واضحة من غير ما ننتظر المستخدم يضغط ويفشل
   useEffect(() => {
+    // المتصفحات (خصوصًا كروم أندرويد) بتمنع تحديد الموقع نهائيًا على أي رابط http غير آمن — لازم https أو localhost
+    if (typeof window !== 'undefined' && window.isSecureContext === false) setInsecure(true)
     if (!navigator.permissions?.query) return
     let status: PermissionStatus | null = null
     navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((s) => {
@@ -39,6 +42,12 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
   const capture = () => {
     setError('')
     const manualHint = allowManual ? ' — استخدم التحديد اليدوي تحت' : ''
+    // على http (غير localhost) الـ GPS متبلوك من المتصفح نفسه — مفيش فايدة نطلبه
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setInsecure(true)
+      setError(`الموقع مبيشتغلش إلا على رابط آمن (https)${manualHint}`)
+      return
+    }
     if (!navigator.geolocation) { setError(`الجهاز/المتصفح ده مش بيدعم تحديد الموقع الجغرافي${manualHint}`); return }
     setLoading(true)
     navigator.geolocation.getCurrentPosition(
@@ -99,7 +108,14 @@ export function LocationPicker({ value, onChange, label = 'تسجيل موقعي
 
   return (
     <div className="space-y-1.5">
-      {blocked && !value && (
+      {insecure && !value && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 text-[11px] text-red-700 leading-relaxed space-y-1">
+          <p className="font-bold">🔒 تحديد الموقع مبيشتغلش على الرابط ده</p>
+          <p>المتصفح (خصوصًا كروم على الأندرويد) بيمنع تحديد الموقع نهائيًا على أي رابط <b>http</b> غير آمن. لازم تفتح النظام من رابط <b>https</b> (زي الرابط الرسمي على الإنترنت) عشان الموقع يشتغل — مش من عنوان زي 192.168 أو localhost على الموبايل.</p>
+          {allowManual && <p>مؤقتًا: تقدر تستخدم "تحديد يدوي على الخريطة" تحت.</p>}
+        </div>
+      )}
+      {blocked && !insecure && !value && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed space-y-1.5">
           <p className="font-bold">📍 مش قادرين ناخد موقعك تلقائيًا — جرب بالترتيب:</p>
           <ol className="list-decimal pr-4 space-y-1">
