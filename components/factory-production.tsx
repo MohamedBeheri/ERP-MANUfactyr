@@ -797,24 +797,9 @@ function PackForm({ blends, finished, packagings, onDone }: {
         )}
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-sm font-bold text-gray-700">٢. المنتج النهائي (منتج البيع)</label>
-        <SearchableSelect
-          value={finishedId}
-          onChange={setFinishedId}
-          placeholder="اختار المنتج النهائي"
-          className={inputCls}
-          options={finished.map((f) => ({
-            value: f.id,
-            label: f.name,
-            sublabel: `${f.gramsPerPiece} جم/كيس${f.packagingName ? ` · تغليف: ${f.packagingName}` : ''}`,
-          }))}
-        />
-      </div>
-
-      {/* ٣. الرول (مادة التغليف) — بيتسحب بالوزن كجم */}
+      {/* ٢. الرول (مادة التغليف) — بيتسحب بالوزن كجم */}
       <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
-        <label className="text-sm font-bold text-amber-700">٣. سحب من الرول (مادة التغليف)</label>
+        <label className="text-sm font-bold text-amber-700">٢. سحب من الرول (مادة التغليف)</label>
         <SearchableSelect
           value={rollId}
           onChange={setRollId}
@@ -830,6 +815,21 @@ function PackForm({ blends, finished, packagings, onDone }: {
         {roll && rollN > roll.quantity && (
           <p className="text-xs text-red-600">✗ الكمية أكبر من المتاح ({fmt(roll.quantity)} كجم)</p>
         )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-bold text-gray-700">٣. المنتج النهائي (منتج البيع)</label>
+        <SearchableSelect
+          value={finishedId}
+          onChange={setFinishedId}
+          placeholder="اختار المنتج النهائي"
+          className={inputCls}
+          options={finished.map((f) => ({
+            value: f.id,
+            label: f.name,
+            sublabel: `${f.gramsPerPiece} جم/كيس${f.packagingName ? ` · تغليف: ${f.packagingName}` : ''}`,
+          }))}
+        />
       </div>
 
       <div className="space-y-1.5">
