@@ -31,6 +31,7 @@ interface CustodyRow {
   rejectReason: string | null
   notes: string | null
   createdAt: string
+  approvedAt: string | null
   disbursedAt: string | null
   settledAt: string | null
   user: { id: string; name: string; jobTitle: string | null }
@@ -60,6 +61,7 @@ const EXP_STATUS: Record<string, { label: string; cls: string }> = {
 
 const money = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 const dateOf = (s: string) => new Date(s).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' })
+const dateTimeOf = (s: string) => new Date(s).toLocaleString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 text-sm bg-white'
 
 // ضغط صورة الإثبات قبل الرفع (نفس نمط مرفقات سندات الصرف)
@@ -171,14 +173,14 @@ export function CustodyPanel({ mode }: { mode: 'manage' | 'mine' }) {
           </h3>
           {!reqOpen && (
             <button onClick={() => setReqOpen(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#0f3460] text-white rounded-lg text-sm font-semibold hover:bg-[#0a2545]">
-              <Plus className="w-4 h-4" /> طلب عهدة
+              <Plus className="w-4 h-4" /> {mode === 'manage' ? 'صرف عهدة' : 'طلب عهدة'}
             </button>
           )}
         </div>
         {reqOpen && (
           <form onSubmit={submitRequest} className="mx-4 mb-4 border border-gray-200 rounded-xl p-4 bg-gray-50/40 space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-sm">طلب عهدة جديد</h4>
+              <h4 className="font-bold text-sm">{mode === 'manage' ? 'صرف عهدة لموظف' : 'طلب عهدة جديد'}</h4>
               <button type="button" onClick={() => setReqOpen(false)} className="text-gray-400 hover:text-gray-600" aria-label="إغلاق"><X className="w-4 h-4" /></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -189,7 +191,7 @@ export function CustodyPanel({ mode }: { mode: 'manage' | 'mine' }) {
                 </select>
               )}
               <input type="text" inputMode="decimal" dir="ltr" value={reqForm.amount} onChange={(e) => setReqForm({ ...reqForm, amount: e.target.value })} className={inputCls} placeholder="المبلغ المطلوب *" required />
-              <input value={reqForm.purpose} onChange={(e) => setReqForm({ ...reqForm, purpose: e.target.value })} className={inputCls} placeholder="الغرض من العهدة *" required />
+              <input value={reqForm.purpose} onChange={(e) => setReqForm({ ...reqForm, purpose: e.target.value })} className={inputCls} placeholder="العهدة دي خاصة بإيه؟ (الغرض) *" required />
               <input value={reqForm.notes} onChange={(e) => setReqForm({ ...reqForm, notes: e.target.value })} className={inputCls} placeholder="ملاحظات (اختياري)" />
             </div>
             <button type="submit" disabled={busy === 'req'} className="px-6 bg-[#0f3460] text-white py-2 rounded-lg font-semibold text-sm disabled:opacity-50">
@@ -281,13 +283,39 @@ function CustodyCard({ c, open, onToggle, isAdmin, canTreasury, isOwner, methods
 
       {open && (
         <div className="px-4 pb-4 space-y-3">
-          {/* بيانات الدورة */}
+          {/* تفاصيل الطلب */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs bg-gray-50 rounded-lg p-3">
-            <div><span className="text-gray-400">الطلب بواسطة:</span> <span className="font-semibold">{c.creator.name}</span></div>
-            {c.approvedBy && <div><span className="text-gray-400">{c.status === 'REJECTED' ? 'رفض' : 'اعتماد'}:</span> <span className="font-semibold">{c.approvedBy.name}</span></div>}
-            {c.disbursedBy && <div><span className="text-gray-400">صرف:</span> <span className="font-semibold">{c.disbursedBy.name} · {c.paymentMethod?.name} من {c.treasury?.name}</span></div>}
-            {c.settledBy && <div><span className="text-gray-400">تسوية:</span> <span className="font-semibold">{c.settledBy.name}</span></div>}
-            {c.rejectReason && <div className="col-span-full text-red-600">سبب الرفض: {c.rejectReason}</div>}
+            <div className="col-span-full"><span className="text-gray-400">الغرض من العهدة:</span> <span className="font-semibold">{c.purpose}</span>{c.notes && <span className="text-gray-500"> — {c.notes}</span>}</div>
+            <div><span className="text-gray-400">المبلغ المطلوب:</span> <span className="font-semibold tabular-nums">{money(Number(c.requestedAmount))} ج.م</span></div>
+            {c.approvedAmount != null && <div><span className="text-gray-400">المبلغ المعتمد:</span> <span className="font-semibold tabular-nums text-green-700">{money(Number(c.approvedAmount))} ج.م</span></div>}
+            {c.returnedAmount != null && <div><span className="text-gray-400">المرتجع للخزنة:</span> <span className="font-semibold tabular-nums text-[#0f3460]">{money(Number(c.returnedAmount))} ج.م{c.returnTreasury ? ` (${c.returnTreasury.name})` : ''}</span></div>}
+          </div>
+
+          {/* تاريخ الاعتمادات — كل خطوة بمين وامتى */}
+          <div className="border border-gray-100 rounded-lg divide-y divide-gray-50 text-xs">
+            <div className="flex items-center justify-between gap-2 px-3 py-2">
+              <span><span className="text-gray-400">الطلب بواسطة:</span> <span className="font-semibold">{c.creator.name}</span></span>
+              <span className="text-gray-400 tabular-nums shrink-0">{dateTimeOf(c.createdAt)}</span>
+            </div>
+            {c.approvedBy && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <span><span className="text-gray-400">{c.status === 'REJECTED' ? 'الرفض بواسطة:' : 'الاعتماد بواسطة:'}</span> <span className="font-semibold">{c.approvedBy.name}</span></span>
+                {c.approvedAt && <span className="text-gray-400 tabular-nums shrink-0">{dateTimeOf(c.approvedAt)}</span>}
+              </div>
+            )}
+            {c.disbursedBy && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <span><span className="text-gray-400">الصرف بواسطة:</span> <span className="font-semibold">{c.disbursedBy.name}</span> <span className="text-gray-500">· {c.paymentMethod?.name} من {c.treasury?.name}</span></span>
+                {c.disbursedAt && <span className="text-gray-400 tabular-nums shrink-0">{dateTimeOf(c.disbursedAt)}</span>}
+              </div>
+            )}
+            {c.settledBy && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <span><span className="text-gray-400">التسوية بواسطة:</span> <span className="font-semibold">{c.settledBy.name}</span>{c.returnMethod && <span className="text-gray-500"> · مرتجع {c.returnMethod.name}</span>}</span>
+                {c.settledAt && <span className="text-gray-400 tabular-nums shrink-0">{dateTimeOf(c.settledAt)}</span>}
+              </div>
+            )}
+            {c.rejectReason && <div className="px-3 py-2 text-red-600">سبب الرفض: {c.rejectReason}</div>}
           </div>
 
           {/* اعتماد/رفض — أدمن */}
