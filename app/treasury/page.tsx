@@ -84,6 +84,7 @@ function TreasuryPageInner() {
   const [delegates, setDelegates] = useState<any[]>([])
   const [vouchers, setVouchers] = useState<any[]>([])
   const [collections, setCollections] = useState<any[]>([])
+  const [treasuriesList, setTreasuriesList] = useState<any[]>([])
   const [cashflowReport, setCashflowReport] = useState<any>(null)
   const [expenseCategories, setExpenseCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,7 +102,7 @@ function TreasuryPageInner() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [sRes, lRes, nRes, dRes, vRes, cRes, cfRes, ecRes] = await Promise.all([
+      const [sRes, lRes, nRes, dRes, vRes, cRes, cfRes, ecRes, tRes] = await Promise.all([
         fetch('/api/treasury/settlements'),
         fetch('/api/treasury/liabilities'),
         fetch('/api/treasury/notifications?unread=1'),
@@ -110,6 +111,7 @@ function TreasuryPageInner() {
         fetch('/api/treasury/customer-collections'),
         fetch('/api/treasury/cashflow-report'),
         fetch('/api/treasury/expense-categories?all=1'),
+        fetch('/api/treasury/treasuries'),
       ])
       const safe = async (r: Response) => { try { return await r.json() } catch { return null } }
       setSettlements(await safe(sRes) || [])
@@ -123,6 +125,8 @@ function TreasuryPageInner() {
       setCashflowReport(await safe(cfRes))
       const ecData = await safe(ecRes)
       setExpenseCategories(Array.isArray(ecData) ? ecData : [])
+      const tData = await safe(tRes)
+      setTreasuriesList(Array.isArray(tData) ? tData : (tData?.treasuries || []))
     } catch {
       // ignore
     }
@@ -203,11 +207,15 @@ function TreasuryPageInner() {
   }
 
   // === Payment Voucher Form ===
-  const [vForm, setVForm] = useState({ description: '', amount: '', categoryId: '', activity: 'OPERATING', liabilityId: '', installmentId: '', paymentMethod: 'CASH', checkNo: '', bankName: '', notes: '' })
+  const [vForm, setVForm] = useState({ description: '', amount: '', categoryId: '', activity: 'OPERATING', liabilityId: '', installmentId: '', paymentMethod: 'CASH', checkNo: '', bankName: '', notes: '', treasuryId: '' })
+
+  // خزائن بيتصرف منها المصروفات فعليًا (لازم تكون مفعّلة للصرف)
+  const disbursementTreasuries = treasuriesList.filter((t: any) => t.allowExpenseDisbursement)
 
   const submitVoucher = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!vForm.treasuryId) { setError('لازم تختار الخزنة اللي هيتصرف منها المبلغ'); return }
     setSubmitting(true)
     const res = await fetch('/api/treasury/payment-vouchers', {
       method: 'POST',
@@ -216,7 +224,7 @@ function TreasuryPageInner() {
     })
     setSubmitting(false)
     if (!res.ok) { const d = await res.json(); setError(d.error || 'حصل خطأ'); return }
-    setVForm({ description: '', amount: '', categoryId: '', activity: 'OPERATING', liabilityId: '', installmentId: '', paymentMethod: 'CASH', checkNo: '', bankName: '', notes: '' })
+    setVForm({ description: '', amount: '', categoryId: '', activity: 'OPERATING', liabilityId: '', installmentId: '', paymentMethod: 'CASH', checkNo: '', bankName: '', notes: '', treasuryId: '' })
     setShowNewVoucher(false)
     fetchData()
   }
@@ -494,6 +502,21 @@ function TreasuryPageInner() {
                     <Receipt className="w-4 h-4 text-[#e9b44c]" /> سند صرف جديد
                   </h3>
                   {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">الخزنة اللي هيتصرف منها <span className="text-red-500">*</span></label>
+                    {disbursementTreasuries.length === 0 ? (
+                      <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs leading-relaxed">
+                        مفيش خزنة مفعّلة للصرف حاليًا. روح لتبويب «الخزائن» وفعّل «السماح بصرف المصروفات» على خزنة واحدة على الأقل عشان تقدر تعمل سند صرف.
+                      </div>
+                    ) : (
+                      <select value={vForm.treasuryId} onChange={(e) => setVForm({ ...vForm, treasuryId: e.target.value })} className={inputCls} required>
+                        <option value="">اختر الخزنة —</option>
+                        {disbursementTreasuries.map((t: any) => (
+                          <option key={t.id} value={t.id}>{t.name} — الرصيد: {num(t.balance)} ج.م</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <select
                       value={vForm.categoryId}
