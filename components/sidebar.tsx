@@ -101,10 +101,10 @@ const menu: Entry[] = [
       { href: '/treasury?tab=fin-settings', label: 'الإعدادات المالية', Icon: Settings2, perm: 'treasury' },
     ],
   },
-  { kind: 'standalone', item: { href: '/finance', label: 'التقارير', Icon: BarChart3, perm: 'finance' } },
   {
     kind: 'group', id: 'admin', title: 'الإدارة', Icon: ShieldCheck,
     items: [
+      { href: '/finance', label: 'التقارير', Icon: BarChart3, perm: 'finance' },
       { href: '/employees', label: 'الموظفين', Icon: UserCog, perm: 'employees' },
       { href: '/governance', label: 'الحوكمة', Icon: ShieldCheck, perm: 'governance' },
       { href: '/settings', label: 'الإعدادات', Icon: Settings, perm: 'settings' },
