@@ -28,6 +28,7 @@ import {
   Settings2,
   Bell,
   BarChart3,
+  Gauge,
   LogOut,
   ChevronDown,
   X,
@@ -59,6 +60,7 @@ const menu: Entry[] = [
     items: [
       { href: '/factory/dashboard', label: 'لوحة تحكم التصنيع', Icon: LayoutDashboard, perm: 'factory' },
       { href: '/factory', label: 'المصنع', Icon: Factory, perm: 'factory', exact: true },
+      { href: '/factory/quality', label: 'مراقبة الجودة (KPIs)', Icon: Gauge, perm: 'factory' },
       { href: '/catalog', label: 'بنك الأصناف', Icon: Coffee, perm: 'catalog' },
       { href: '/purchases/dashboard', label: 'لوحة تحكم المشتريات', Icon: LayoutDashboard, perm: 'purchases' },
       { href: '/purchases', label: 'المشتريات', Icon: ShoppingBag, perm: 'purchases', exact: true },

@@ -294,6 +294,7 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
 /* ===== تشغيلات مفتوحة: العامل يرجع يقفلها ===== */
 function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
   const [out, setOut] = useState('')
+  const [tare, setTare] = useState('') // وزن الفارغ الفعلي للقطعة (جرام) — المشغّل بيقيسه على الماكينة
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const outN = Number(out) || 0
@@ -306,8 +307,11 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
     setErr('')
     if (!(outN > 0)) return setErr(isPack ? 'اكتب عدد الأكياس/العبوات الفعلية' : 'اكتب الوزن الفعلي للناتج')
     if (!isPack && outN > p.inputWeight) return setErr(`الوزن الخارج مينفعش يزيد عن الداخل (${p.inputWeight})`)
+    if (isPack && tare.trim() !== '' && !(Number(tare) >= 0)) return setErr('وزن الفارغ الفعلي لازم يكون رقم بالجرام')
     setLoading(true)
-    const body = isPack ? { actualBags: outN } : { outputKg: outN }
+    const body = isPack
+      ? { actualBags: outN, ...(tare.trim() !== '' ? { actualTareWeight: Number(tare) } : {}) }
+      : { outputKg: outN }
     const res = await fetch(`/api/factory/${endpoint}/${p.id}/complete`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })
@@ -356,6 +360,15 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
           <div className={`px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums ${wastePct > 20 ? 'bg-red-50 text-red-700' : wastePct > 10 ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>
             هدر: {fmt(waste)} كجم ({fmt(wastePct)}%)
           </div>
+        )}
+        {isPack && (
+          <input
+            type="text" inputMode="decimal" dir="ltr" min="0"
+            value={tare} onChange={(e) => setTare(e.target.value)}
+            placeholder="وزن الفارغ الفعلي/قطعة (جم) — اختياري"
+            title="لو سبته فاضي هيتحسب الهدر بالوزن التقديري من بنك الأصناف"
+            className="w-56 shrink-0 px-3 py-2.5 border border-blue-200 rounded-xl text-sm tabular-nums bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         )}
         {outN > 0 && isPack && (
           <div className="px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums bg-blue-50 text-blue-700">

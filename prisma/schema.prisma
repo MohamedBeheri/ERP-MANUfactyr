@@ -463,6 +463,8 @@ model Production {
   wasteWeight   Decimal     @default(0) @db.Decimal(12, 3) // الهدر (جرام)
   wastePercent  Decimal     @default(0) @db.Decimal(5, 2) // نسبة الهدر %
   wasteExceeded Boolean     @default(false) // الهدر عدّى الحد المسموح للعملية — تشغيلة متعلّمة + إشعار للأدمن
+  actualUnits   Int? // عدد الوحدات الفعلي اللي بلّغ عنه المشغّل عند الإقفال (للتعبئة)
+  actualTareWeight Decimal? @db.Decimal(8, 3) // وزن الفارغ الفعلي للقطعة (جرام) المقاس على الماكينة — بديل التقديري من بنك الأصناف
   expiryDate    DateTime? // تاريخ انتهاء الصلاحية للمنتج الناتج
   recipeId      String? // الوصفة المستخدمة (BOM)
   operationId   String? // عملية التصنيع المستخدمة

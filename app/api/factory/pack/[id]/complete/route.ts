@@ -6,9 +6,9 @@ import { warehouseForStage } from '@/lib/stock-stages'
 import { flagWasteIfExceeded } from '@/lib/manufacturing'
 
 
-// إقفال تشغيلة التعبئة: العامل يرجع بعد ما خط التعبئة يخلص ويعد الأكياس الفعلية.
-// النظام يحسب الهدر تلقائي:
-//   هدر = (كمية مسحوبة بالجرام) - (عدد أكياس × وزن الكيس بالجرام) - (عدد أكياس × وزن الفارغة)
+// إقفال تشغيلة التعبئة: المشغّل يبلّغ عدد الأكياس الفعلية + وزن الفارغ الفعلي المقاس على الماكينة (اختياري).
+// وزن الفارغ في بنك الأصناف تقديري — لو المشغّل أدخل وزن فعلي بنستخدمه في حساب الهدر ونسجّل الاتنين لتقرير الجودة.
+//   هدر = (كمية مسحوبة بالجرام) - (عدد أكياس × وزن الكيس بالجرام) - (عدد أكياس × وزن الفارغة الفعلي/التقديري)
 export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('factory', 'edit')
   if ('response' in auth) return auth.response
@@ -35,7 +35,14 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
 
     const finProduct = finItem.product
     const gramsPerPiece = Number(finProduct.gramsPerPiece) || 0
-    const tareWeight = Number(finProduct.packaging?.tareWeight || 0)
+    // وزن الفارغ: الفعلي من المشغّل لو اتقاس، وإلا التقديري من بنك الأصناف
+    const estimatedTare = Number(finProduct.packaging?.tareWeight || 0)
+    const actualTareRaw = b.actualTareWeight !== undefined && b.actualTareWeight !== null && String(b.actualTareWeight).trim() !== ''
+      ? Number(b.actualTareWeight) : null
+    if (actualTareRaw !== null && !(actualTareRaw >= 0 && isFinite(actualTareRaw))) {
+      return NextResponse.json({ error: 'وزن الفارغ الفعلي لازم يكون رقم صحيح بالجرام' }, { status: 400 })
+    }
+    const tareWeight = actualTareRaw !== null ? actualTareRaw : estimatedTare
     const pullGrams = Number(production.inputWeight) * 1000
 
     // حساب الهدر التلقائي
@@ -55,6 +62,8 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           outputWeight: actualBags,
           wasteWeight: wasteKg,
           wastePercent: wastePct,
+          actualUnits: Math.round(actualBags),
+          actualTareWeight: actualTareRaw, // null = المشغّل ماقاسش، اتحسب بالتقديري
           status: 'COMPLETED',
           completedAt: new Date(),
         },
