@@ -105,3 +105,11 @@ textarea:not([dir])::placeholder {
     margin: 12mm;
   }
 }
+
+/* ============ Leaflet maps ============ */
+/* طبقات Leaflet الداخلية ليها z-index عالي (لحد 1000) — بنحتويها جوه صندوق الخريطة
+   عشان الخريطة متطلعش فوق السايدبار/الهيدر/المودالات على الموبايل أو الشاشات الكبيرة */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0;
+}
