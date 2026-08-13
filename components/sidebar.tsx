@@ -119,12 +119,11 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
   const allowed = effectivePermissions(user?.role, user?.permissions)
   const hasPerm = (perm: string | null) => !perm || allowed.includes(perm) || allowed.some((p) => p.startsWith(perm + ':'))
 
-  // عدّاد الإشعارات لكل قسم (section) — للعلامة على التاب اللي فيه أكشن
+  // عدّاد الإشعارات بيتربط بالصفحة اللي الإشعار بيودّي لها (href) مش بالصلاحية —
+  // عشان البادج يظهر بس على البند اللي فيه الأكشن فعلًا، مش على كل بند بنفس الصلاحية
   const { groups: notifGroups } = useNotifications()
-  const countFor = (perm: string | null) => {
-    if (!perm) return 0
-    return notifGroups.filter((g) => g.section === perm).reduce((s, g) => s + g.count, 0)
-  }
+  const countFor = (href: string) =>
+    notifGroups.filter((g) => g.href === href).reduce((s, g) => s + g.count, 0)
 
   // فلترة البنود حسب الصلاحيات + استبعاد المجموعات الفاضية
   const entries: Entry[] = menu
@@ -197,9 +196,8 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
           const GroupIcon = e.Icon
           const groupActive = e.items.some((it) => isActive(pathname, it.href))
           const isOpen = openGroups[e.id] ?? groupActive
-          // مجموع فريد حسب القسم (عشان مايتعدّش مرتين لو نفس الصلاحية في أكتر من بند)
-          const groupPerms = Array.from(new Set(e.items.map((it) => it.perm).filter(Boolean)))
-          const groupCount = groupPerms.reduce((s, p) => s + countFor(p as string), 0)
+          // مجموع بادجات بنود المجموعة — كل إشعار بيتحسب مرة واحدة على البند اللي بيودّي له
+          const groupCount = e.items.reduce((s, it) => s + countFor(it.href), 0)
           return (
             <div key={e.id}>
               <button
@@ -215,9 +213,9 @@ export function Sidebar({ user, open = false, onClose }: { user: any; open?: boo
               </button>
               {isOpen && (
                 <div className="mt-1 mr-4 pr-3 border-r border-white/10 space-y-0.5">
-                  {e.items.map(({ href, label, Icon, exact, perm }) => {
+                  {e.items.map(({ href, label, Icon, exact }) => {
                     const active = exact ? pathname === href : isActive(pathname, href)
-                    const cnt = countFor(perm)
+                    const cnt = countFor(href)
                     return (
                       <Link
                         key={href}
