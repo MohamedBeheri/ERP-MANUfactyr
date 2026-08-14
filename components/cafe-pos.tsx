@@ -202,6 +202,8 @@ export function CafePos({
     if (!res.ok) throw new Error(data.error || 'فشل إنشاء الفاتورة')
 
     setLastInvoice({ id: data.id, invoiceNo: data.invoiceNo })
+    // فتح إيصال الكاشير للطباعة فورًا بعد البيع
+    if (data.id) window.open(`/print/invoice-receipt/${data.id}`, '_blank')
     setCart([])
     setCustomerId('')
     setNewCustomer('')
@@ -401,13 +403,23 @@ export function CafePos({
                 <CheckCircle2 className="w-5 h-5" />
                 اتسجلت {lastInvoice.invoiceNo}
               </div>
-              <a
-                href={`/print/invoice/${lastInvoice.id}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f3460] text-white rounded-lg text-xs font-semibold hover:bg-[#0a2545]"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                طباعة
-              </a>
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={`/print/invoice-receipt/${lastInvoice.id}`}
+                  target="_blank"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f3460] text-white rounded-lg text-xs font-semibold hover:bg-[#0a2545]"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  إيصال كاشير
+                </a>
+                <a
+                  href={`/print/invoice/${lastInvoice.id}`}
+                  target="_blank"
+                  className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200"
+                >
+                  فاتورة A4
+                </a>
+              </div>
             </div>
           )}
           {cart.length === 0 && !lastInvoice && (
