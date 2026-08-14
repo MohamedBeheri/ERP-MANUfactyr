@@ -36,23 +36,24 @@ export async function POST(req: NextRequest) {
     const paymentMethod = (b.paymentMethod || 'نقدي').trim() || 'نقدي'
     const rawItems: any[] = Array.isArray(b.items) ? b.items : []
 
-    const items = rawItems
+    const parsed = rawItems
       .map((it) => ({
         productId: it.productId,
         quantity: Number(normalizeDigits(String(it.quantity ?? ''))) || 0,
-        unitPrice: Number(normalizeDigits(String(it.unitPrice ?? ''))) || 0,
       }))
       .filter((it) => it.productId && it.quantity > 0)
 
-    if (items.length === 0) return NextResponse.json({ error: 'أضف صنف واحد على الأقل بكمية وسعر' }, { status: 400 })
+    if (parsed.length === 0) return NextResponse.json({ error: 'أضف صنف واحد على الأقل بكمية' }, { status: 400 })
 
-    // تحقق الرصيد في المخزن المختار قبل ما نبدأ
-    for (const it of items) {
+    // السعر بيتحدد من بنك الأصناف حسب نوع المشتري (مش من إدخال المستخدم): عميل ← قطاعي، تاجر ← جملة
+    const items: { productId: string; quantity: number; unitPrice: number }[] = []
+    for (const it of parsed) {
+      const p = await prisma.product.findUnique({ where: { id: it.productId }, select: { name: true, sellPrice: true, wholesalePrice: true } })
+      if (!p) return NextResponse.json({ error: 'صنف غير موجود' }, { status: 400 })
       const stock = await getStock(warehouseId, it.productId)
-      if (stock < it.quantity) {
-        const p = await prisma.product.findUnique({ where: { id: it.productId }, select: { name: true } })
-        return NextResponse.json({ error: `رصيد "${p?.name || 'الصنف'}" غير كافي في المخزن (متاح ${stock})` }, { status: 400 })
-      }
+      if (stock < it.quantity) return NextResponse.json({ error: `رصيد "${p.name}" غير كافي في المخزن (متاح ${stock})` }, { status: 400 })
+      const unitPrice = buyerType === 'TRADER' ? (Number(p.wholesalePrice) || Number(p.sellPrice) || 0) : (Number(p.sellPrice) || 0)
+      items.push({ productId: it.productId, quantity: it.quantity, unitPrice })
     }
 
     const total = items.reduce((s, it) => s + it.quantity * it.unitPrice, 0)

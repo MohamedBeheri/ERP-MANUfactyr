@@ -76,9 +76,18 @@ export async function POST(req: NextRequest) {
 
       for (const item of items) {
         const whId = await warehouseOf(item.productId)
+        // سعر الشراء بيتحدد تلقائي من الفاتورة (متوسط مرجّح متحرك) — مش من إدخال المستخدم في المخزن/المصنع
+        const prod = await tx.product.findUnique({ where: { id: item.productId }, select: { quantity: true, costPrice: true } })
+        const oldQty = Number(prod?.quantity || 0)
+        const oldCost = Number(prod?.costPrice || 0)
+        const addQty = Number(item.quantity)
+        const price = Number(item.unitPrice)
+        const newQty = oldQty + addQty
+        // لو مفيش تكلفة سابقة (0) أو مخزون سابق، ناخد سعر الفاتورة مباشرة، وإلا متوسط مرجّح
+        const newCost = oldCost > 0 && oldQty > 0 && newQty > 0 ? (oldQty * oldCost + addQty * price) / newQty : price
         await tx.product.update({
           where: { id: item.productId },
-          data: { quantity: { increment: item.quantity } },
+          data: { quantity: { increment: item.quantity }, costPrice: Number(newCost.toFixed(2)) },
         })
         await adjustStock(tx, whId, item.productId, item.quantity)
         await tx.warehouseIn.create({

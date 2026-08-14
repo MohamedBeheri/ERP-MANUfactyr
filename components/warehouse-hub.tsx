@@ -662,28 +662,30 @@ function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; war
   const [warehouseId, setWarehouseId] = useState(defaultWh)
   const [buyerType, setBuyerType] = useState<'CUSTOMER' | 'TRADER'>('CUSTOMER')
   const [buyerName, setBuyerName] = useState('')
-  const [lines, setLines] = useState<{ productId: string; quantity: string; unitPrice: string }[]>([{ productId: '', quantity: '', unitPrice: '' }])
+  const [lines, setLines] = useState<{ productId: string; quantity: string }[]>([{ productId: '', quantity: '' }])
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const available = stock.filter((s) => stockAt(s, warehouseId) > 0)
-  const total = lines.reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0)
+  // السعر بيتحدد تلقائي: عميل ← قطاعي، تاجر ← جملة (من بنك الأصناف) — مش من إدخال المستخدم
+  const priceOf = (productId: string) => {
+    const p = stock.find((s) => s.id === productId)
+    if (!p) return 0
+    return buyerType === 'TRADER' ? (p.wholesalePrice || p.sellPrice || 0) : (p.sellPrice || 0)
+  }
+  const total = lines.reduce((sum, l) => sum + (Number(l.quantity) || 0) * priceOf(l.productId), 0)
 
   const setLine = (i: number, field: string, value: string) => setLines(lines.map((l, j) => (j === i ? { ...l, [field]: value } : l)))
-  const pickProduct = (i: number, productId: string) => {
-    const p = stock.find((s) => s.id === productId)
-    const price = buyerType === 'TRADER' ? (p?.wholesalePrice || p?.sellPrice || 0) : (p?.sellPrice || 0)
-    setLines(lines.map((l, j) => (j === i ? { ...l, productId, unitPrice: price ? String(price) : l.unitPrice } : l)))
-  }
-  const addLine = () => setLines([...lines, { productId: '', quantity: '', unitPrice: '' }])
+  const pickProduct = (i: number, productId: string) => setLines(lines.map((l, j) => (j === i ? { ...l, productId } : l)))
+  const addLine = () => setLines([...lines, { productId: '', quantity: '' }])
   const removeLine = (i: number) => setLines(lines.filter((_, j) => j !== i))
 
   const submit = async () => {
     setError('')
     const items = lines.filter((l) => l.productId && Number(l.quantity) > 0)
     if (!warehouseId) return setError('اختار المخزن')
-    if (items.length === 0) return setError('أضف صنف واحد على الأقل بكمية وسعر')
+    if (items.length === 0) return setError('أضف صنف واحد على الأقل بكمية')
     setLoading(true)
     const res = await fetch('/api/warehouse/sales', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -691,7 +693,7 @@ function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; war
     })
     const data = await res.json(); setLoading(false)
     if (!res.ok) return setError(data.error || 'حصل خطأ')
-    setLines([{ productId: '', quantity: '', unitPrice: '' }]); setBuyerName(''); setNotes('')
+    setLines([{ productId: '', quantity: '' }]); setBuyerName(''); setNotes('')
     router.refresh()
   }
 
@@ -700,6 +702,7 @@ function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; war
       {canEdit && (
         <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 space-y-3 border border-gray-100">
           <h3 className="font-bold text-sm text-[#1a1a2e] flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-[#0f3460]" /> بيع نقدي من المخزن</h3>
+          <p className="text-[11px] text-gray-400">السعر بيتحدد تلقائي من بنك الأصناف: عميل ← قطاعي، تاجر ← جملة (مش بيتكتب باليد).</p>
           {error && <div className="bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{error}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
@@ -721,7 +724,9 @@ function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; war
                     {available.map((p) => <option key={p.id} value={p.id}>{p.name} (متاح {fmt(stockAt(p, warehouseId))})</option>)}
                   </select>
                   <input type="text" inputMode="decimal" dir="ltr" value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="كمية" className="w-24 px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums" />
-                  <input type="text" inputMode="decimal" dir="ltr" value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="سعر" className="w-24 px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums" />
+                  <div className="w-28 shrink-0 px-3 py-2.5 rounded-xl text-sm tabular-nums bg-gray-50 border border-gray-100 text-gray-600 text-center" title={buyerType === 'TRADER' ? 'سعر الجملة' : 'سعر القطاعي'}>
+                    {l.productId ? `${money(priceOf(l.productId))}` : 'السعر'}
+                  </div>
                   {lines.length > 1 && <button onClick={() => removeLine(i)} className="p-1.5 text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>}
                   {l.productId && Number(l.quantity) > avail && <span className="text-[10px] text-red-500 whitespace-nowrap">أكبر من المتاح</span>}
                 </div>

@@ -321,8 +321,9 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
         {['GREEN', 'SPICE', 'FLAVOR', 'PACKAGING'].includes(kind) && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الشراء</label>
-              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className={inputCls} />
+              <label className="block text-xs font-semibold text-gray-500 mb-1">سعر الشراء <span className="text-gray-400 font-normal">(تلقائي)</span></label>
+              <div className={`${inputCls} bg-gray-50 text-gray-600 tabular-nums flex items-center`}>{editId ? (Number(form.costPrice || 0)).toLocaleString('ar-EG') : '—'}</div>
+              <p className="text-[10px] text-gray-400 mt-1">بيتحدد من فواتير الشراء (متوسط مرجّح) — مش بيتكتب هنا</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">وحدة القياس</label>
