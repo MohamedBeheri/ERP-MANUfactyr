@@ -127,8 +127,126 @@ model User {
   custodiesSettled            Custody[]              @relation("CustodySettler")
   custodyExpensesCreated      CustodyExpense[]       @relation("CustodyExpenseCreator")
   custodyExpensesApproved     CustodyExpense[]       @relation("CustodyExpenseApprover")
+  journalsCreated             JournalEntry[]         @relation("JournalCreator")
+  adjustmentsCreated          StockAdjustment[]      @relation("AdjustmentCreator")
+  adjustmentsApproved         StockAdjustment[]      @relation("AdjustmentApprover")
 
   @@map("users")
+}
+
+// ============== المحاسبة: شجرة حسابات مبسّطة + قيود يومية آلية ==============
+enum GLAccountType {
+  INVENTORY_ASSET // مراقبة المخزون (أصل)
+  ADJUSTMENT_LOSS // تسويات عجز مخزني (مصروف/خسارة)
+  ADJUSTMENT_GAIN // أرباح تسويات المخزون (إيراد)
+  CUSTODY // عهد الموظفين
+  OTHER
+}
+
+model GLAccount {
+  id        String        @id @default(cuid())
+  code      String        @unique // 1200 / 5900 / 4900 / 1250 ...
+  name      String
+  type      GLAccountType
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+
+  journalLines    JournalLine[]
+  adjustmentItems StockAdjustmentItem[] @relation("AdjItemAccount")
+
+  @@map("gl_accounts")
+}
+
+model JournalEntry {
+  id          String   @id @default(cuid())
+  entryNo     String   @unique // JV-YYYYMMDD-001
+  date        DateTime @default(now())
+  description String
+  sourceType  String? // STOCK_ADJUSTMENT | ...
+  sourceId    String?
+  isReversal  Boolean  @default(false) // قيد عكسي (Rollback)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  lines      JournalLine[]
+  createdBy  User             @relation("JournalCreator", fields: [createdById], references: [id])
+  adjustment StockAdjustment? @relation("AdjustmentJournal")
+
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id             String  @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  debit          Decimal @default(0) @db.Decimal(14, 2)
+  credit         Decimal @default(0) @db.Decimal(14, 2)
+  description    String?
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      GLAccount    @relation(fields: [accountId], references: [id])
+
+  @@map("journal_lines")
+}
+
+// ============== تسوية واعتماد فروق الجرد ==============
+enum StockAdjustmentStatus {
+  DRAFT // مسودة
+  IN_PROGRESS // جاري العد
+  REVIEWING // مراجعة الفروق
+  POSTED // معتمد ومرحّل
+  CLOSED // مغلق
+  REVERSED // اتلغى اعتماده
+}
+
+model StockAdjustment {
+  id                String                @id @default(cuid())
+  docNo             String                @unique // ADJ-YYYYMMDD-001
+  stocktakeRef      String? // إذن الجرد المرجعي
+  warehouseId       String
+  status            StockAdjustmentStatus @default(DRAFT)
+  adjustmentType    String                @default("FULL") // SHORTAGE_ONLY | SURPLUS_ONLY | FULL
+  reasonCode        String? // تلف | خطأ إدخال سابق | تبخر/فقد طبيعي | عهدة شخصية
+  snapshotAt        DateTime              @default(now()) // وقت لقطة الرصيد الدفتري
+  postingDate       DateTime? // وقت الترحيل الفعلي
+  totalVarianceCost Decimal               @default(0) @db.Decimal(14, 2)
+  shortageCost      Decimal               @default(0) @db.Decimal(14, 2)
+  surplusCost       Decimal               @default(0) @db.Decimal(14, 2)
+  journalEntryId    String?               @unique
+  approvedById      String?
+  notes             String?
+  createdById       String
+  createdAt         DateTime              @default(now())
+
+  warehouse    Warehouse             @relation(fields: [warehouseId], references: [id])
+  journalEntry JournalEntry?         @relation("AdjustmentJournal", fields: [journalEntryId], references: [id])
+  approvedBy   User?                 @relation("AdjustmentApprover", fields: [approvedById], references: [id])
+  createdBy    User                  @relation("AdjustmentCreator", fields: [createdById], references: [id])
+  items        StockAdjustmentItem[]
+
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentItem {
+  id           String    @id @default(cuid())
+  adjustmentId String
+  productId    String
+  snapshotQty  Decimal   @db.Decimal(12, 3) // الرصيد الدفتري لحظة بدء الجرد
+  countedQty   Decimal?  @db.Decimal(12, 3) // الرصيد الفعلي بعد العد
+  varianceQty  Decimal   @default(0) @db.Decimal(12, 3) // الفعلي − الدفتري
+  unitCost     Decimal   @default(0) @db.Decimal(10, 2) // متوسط تكلفة الوحدة (WAC)
+  varianceCost Decimal   @default(0) @db.Decimal(14, 2) // كمية الفرق × التكلفة
+  action       String    @default("MATCHED") // SHORTAGE | SURPLUS | MATCHED
+  batchNo      String?
+  expiryDate   DateTime?
+  binLocation  String?
+  accountId    String? // توجيه حساب مخصّص للسطر (اختياري)
+
+  adjustment StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  product    Product         @relation(fields: [productId], references: [id])
+  account    GLAccount?      @relation("AdjItemAccount", fields: [accountId], references: [id])
+
+  @@map("stock_adjustment_items")
 }
 
 // ============== CATEGORIES (التصنيفات) ==============
@@ -217,6 +335,7 @@ model Warehouse {
   settlements        TreasurySettlement[] @relation("WarehouseSettlements")
   sales              WarehouseSale[]
   outgoings          WarehouseOutgoing[]
+  adjustments        StockAdjustment[]
 
   @@map("warehouses")
 }
@@ -284,6 +403,7 @@ model Product {
   warehouseOuts         WarehouseOut[]
   warehouseSaleItems    WarehouseSaleItem[]
   warehouseOutgoingItems WarehouseOutgoingItem[]
+  adjustmentItems       StockAdjustmentItem[]
   onlineOrderItems      OnlineOrderItem[]
   rewardRulesQualifying RewardRule[]           @relation("RewardQualifyingProduct")
   rewardRulesFree       RewardRule[]           @relation("RewardFreeProduct")
