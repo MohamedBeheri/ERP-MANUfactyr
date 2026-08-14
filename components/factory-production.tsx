@@ -262,9 +262,9 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
                       {p.grindType && <span className="text-[10px] text-gray-400 mr-1">{p.grindType}</span>}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600 max-w-[200px] truncate" title={p.output || p.stageDetail}>{p.output || p.stageDetail}</td>
-                    <td className="px-4 py-3 tabular-nums text-xs text-gray-500">{fmt(p.inputWeight)}</td>
-                    <td className="px-4 py-3 tabular-nums text-xs text-gray-500">{p.expectedOutput != null && p.expectedOutput > 0 ? fmt(p.expectedOutput) : <span className="text-gray-300">—</span>}</td>
-                    <td className="px-4 py-3 tabular-nums text-xs font-semibold">{p.status === 'PENDING' ? <span className="text-amber-600">—</span> : fmt(p.outputWeight)}</td>
+                    <td className="px-4 py-3 tabular-nums text-xs text-gray-500">{fmt(p.inputWeight)} <span className="text-[9px] text-gray-400 font-normal">كجم</span></td>
+                    <td className="px-4 py-3 tabular-nums text-xs text-gray-500">{p.expectedOutput != null && p.expectedOutput > 0 ? <>{fmt(p.expectedOutput)} <span className="text-[9px] text-gray-400 font-normal">{p.stage === 'تعبئة' ? 'كيس' : 'كجم'}</span></> : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 tabular-nums text-xs font-semibold">{p.status === 'PENDING' ? <span className="text-amber-600">—</span> : <>{fmt(p.outputWeight)} <span className="text-[9px] text-gray-400 font-normal">{p.stage === 'تعبئة' ? 'كيس' : 'كجم'}</span></>}</td>
                     <td className="px-4 py-3 tabular-nums text-xs">
                       {(() => {
                         if (p.status === 'PENDING' || p.expectedOutput == null || !(p.expectedOutput > 0) || !(p.outputWeight > 0)) return <span className="text-gray-300">—</span>
