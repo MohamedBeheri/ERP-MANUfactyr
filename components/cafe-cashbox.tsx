@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Wallet, ArrowLeftRight, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { Wallet, ArrowLeftRight, Clock, CheckCircle2, XCircle, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 
 const money = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 
@@ -13,14 +13,17 @@ const STATUS: Record<string, { label: string; cls: string; Icon: any }> = {
 }
 
 interface Settlement { id: string; settlementNo: string; amount: number; status: string; createdByName: string | null; acceptedByName: string | null; createdAt: string }
+interface Movement { id: string; type: string; amount: number; balance: number; description: string; reference: string | null; createdByName: string | null; createdAt: string }
 
-export function CafeCashbox({ warehouseId, balance, canSettle, settlements }: {
+export function CafeCashbox({ warehouseId, balance, canSettle, settlements, movements }: {
   warehouseId: string
   balance: number
   canSettle: boolean
   settlements: Settlement[]
+  movements: Movement[]
 }) {
   const router = useRouter()
+  const [tab, setTab] = useState<'movements' | 'settlements'>('movements')
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
@@ -83,25 +86,52 @@ export function CafeCashbox({ warehouseId, balance, canSettle, settlements }: {
         </div>
       )}
 
-      {settlements.length === 0 ? (
-        <p className="p-6 text-center text-gray-400 text-sm">مفيش تسويات لسه</p>
-      ) : (
-        <div className="divide-y divide-gray-50">
-          {settlements.map((s) => {
-            const st = STATUS[s.status] || STATUS.PENDING
-            const Icon = st.Icon
-            return (
-              <div key={s.id} className="flex items-center gap-3 p-3 sm:px-5">
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-xs text-[#0f3460] tabular-nums">{s.settlementNo}</p>
-                  <p className="text-[11px] text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')} · {s.createdByName || '—'}{s.acceptedByName ? ` · اعتمدها ${s.acceptedByName}` : ''}</p>
+      {/* تبويبات الحركات / التسويات */}
+      <div className="flex gap-1 px-4 pt-3 border-b border-gray-100">
+        <button onClick={() => setTab('movements')} className={`px-3 py-2 text-sm font-semibold rounded-t-lg ${tab === 'movements' ? 'text-[#0f3460] border-b-2 border-[#0f3460]' : 'text-gray-400'}`}>حركات الخزنة ({movements.length})</button>
+        <button onClick={() => setTab('settlements')} className={`px-3 py-2 text-sm font-semibold rounded-t-lg ${tab === 'settlements' ? 'text-[#0f3460] border-b-2 border-[#0f3460]' : 'text-gray-400'}`}>التسويات ({settlements.length})</button>
+      </div>
+
+      {tab === 'movements' ? (
+        movements.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">مفيش حركات لسه</p> : (
+          <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+            {movements.map((m) => {
+              const isIn = m.type === 'IN'
+              return (
+                <div key={m.id} className="flex items-center gap-3 p-3 sm:px-5">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isIn ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                    {isIn ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-[#1a1a2e] truncate">{m.description}</p>
+                    <p className="text-[11px] text-gray-400 tabular-nums">{new Date(m.createdAt).toLocaleString('ar-EG')}{m.createdByName ? ` · ${m.createdByName}` : ''}</p>
+                  </div>
+                  <span className={`text-sm font-bold tabular-nums ${isIn ? 'text-green-700' : 'text-red-600'}`}>{isIn ? '+' : '−'}{money(m.amount)}</span>
+                  <span className="text-[11px] text-gray-400 tabular-nums w-20 text-left hidden sm:block">رصيد {money(m.balance)}</span>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${st.cls}`}><Icon className="w-3 h-3" /> {st.label}</span>
-                <span className="text-sm font-bold tabular-nums text-[#1a1a2e]">{money(s.amount)} ج.م</span>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )
+      ) : (
+        settlements.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">مفيش تسويات لسه</p> : (
+          <div className="divide-y divide-gray-50">
+            {settlements.map((s) => {
+              const st = STATUS[s.status] || STATUS.PENDING
+              const Icon = st.Icon
+              return (
+                <div key={s.id} className="flex items-center gap-3 p-3 sm:px-5">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-xs text-[#0f3460] tabular-nums">{s.settlementNo}</p>
+                    <p className="text-[11px] text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')} · {s.createdByName || '—'}{s.acceptedByName ? ` · اعتمدها ${s.acceptedByName}` : ''}</p>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${st.cls}`}><Icon className="w-3 h-3" /> {st.label}</span>
+                  <span className="text-sm font-bold tabular-nums text-[#1a1a2e]">{money(s.amount)} ج.م</span>
+                </div>
+              )
+            })}
+          </div>
+        )
       )}
     </div>
   )

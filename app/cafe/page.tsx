@@ -10,6 +10,7 @@ import { ensureStockStages } from '@/lib/stock-stages'
 import { ensureUnits } from '@/lib/units'
 import { CafeDashboard } from '@/components/cafe-parts'
 import { CafeCashbox } from '@/components/cafe-cashbox'
+import { CafeInvoicesLog } from '@/components/cafe-invoices-log'
 import { PeriodSelector } from '@/components/period-selector'
 
 export const dynamic = 'force-dynamic'
@@ -106,16 +107,29 @@ export default async function CafePage({ searchParams: raw }: { searchParams: Pr
   const topProducts = Array.from(topMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8)
   const cafeSales = { total: salesTotal, count: cafeSaleItems.length, trendLabels, trend, topProducts }
 
-  // خزنة الكافيه (نقدية) + تسوياتها مع العمومية — نفس مسار خزنة المخزن
-  const [cafeTreasury, cafeSettlements] = await Promise.all([
+  // خزنة الكافيه (نقدية) + حركاتها + تسوياتها مع العمومية — نفس مسار خزنة المخزن
+  const [cafeTreasury, cafeSettlements, cafeTxns, cafeInvoices] = await Promise.all([
     prisma.treasury.findUnique({ where: { warehouseId }, select: { balance: true } }),
     prisma.treasurySettlement.findMany({
       where: { warehouseId },
       include: { createdBy: { select: { name: true } }, acceptedBy: { select: { name: true } } },
       orderBy: { createdAt: 'desc' }, take: 15,
     }),
+    prisma.treasuryTransaction.findMany({
+      where: { treasury: { warehouseId } },
+      include: { createdBy: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' }, take: 40,
+    }),
+    cafeItemIds.length > 0
+      ? prisma.invoice.findMany({
+          where: { items: { some: { productId: { in: cafeItemIds } } } },
+          include: { customer: { select: { name: true } }, creator: { select: { name: true } }, items: { include: { product: { select: { name: true, unit: true } } } } },
+          orderBy: { createdAt: 'desc' }, take: 100,
+        })
+      : Promise.resolve([]),
   ])
   const canSettle = canDoAction(perms, 'warehouse', 'edit') || canEdit
+  const isAdmin = session.user.role === 'ADMIN'
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -142,6 +156,23 @@ export default async function CafePage({ searchParams: raw }: { searchParams: Pr
           id: s.id, settlementNo: s.settlementNo, amount: Number(s.amount), status: s.status,
           createdByName: s.createdBy?.name || null, acceptedByName: s.acceptedBy?.name || null,
           createdAt: s.createdAt.toISOString(),
+        }))}
+        movements={cafeTxns.map((t) => ({
+          id: t.id, type: t.type, amount: Number(t.amount), balance: Number(t.balance),
+          description: t.description, reference: t.reference, createdByName: t.createdBy?.name || null,
+          createdAt: t.createdAt.toISOString(),
+        }))}
+      />
+
+      <CafeInvoicesLog
+        isAdmin={isAdmin}
+        cafeWarehouseId={warehouseId}
+        products={itemsMapped.map((p) => ({ id: p.id, name: p.name, unit: p.unit, sellPrice: p.sellPrice }))}
+        invoices={cafeInvoices.map((inv) => ({
+          id: inv.id, invoiceNo: inv.invoiceNo, customerName: inv.customer?.name || null, creatorName: inv.creator?.name || null,
+          type: inv.type, paymentMethod: inv.paymentMethod, discount: Number(inv.discount),
+          totalAmount: Number(inv.totalAmount), netAmount: Number(inv.netAmount), createdAt: inv.createdAt.toISOString(),
+          items: inv.items.map((it) => ({ productId: it.productId, name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice), isBonus: it.isBonus })),
         }))}
       />
 
