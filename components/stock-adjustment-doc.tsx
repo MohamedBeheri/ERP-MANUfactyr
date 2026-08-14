@@ -70,12 +70,15 @@ export function StockAdjustmentDoc({ adj, glAccounts = [] }: { adj: Adj; glAccou
     if (!res.ok) return setError((await res.json()).error || 'فشل الحفظ')
     router.refresh()
   }
-  const post = async () => {
-    if (!confirm('اعتماد وترحيل التسوية؟ هيتعمل قيد يومية آلي وتتقفل نهائيًا.')) return
-    setBusy('post'); setError('')
-    const res = await fetch(`/api/stock-adjustments/${adj.id}/post`, { method: 'POST' })
+  const post = async (mode: 'DIRECT' | 'SETTLEMENT') => {
+    const msg = mode === 'DIRECT'
+      ? 'اعتماد مباشر: هيتظبط المخزون على الجرد من غير قيد محاسبي. تمام؟'
+      : 'اعتماد وتسوية محاسبية: هيتظبط المخزون ويتعمل قيد يومية آلي للفروق. تمام؟'
+    if (!confirm(msg)) return
+    setBusy(mode === 'DIRECT' ? 'postDirect' : 'postSettle'); setError('')
+    const res = await fetch(`/api/stock-adjustments/${adj.id}/post`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) })
     setBusy('')
-    if (!res.ok) return setError((await res.json()).error || 'فشل الترحيل')
+    if (!res.ok) return setError((await res.json()).error || 'فشل الاعتماد')
     router.refresh()
   }
   const reverse = async () => {
@@ -246,9 +249,12 @@ export function StockAdjustmentDoc({ adj, glAccounts = [] }: { adj: Adj; glAccou
         {editable && (
           <>
             <button onClick={saveCounts} disabled={busy === 'save'} className="bg-[#0f3460] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a2545] disabled:opacity-50 flex items-center gap-1.5"><ClipboardCheck className="w-4 h-4" /> {busy === 'save' ? 'جاري...' : (blind ? 'حفظ العدّ وإرساله للمراجعة' : 'حفظ العدّ ومراجعة الفروق')}</button>
-            {/* الاعتماد والترحيل من الإدارة فقط */}
+            {/* الاعتماد من الإدارة فقط — مباشر أو بتسوية محاسبية */}
             {adj.isAdmin && adj.status === 'REVIEWING' && (
-              <button onClick={post} disabled={busy === 'post'} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> {busy === 'post' ? 'جاري...' : 'اعتماد وترحيل'}</button>
+              <>
+                <button onClick={() => post('DIRECT')} disabled={busy === 'postDirect'} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> {busy === 'postDirect' ? 'جاري...' : 'اعتماد مباشر'}</button>
+                <button onClick={() => post('SETTLEMENT')} disabled={busy === 'postSettle'} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> {busy === 'postSettle' ? 'جاري...' : 'اعتماد وتسوية محاسبية'}</button>
+              </>
             )}
           </>
         )}
@@ -261,7 +267,8 @@ export function StockAdjustmentDoc({ adj, glAccounts = [] }: { adj: Adj; glAccou
         {adj.status === 'CLOSED' && (
           <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 px-4 py-2.5 rounded-xl font-bold text-sm"><Lock className="w-4 h-4" /> مستند مغلق نهائيًا — مفيش تعديل أو ارتجاع</span>
         )}
-        {!blind && <a href={`/print/stock-adjustment/${adj.id}`} target="_blank" rel="noopener" className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-1.5"><Printer className="w-4 h-4" /> طباعة المستند</a>}
+        {/* الطباعة للتوقيع متاحة للجميع */}
+        <a href={`/print/stock-adjustment/${adj.id}${blind ? '?sheet=1' : ''}`} target="_blank" rel="noopener" className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-1.5"><Printer className="w-4 h-4" /> {blind ? 'طباعة كشف العدّ للتوقيع' : 'طباعة المستند'}</a>
       </div>
     </div>
   )

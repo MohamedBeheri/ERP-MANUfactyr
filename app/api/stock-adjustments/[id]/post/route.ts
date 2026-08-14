@@ -8,11 +8,14 @@ import { getGLAccounts, nextDocNo } from '@/lib/accounting'
 //  • تطبيق حركات المخزون التصحيحية (عجز = صرف · زيادة = إضافة)
 //  • إنشاء قيد يومية آلي مجمّع (Compound JE) — عجز: مدين خسائر/دائن مخزون · زيادة: مدين مخزون/دائن أرباح
 //  • قفل المستند نهائيًا (POSTED)
-export async function POST(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission('warehouse', 'edit')
   if ('response' in auth) return auth.response
   const params = await rawParams
   const { session } = auth
+  // نوع الاعتماد: DIRECT = اعتماد مباشر (تصحيح المخزون بدون قيد محاسبي) · SETTLEMENT = اعتماد وتسوية بقيد يومية
+  let mode: 'DIRECT' | 'SETTLEMENT' = 'SETTLEMENT'
+  try { const b = await req.json(); if (b?.mode === 'DIRECT') mode = 'DIRECT' } catch {}
 
   try {
     const adj = await prisma.stockAdjustment.findUnique({ where: { id: params.id }, include: { items: { include: { product: { select: { name: true, lotTracked: true } } } } } })
@@ -69,21 +72,21 @@ export async function POST(_req: NextRequest, { params: rawParams }: { params: P
         }
       }
 
-      // 2) قيد يومية آلي مجمّع — مع احترام توجيه الحساب المخصّص لكل سطر (accountId)
-      const entryNo = await nextDocNo(tx, 'JV', 'journalEntry')
+      // 2) قيد يومية آلي مجمّع — بيتعمل في التسوية المحاسبية بس (مش الاعتماد المباشر)
+      //    مع احترام توجيه الحساب المخصّص لكل سطر (accountId)
       const acc: Record<string, { debit: number; credit: number }> = {}
       const add = (id: string, d: number, c: number) => { const a = acc[id] || (acc[id] = { debit: 0, credit: 0 }); a.debit += d; a.credit += c }
-      for (const it of applicable) {
-        const cost = Math.abs(Number(it.varianceCost))
-        if (cost === 0) continue
-        if (Number(it.varianceQty) < 0) {
-          // عجز: مدين حساب الخسارة (أو الحساب المخصّص للسطر) · دائن المخزون
-          add(it.accountId || gl.loss.id, cost, 0)
-          add(gl.inventory.id, 0, cost)
-        } else {
-          // زيادة: مدين المخزون · دائن حساب الأرباح (أو الحساب المخصّص للسطر)
-          add(gl.inventory.id, cost, 0)
-          add(it.accountId || gl.gain.id, 0, cost)
+      if (mode === 'SETTLEMENT') {
+        for (const it of applicable) {
+          const cost = Math.abs(Number(it.varianceCost))
+          if (cost === 0) continue
+          if (Number(it.varianceQty) < 0) {
+            add(it.accountId || gl.loss.id, cost, 0)
+            add(gl.inventory.id, 0, cost)
+          } else {
+            add(gl.inventory.id, cost, 0)
+            add(it.accountId || gl.gain.id, 0, cost)
+          }
         }
       }
       // نصفّي كل حساب لطرف واحد (مدين أو دائن) عشان القيد يفضل متوازن
@@ -95,6 +98,7 @@ export async function POST(_req: NextRequest, { params: rawParams }: { params: P
         .filter((l) => l.debit > 0 || l.credit > 0)
       let journalEntryId: string | null = null
       if (lines.length > 0) {
+        const entryNo = await nextDocNo(tx, 'JV', 'journalEntry')
         const je = await tx.journalEntry.create({
           data: {
             entryNo,
@@ -125,15 +129,15 @@ export async function POST(_req: NextRequest, { params: rawParams }: { params: P
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
-          action: 'اعتماد وترحيل تسوية جرد',
-          description: `ترحيل تسوية ${adj.docNo} (${applicable.length} صنف)`,
-          impact: `عجز ${shortageCost.toFixed(2)} · زيادة ${surplusCost.toFixed(2)} · صافي ${(surplusCost - shortageCost).toFixed(2)} ج.م`,
+          action: mode === 'DIRECT' ? 'اعتماد مباشر لتسوية جرد' : 'اعتماد وتسوية محاسبية لجرد',
+          description: `${mode === 'DIRECT' ? 'اعتماد مباشر' : 'تسوية محاسبية'} ${adj.docNo} (${applicable.length} صنف)`,
+          impact: `عجز ${shortageCost.toFixed(2)} · زيادة ${surplusCost.toFixed(2)} · صافي ${(surplusCost - shortageCost).toFixed(2)} ج.م${mode === 'DIRECT' ? ' · بدون قيد محاسبي' : ' · بقيد يومية'}`,
         },
       })
       return posted
     })
 
-    return NextResponse.json({ success: true, shortageCost, surplusCost, adjustment: result })
+    return NextResponse.json({ success: true, mode, shortageCost, surplusCost, adjustment: result })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'فشل ترحيل التسوية' }, { status: 500 })
   }
