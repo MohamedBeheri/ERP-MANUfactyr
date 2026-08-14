@@ -15,7 +15,7 @@ interface PackagingT { id: string; name: string; quantity: number; tare: number;
 interface ProdT {
   id: string; orderNo: string; batchNo: string | null; stage: string; stageDetail: string
   roastLevel: string | null; grindType: string | null; output: string
-  inputWeight: number; outputWeight: number; wasteWeight: number; wastePercent: number; wasteExceeded: boolean; channel: string; createdAt: string
+  inputWeight: number; outputWeight: number; expectedOutput?: number | null; wasteWeight: number; wastePercent: number; wasteExceeded: boolean; channel: string; createdAt: string
   status: string; outputProductName: string | null
   gramsPerPiece?: number; rollInputKg?: number | null; rollName?: string | null; rollTare?: number; rollCore?: number
 }
@@ -237,7 +237,9 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
                   <th className="px-4 py-2.5 font-medium">المرحلة</th>
                   <th className="px-4 py-2.5 font-medium">الناتج</th>
                   <th className="px-4 py-2.5 font-medium">داخل</th>
-                  <th className="px-4 py-2.5 font-medium">خارج</th>
+                  <th className="px-4 py-2.5 font-medium">المتوقع</th>
+                  <th className="px-4 py-2.5 font-medium">الفعلي</th>
+                  <th className="px-4 py-2.5 font-medium">الانحراف</th>
                   <th className="px-4 py-2.5 font-medium">هدر</th>
                   <th className="px-4 py-2.5 font-medium">القناة</th>
                   <th className="px-4 py-2.5 font-medium">الوقت</th>
@@ -245,7 +247,7 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
               </thead>
               <tbody>
                 {productions.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-sm">لا يوجد تشغيلات بعد — ابدأ بالتحميص</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400 text-sm">لا يوجد تشغيلات بعد — ابدأ بالتحميص</td></tr>
                 )}
                 {productions.map((p) => (
                   <tr key={p.id} className={`border-b last:border-0 transition-colors ${p.status === 'PENDING' ? 'bg-amber-50/40 border-amber-100' : p.wasteExceeded ? 'bg-red-50/50 border-red-100 hover:bg-red-50' : 'border-gray-50 hover:bg-gray-50/50'}`}>
@@ -261,7 +263,17 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600 max-w-[200px] truncate" title={p.output || p.stageDetail}>{p.output || p.stageDetail}</td>
                     <td className="px-4 py-3 tabular-nums text-xs text-gray-500">{fmt(p.inputWeight)}</td>
-                    <td className="px-4 py-3 tabular-nums text-xs font-semibold">{fmt(p.outputWeight)}</td>
+                    <td className="px-4 py-3 tabular-nums text-xs text-gray-500">{p.expectedOutput != null && p.expectedOutput > 0 ? fmt(p.expectedOutput) : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 tabular-nums text-xs font-semibold">{p.status === 'PENDING' ? <span className="text-amber-600">—</span> : fmt(p.outputWeight)}</td>
+                    <td className="px-4 py-3 tabular-nums text-xs">
+                      {(() => {
+                        if (p.status === 'PENDING' || p.expectedOutput == null || !(p.expectedOutput > 0) || !(p.outputWeight > 0)) return <span className="text-gray-300">—</span>
+                        const dev = ((p.outputWeight - p.expectedOutput) / p.expectedOutput) * 100
+                        const abs = Math.abs(dev)
+                        const cls = abs <= 5 ? 'text-green-700' : abs <= 15 ? 'text-amber-700' : 'text-red-600'
+                        return <span className={`font-semibold ${cls}`}>{dev > 0 ? '+' : ''}{fmt(dev)}%</span>
+                      })()}
+                    </td>
                     <td className="px-4 py-3 tabular-nums text-xs">
                       {p.wasteWeight > 0 ? (
                         <span className="text-red-600 font-semibold flex items-center gap-1"><TrendingDown className="w-3 h-3" /> {fmt(p.wasteWeight)} ({fmt(p.wastePercent)}%)</span>
@@ -392,13 +404,19 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
               <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={coreG} onChange={(e) => setCoreG(e.target.value)} placeholder={p.rollCore ? `تقديري ${p.rollCore}` : 'جم'} title="وزن كرتونة الرول (هدر) — افتراضي من بنك الأصناف، عدّله لو قِسته فعليًا" className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm tabular-nums bg-red-50/40 focus:outline-none focus:ring-2 focus:ring-red-400" />
             </div>
           </div>
-          {(outN > 0 || rollInputKg > 0) && (
+          {(outN > 0 || rollInputKg > 0 || (p.expectedOutput != null && p.expectedOutput > 0)) && (
             <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              {p.expectedOutput != null && p.expectedOutput > 0 && (
+                <span className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-semibold tabular-nums">متوقع {fmt(p.expectedOutput)} كيس</span>
+              )}
+              {outN > 0 && p.expectedOutput != null && p.expectedOutput > 0 && (() => {
+                const dev = ((outN - p.expectedOutput) / p.expectedOutput) * 100
+                const abs = Math.abs(dev)
+                const cls = abs <= 5 ? 'bg-green-50 text-green-700' : abs <= 15 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'
+                return <span className={`px-2.5 py-1.5 rounded-lg font-semibold tabular-nums ${cls}`}>انحراف {dev > 0 ? '+' : ''}{fmt(dev)}%</span>
+              })()}
               {rollInputKg > 0 && (
                 <span className="px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 font-semibold tabular-nums">رول مسحوب {fmt(rollInputKg)} كجم{p.rollTare ? ` · ~${bagsFromRoll} كيس` : ''}</span>
-              )}
-              {outN > 0 && (
-                <span className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-semibold tabular-nums">{outN} كيس · بن دخل الأكياس {fmt(coffeeInBags)} كجم</span>
               )}
               {outN > 0 && (
                 <span className="px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-600 font-semibold tabular-nums">بن مستهلك {fmt(coffeeConsumed)} كجم</span>
@@ -411,12 +429,21 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
+          {p.expectedOutput != null && p.expectedOutput > 0 && (
+            <div className="px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums bg-blue-50 text-blue-700">متوقع: {fmt(p.expectedOutput)} كجم</div>
+          )}
           <input
             type="text" inputMode="decimal" dir="ltr" min="1" step="1" max={p.inputWeight}
             value={out} onChange={(e) => setOut(e.target.value)}
             placeholder="وزن الناتج الفعلي (كجم)"
             className="flex-1 min-w-[160px] px-3 py-2.5 border border-amber-300 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
+          {outN > 0 && p.expectedOutput != null && p.expectedOutput > 0 && (() => {
+            const dev = ((outN - p.expectedOutput) / p.expectedOutput) * 100
+            const abs = Math.abs(dev)
+            const cls = abs <= 5 ? 'bg-green-50 text-green-700' : abs <= 15 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'
+            return <div className={`px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums ${cls}`}>انحراف: {dev > 0 ? '+' : ''}{fmt(dev)}%</div>
+          })()}
           {outN > 0 && (
             <div className={`px-3 py-2 rounded-lg text-[11px] font-bold tabular-nums ${wastePct > 20 ? 'bg-red-50 text-red-700' : wastePct > 10 ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>
               هدر: {fmt(waste)} كجم ({fmt(wastePct)}%)

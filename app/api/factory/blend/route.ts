@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
           batchNo,
           grindType: fineness,
           inputWeight: totalIn,
+          expectedOutput: plannedKg, // الناتج المتوقع = الكمية المخطط طحنها
           outputWeight: 0,
           wasteWeight: 0,
           wastePercent: 0,

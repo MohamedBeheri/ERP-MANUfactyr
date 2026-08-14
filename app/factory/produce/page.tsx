@@ -131,6 +131,7 @@ export default async function ProducePage() {
           output: p.items.map((i) => `${i.product.name} ×${Number(i.quantity)}`).join('، '),
           inputWeight: Number(p.inputWeight),
           outputWeight: Number(p.outputWeight),
+          expectedOutput: p.expectedOutput != null ? Number(p.expectedOutput) : null,
           wasteWeight: Number(p.wasteWeight),
           wastePercent: Number(p.wastePercent),
           wasteExceeded: p.wasteExceeded,

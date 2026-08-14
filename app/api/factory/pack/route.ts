@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
             batchNo,
             channel,
             inputWeight: pullKg,
+            expectedOutput: expectedBags, // عدد الأكياس المتوقع إنتاجها
             outputWeight: 0,
             wasteWeight: 0,
             wastePercent: 0,

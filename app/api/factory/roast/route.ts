@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
           batchNo,
           roastLevel: degree,
           inputWeight: inputKg,
+          // الناتج المتوقع = الداخل × (1 − نسبة خسران التحميص)
+          expectedOutput: Math.round(inputKg * (1 - Number(green.roastLossPercent) / 100) * 1000) / 1000,
           outputWeight: 0, // لسه ما اتقفلتش
           wasteWeight: 0,
           wastePercent: 0,
