@@ -64,8 +64,8 @@ export function PurchaseForm({ products, suppliers, warehouses = [], paymentMeth
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // التوريد لمخزن معيّن بيفلتر قائمة الأصناف على اللي بيدخلوا المخزن ده بس (حسب مرحلته المخزنية)
-  const visibleProducts = warehouseId ? products.filter((p) => p.warehouseId === warehouseId) : products
+  // القائمة بتعرض كل الأصناف القابلة للشراء دايمًا — مش مربوطة بالمخزن المختار (تقدر تشتري أي صنف والبحث بيسهّل الاختيار)
+  const visibleProducts = products
 
   const total = items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0)
   const paid = payNow ? lines.reduce((s, l) => s + (Number(l.amount) || 0), 0) : 0
@@ -134,17 +134,17 @@ export function PurchaseForm({ products, suppliers, warehouses = [], paymentMeth
       {warehouses.length > 0 && (
         <select
           value={warehouseId}
-          onChange={(e) => { setWarehouseId(e.target.value); setItems([{ productId: '', quantity: '', unitPrice: '' }]) }}
+          onChange={(e) => setWarehouseId(e.target.value)}
           className={inputCls}
         >
-          <option value="">التوريد لمخزن: تلقائي (حسب الصنف)</option>
+          <option value="">التوريد لمخزن: تلقائي (حسب مرحلة كل صنف)</option>
           {warehouses.map((w) => <option key={w.id} value={w.id}>توريد لـ {w.name}</option>)}
         </select>
       )}
 
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-gray-700">
-          الأصناف {warehouseId && <span className="font-normal text-gray-400">— أصناف {warehouses.find((w) => w.id === warehouseId)?.name} بس</span>}
+          الأصناف <span className="font-normal text-gray-400">— اكتب للبحث واختار أي صنف</span>
         </label>
         {items.map((item, i) => (
           <div key={i} className="flex gap-2">
@@ -152,8 +152,8 @@ export function PurchaseForm({ products, suppliers, warehouses = [], paymentMeth
               <SearchableSelect
                 value={item.productId}
                 onChange={(v) => setItems(items.map((it, j) => j === i ? { ...it, productId: v } : it))}
-                placeholder="الصنف"
-                emptyText="مفيش أصناف بتتشرى للمخزن ده"
+                placeholder="ابحث واختار الصنف"
+                emptyText="مفيش صنف مطابق للبحث"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 options={[
                   ...KIND_GROUPS.flatMap((g) => visibleProducts.filter((p) => p.itemKind === g.key).map((p) => ({ value: p.id, label: p.name, sublabel: g.label }))),
