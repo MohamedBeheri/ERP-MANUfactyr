@@ -11,6 +11,8 @@ import { ensureUnits } from '@/lib/units'
 import { CafeDashboard } from '@/components/cafe-parts'
 import { CafeCashbox } from '@/components/cafe-cashbox'
 import { CafeInvoicesLog } from '@/components/cafe-invoices-log'
+import { CafeTabs } from '@/components/cafe-tabs'
+import { GroupBarChart, TrendLineChart } from '@/components/group-charts'
 import { PeriodSelector } from '@/components/period-selector'
 
 export const dynamic = 'force-dynamic'
@@ -138,7 +140,7 @@ export default async function CafePage({ searchParams: raw }: { searchParams: Pr
           <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"><Cookie className="w-6 h-6 text-amber-700" /></div>
           <div>
             <h1 className="text-2xl font-bold text-[#1a1a2e]">لوحة تحكم الكافيه</h1>
-            <p className="text-sm text-gray-500 mt-0.5">المنتجات والتوليفات والمشتريات — نقطة البيع والمخزن في صفحات منفصلة</p>
+            <p className="text-sm text-gray-500 mt-0.5">إدارة الكافيه في تبويبات: المنتجات والتوليفات · الخزنة والتسوية · الطلبات والفواتير</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -148,46 +150,59 @@ export default async function CafePage({ searchParams: raw }: { searchParams: Pr
         </div>
       </div>
 
-      <CafeCashbox
-        warehouseId={warehouseId}
-        balance={Number(cafeTreasury?.balance || 0)}
-        canSettle={canSettle}
-        settlements={cafeSettlements.map((s) => ({
-          id: s.id, settlementNo: s.settlementNo, amount: Number(s.amount), status: s.status,
-          createdByName: s.createdBy?.name || null, acceptedByName: s.acceptedBy?.name || null,
-          createdAt: s.createdAt.toISOString(),
-        }))}
-        movements={cafeTxns.map((t) => ({
-          id: t.id, type: t.type, amount: Number(t.amount), balance: Number(t.balance),
-          description: t.description, reference: t.reference, createdByName: t.createdBy?.name || null,
-          createdAt: t.createdAt.toISOString(),
-        }))}
-      />
-
-      <CafeInvoicesLog
-        isAdmin={isAdmin}
-        cafeWarehouseId={warehouseId}
-        products={itemsMapped.map((p) => ({ id: p.id, name: p.name, unit: p.unit, sellPrice: p.sellPrice }))}
-        invoices={cafeInvoices.map((inv) => ({
-          id: inv.id, invoiceNo: inv.invoiceNo, customerName: inv.customer?.name || null, creatorName: inv.creator?.name || null,
-          type: inv.type, paymentMethod: inv.paymentMethod, discount: Number(inv.discount),
-          totalAmount: Number(inv.totalAmount), netAmount: Number(inv.netAmount), createdAt: inv.createdAt.toISOString(),
-          items: inv.items.map((it) => ({ productId: it.productId, name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice), isBonus: it.isBonus })),
-        }))}
-      />
-
-      <CafeDashboard
-        cafeItems={itemsMapped}
-        materials={materialsMapped}
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        purchases={purchases.map((p) => ({
-          id: p.id, invoiceNo: p.invoiceNo, supplier: p.supplier.name, total: Number(p.totalAmount), createdAt: p.createdAt.toISOString(),
-          items: p.items.filter((i) => i.product.itemKind === 'CAFE_MATERIAL').map((i) => ({ name: i.product.name, quantity: Number(i.quantity), unit: i.product.unit })),
-        }))}
-        units={units.map((u) => ({ id: u.id, name: u.name }))}
-        kpis={kpis}
-        sales={cafeSales}
-        canAdd={canAdd} canEdit={canEdit} canDelete={canDelete}
+      <CafeTabs
+        products={
+          <CafeDashboard
+            cafeItems={itemsMapped}
+            materials={materialsMapped}
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+            purchases={purchases.map((p) => ({
+              id: p.id, invoiceNo: p.invoiceNo, supplier: p.supplier.name, total: Number(p.totalAmount), createdAt: p.createdAt.toISOString(),
+              items: p.items.filter((i) => i.product.itemKind === 'CAFE_MATERIAL').map((i) => ({ name: i.product.name, quantity: Number(i.quantity), unit: i.product.unit })),
+            }))}
+            units={units.map((u) => ({ id: u.id, name: u.name }))}
+            kpis={kpis}
+            canAdd={canAdd} canEdit={canEdit} canDelete={canDelete}
+          />
+        }
+        treasury={
+          <CafeCashbox
+            warehouseId={warehouseId}
+            balance={Number(cafeTreasury?.balance || 0)}
+            canSettle={canSettle}
+            settlements={cafeSettlements.map((s) => ({
+              id: s.id, settlementNo: s.settlementNo, amount: Number(s.amount), status: s.status,
+              createdByName: s.createdBy?.name || null, acceptedByName: s.acceptedBy?.name || null,
+              createdAt: s.createdAt.toISOString(),
+            }))}
+            movements={cafeTxns.map((t) => ({
+              id: t.id, type: t.type, amount: Number(t.amount), balance: Number(t.balance),
+              description: t.description, reference: t.reference, createdByName: t.createdBy?.name || null,
+              createdAt: t.createdAt.toISOString(),
+            }))}
+          />
+        }
+        orders={
+          <div className="space-y-6">
+            {cafeSales.count > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                <TrendLineChart title="اتجاه مبيعات الكافيه" subtitle="قيمة أصناف الكافيه المباعة يوميًا" labels={cafeSales.trendLabels} primary={{ label: 'المبيعات', data: cafeSales.trend, color: '#e94560' }} />
+                <GroupBarChart title="أفضل منتجات الكافيه مبيعًا" subtitle="الأعلى إيرادًا في الفترة" items={cafeSales.topProducts} color="#f59e0b" emptyText="مفيش مبيعات كافيه في الفترة" />
+              </div>
+            )}
+            <CafeInvoicesLog
+              isAdmin={isAdmin}
+              cafeWarehouseId={warehouseId}
+              products={itemsMapped.map((p) => ({ id: p.id, name: p.name, unit: p.unit, sellPrice: p.sellPrice }))}
+              invoices={cafeInvoices.map((inv) => ({
+                id: inv.id, invoiceNo: inv.invoiceNo, customerName: inv.customer?.name || null, creatorName: inv.creator?.name || null,
+                type: inv.type, paymentMethod: inv.paymentMethod, discount: Number(inv.discount),
+                totalAmount: Number(inv.totalAmount), netAmount: Number(inv.netAmount), createdAt: inv.createdAt.toISOString(),
+                items: inv.items.map((it) => ({ productId: it.productId, name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice), isBonus: it.isBonus })),
+              }))}
+            />
+          </div>
+        }
       />
     </div>
   )
