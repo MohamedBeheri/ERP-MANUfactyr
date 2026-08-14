@@ -145,6 +145,9 @@ export default async function ProducePage() {
           rollTare: p.rollProductId
             ? Number(packagingAll.find((k) => k.id === p.rollProductId)?.tareWeight || 0)
             : Number(p.items[0]?.product?.packaging?.tareWeight || 0),
+          rollCore: p.rollProductId
+            ? Number(packagingAll.find((k) => k.id === p.rollProductId)?.estTareWeight || 0)
+            : Number(p.items[0]?.product?.packaging?.estTareWeight || 0),
         }))}
         kpi={kpi}
       />

@@ -61,9 +61,10 @@ export async function POST(req: NextRequest) {
         }
       }
       const rollPullKg = Number(b.rollPullKg) || 0
-      const rollTare = Number(roll?.tareWeight || 0) // وزن الوحدة (الكيس الفارغ) بالجرام
-      // عدد الأكياس المتوقّع من الرول = وزن الرول بالكجم ÷ وزن الوحدة الواحدة
-      const bagsFromRoll = roll && rollPullKg > 0 && rollTare > 0 ? Math.floor((rollPullKg * 1000) / rollTare) : 0
+      const pieceWeight = Number(roll?.tareWeight || 0) // وزن القطعة (الكيس المعبّأ) بالجرام — الفيلم لكل كيس
+      const coreWeight = Number(roll?.estTareWeight || 0) // وزن الفارغة (كرتونة الرول) بالجرام — هدر يُخصم مرة واحدة
+      // عدد الأكياس المتوقّع من الرول = (وزن الرول بالجرام − وزن الفارغة) ÷ وزن القطعة
+      const bagsFromRoll = roll && rollPullKg > 0 && pieceWeight > 0 ? Math.max(0, Math.floor((rollPullKg * 1000 - coreWeight) / pieceWeight)) : 0
       // عدد الأكياس المتوقّع من البن = كمية البن ÷ وزن الكيس الصافي
       const bagsFromCoffee = Math.floor((pullKg * 1000) / gramsPerPiece)
       const expectedBags = roll && rollPullKg > 0 ? Math.min(bagsFromCoffee, bagsFromRoll) : bagsFromCoffee

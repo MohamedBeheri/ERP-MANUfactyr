@@ -227,9 +227,9 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
               <p className="text-[10px] text-gray-400 mt-1">عدد الأكياس = وزن الرول ÷ وزن القطعة</p>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">وزن الفارغة التقديري (جرام)</label>
-              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.estTareWeight} onChange={(e) => setForm({ ...form, estTareWeight: e.target.value })} className={inputCls} placeholder="اختياري — افتراضي = وزن القطعة" />
-              <p className="text-[10px] text-gray-400 mt-1">يُستخدم في حساب الهدر عند الإقفال</p>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">وزن الفارغة (كرتونة الرول) جرام</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={form.estTareWeight} onChange={(e) => setForm({ ...form, estTareWeight: e.target.value })} className={inputCls} placeholder="مثال 2" />
+              <p className="text-[10px] text-gray-400 mt-1">الكرتونة الملفوف عليها الرول — هدر يُخصم من وزن الرول</p>
             </div>
           </div>
         )}

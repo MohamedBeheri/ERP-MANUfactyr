@@ -17,7 +17,7 @@ interface ProdT {
   roastLevel: string | null; grindType: string | null; output: string
   inputWeight: number; outputWeight: number; wasteWeight: number; wastePercent: number; wasteExceeded: boolean; channel: string; createdAt: string
   status: string; outputProductName: string | null
-  gramsPerPiece?: number; rollInputKg?: number | null; rollName?: string | null; rollTare?: number
+  gramsPerPiece?: number; rollInputKg?: number | null; rollName?: string | null; rollTare?: number; rollCore?: number
 }
 interface KpiT {
   greenIn: number; roastedOut: number; roastWaste: number; roastCount: number
@@ -296,7 +296,6 @@ export function FactoryProduction({ greens, blends, finished, availableIngredien
 /* ===== تشغيلات مفتوحة: العامل يرجع يقفلها ===== */
 function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
   const [out, setOut] = useState('')
-  const [tare, setTare] = useState('') // وزن الفارغ الفعلي للقطعة (جرام) — المشغّل بيقيسه على الماكينة
   const [remCoffee, setRemCoffee] = useState('') // وزن البن المتبقي الراجع للمخزن (كجم)
   const [remRoll, setRemRoll] = useState('')     // وزن الرول المتبقي الراجع للمخزن (كجم)
   const [loading, setLoading] = useState(false)
@@ -313,14 +312,14 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
   // البن المستهلك فعلاً = المسحوب − المتبقي · اللي دخل الأكياس = عدد × وزن الكيس الصافي
   const coffeeConsumed = Math.max(0, p.inputWeight - remCoffeeN)
   const coffeeInBags = outN > 0 && p.gramsPerPiece ? (outN * p.gramsPerPiece) / 1000 : 0
-  const bagsFromRoll = rollInputKg > 0 && p.rollTare ? Math.floor((rollInputKg * 1000) / (p.rollTare || 1)) : 0
+  // عدد الأكياس من الرول = (وزن الرول − وزن الفارغة/الكرتونة) ÷ وزن القطعة
+  const bagsFromRoll = rollInputKg > 0 && p.rollTare ? Math.max(0, Math.floor((rollInputKg * 1000 - (p.rollCore || 0)) / (p.rollTare || 1))) : 0
 
   const complete = async () => {
     setErr('')
     if (!(outN > 0)) return setErr(isPack ? 'اكتب عدد الأكياس/العبوات الفعلية' : 'اكتب الوزن الفعلي للناتج')
     if (!isPack && outN > p.inputWeight) return setErr(`الوزن الخارج مينفعش يزيد عن الداخل (${p.inputWeight})`)
     if (isPack) {
-      if (tare.trim() !== '' && !(Number(tare) >= 0)) return setErr('وزن الفارغ الفعلي لازم يكون رقم بالجرام')
       if (remCoffee.trim() !== '' && Number(remCoffee) > p.inputWeight) return setErr(`البن المتبقي مينفعش يزيد عن المسحوب (${p.inputWeight} كجم)`)
       if (remRoll.trim() !== '' && rollInputKg > 0 && Number(remRoll) > rollInputKg) return setErr(`الرول المتبقي مينفعش يزيد عن المسحوب (${rollInputKg} كجم)`)
     }
@@ -330,7 +329,6 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
           actualBags: outN,
           remainingCoffeeKg: remCoffee.trim() !== '' ? Number(remCoffee) : 0,
           remainingRollKg: remRoll.trim() !== '' ? Number(remRoll) : 0,
-          ...(tare.trim() !== '' ? { actualTareWeight: Number(tare) } : {}),
         }
       : { outputKg: outN }
     const res = await fetch(`/api/factory/${endpoint}/${p.id}/complete`, {
@@ -372,7 +370,7 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
 
       {isPack ? (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-gray-600">عدد الأكياس الفعلية *</label>
               <input type="text" inputMode="decimal" dir="ltr" min="1" step="1" value={out} onChange={(e) => setOut(e.target.value)} placeholder="عدد" className="w-full px-3 py-2.5 border border-amber-300 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500" />
@@ -384,10 +382,6 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-gray-600">وزن الرول المتبقي (كجم)</label>
               <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={remRoll} onChange={(e) => setRemRoll(e.target.value)} placeholder="راجع للمخزن" title="الرول اللي فضل بعد التعبئة — بيرجع لمخزن الرول" className="w-full px-3 py-2.5 border border-amber-200 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-gray-600">وزن الفارغة/قطعة (جم)</label>
-              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={tare} onChange={(e) => setTare(e.target.value)} placeholder="اختياري" title="لو سبته فاضي هيتحسب بالوزن التقديري من بنك الأصناف" className="w-full px-3 py-2.5 border border-blue-200 rounded-xl text-sm tabular-nums bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
           {(outN > 0 || rollInputKg > 0) && (
@@ -745,12 +739,13 @@ function PackForm({ blends, finished, packagings, onDone }: {
   }, [rollId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const rollN = Number(rollPullKg) || 0
-  const rollTare = roll?.tare || fin?.tare || 0 // وزن الوحدة الواحدة (الكيس الفارغ) جم
+  const pieceWeight = roll?.tare || fin?.tare || 0 // وزن القطعة (الكيس المعبّأ) جم — الفيلم المستهلك لكل كيس
+  const coreWeight = roll?.estTare || 0 // وزن الفارغة (كرتونة الرول) جم — هدر يُخصم مرة واحدة من الرول
 
   // عدد الأكياس من البن = كمية البن ÷ وزن الكيس الصافي
   const bagsFromCoffee = fin && pullN > 0 && fin.gramsPerPiece > 0 ? Math.floor((pullN * 1000) / fin.gramsPerPiece) : 0
-  // عدد الأكياس من الرول = وزن الرول ÷ وزن الوحدة الواحدة
-  const bagsFromRoll = rollN > 0 && rollTare > 0 ? Math.floor((rollN * 1000) / rollTare) : 0
+  // عدد الأكياس من الرول = (وزن الرول − وزن الفارغة/الكرتونة) ÷ وزن القطعة
+  const bagsFromRoll = rollN > 0 && pieceWeight > 0 ? Math.max(0, Math.floor((rollN * 1000 - coreWeight) / pieceWeight)) : 0
   const expectedBags = rollN > 0 ? Math.min(bagsFromCoffee, bagsFromRoll) : bagsFromCoffee
 
   const submit = async (e: React.FormEvent) => {
@@ -850,7 +845,8 @@ function PackForm({ blends, finished, packagings, onDone }: {
         <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-sm space-y-2">
           <p className="font-bold text-gray-700 text-xs mb-1">الشرح التفصيلي (البيان)</p>
           <div className="flex justify-between"><span className="text-gray-500">وزن الكيس الصافي (بن)</span><span className="font-semibold tabular-nums">{fin.gramsPerPiece} جم</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">وزن الوحدة الواحدة (الرول/الفارغة)</span><span className="tabular-nums">{rollTare} جم</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">وزن القطعة (الكيس)</span><span className="tabular-nums">{pieceWeight} جم</span></div>
+          {coreWeight > 0 && <div className="flex justify-between"><span className="text-gray-500">وزن الفارغة (كرتونة الرول — هدر)</span><span className="tabular-nums text-red-600">{coreWeight} جم</span></div>}
           {fin.blendName && <div className="flex justify-between"><span className="text-gray-500">التوليفة الأساسية</span><span className="tabular-nums">{fin.blendName}</span></div>}
           {pullN > 0 && (
             <div className="flex justify-between border-t border-gray-200 pt-1.5">
@@ -858,9 +854,9 @@ function PackForm({ blends, finished, packagings, onDone }: {
               <span className="tabular-nums font-semibold text-blue-700">~{bagsFromCoffee} كيس</span>
             </div>
           )}
-          {rollN > 0 && rollTare > 0 && (
+          {rollN > 0 && pieceWeight > 0 && (
             <div className="flex justify-between">
-              <span className="text-gray-500">أكياس من الرول = {rollN} كجم ÷ {rollTare} جم</span>
+              <span className="text-gray-500">أكياس من الرول = ({rollN} كجم{coreWeight > 0 ? ` − ${coreWeight} جم فارغة` : ''}) ÷ {pieceWeight} جم</span>
               <span className="tabular-nums font-semibold text-amber-700">~{bagsFromRoll} كيس</span>
             </div>
           )}

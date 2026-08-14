@@ -40,22 +40,12 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const gramsPerPiece = Number(finProduct.gramsPerPiece) || 0
     const pullKg = Number(production.inputWeight) // البن المسحوب
 
-    // وزن الفارغ: الفعلي من المشغّل لو اتقاس، وإلا التقديري من بنك الأصناف
     const rollInputKg = Number(production.rollInputKg || 0)
     const rollProduct = production.rollProductId
       ? await prisma.product.findUnique({ where: { id: production.rollProductId } })
       : finProduct.packaging
-    // الفارغة التقديرية: من حقل «وزن الفارغة التقديري» لو موجود، وإلا وزن القطعة
-    const estimatedTare = Number(
-      rollProduct?.estTareWeight || rollProduct?.tareWeight ||
-      finProduct.packaging?.estTareWeight || finProduct.packaging?.tareWeight || 0
-    )
-    const actualTareRaw = b.actualTareWeight !== undefined && b.actualTareWeight !== null && String(b.actualTareWeight).trim() !== ''
-      ? Number(b.actualTareWeight) : null
-    if (actualTareRaw !== null && !(actualTareRaw >= 0 && isFinite(actualTareRaw))) {
-      return NextResponse.json({ error: 'وزن الفارغ الفعلي لازم يكون رقم صحيح بالجرام' }, { status: 400 })
-    }
-    const tareWeight = actualTareRaw !== null ? actualTareRaw : estimatedTare
+    // وزن القطعة (الكيس المعبّأ) = الفيلم المستهلك لكل كيس · وزن الفارغة = كرتونة الرول (هدر مرة واحدة)
+    const pieceWeight = Number(rollProduct?.tareWeight || finProduct.packaging?.tareWeight || 0)
 
     // البن المتبقي الراجع للمخزن (كجم)
     const remCoffeeRaw = b.remainingCoffeeKg !== undefined && b.remainingCoffeeKg !== null && String(b.remainingCoffeeKg).trim() !== ''
@@ -74,8 +64,8 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const coffeeInBagsKg = (actualBags * gramsPerPiece) / 1000 // بن دخل الأكياس
     const coffeeWasteKg = Math.max(0, coffeeConsumedKg - coffeeInBagsKg)
     const rollConsumedKg = rollInputKg - remRollRaw           // رول مستهلك فعلاً
-    const rollInBagsKg = (actualBags * tareWeight) / 1000     // رول دخل الأكياس
-    const rollWasteKg = Math.max(0, rollConsumedKg - rollInBagsKg)
+    const rollInBagsKg = (actualBags * pieceWeight) / 1000    // فيلم دخل الأكياس (وزن القطعة)
+    const rollWasteKg = Math.max(0, rollConsumedKg - rollInBagsKg) // الباقي هدر — بيشمل كرتونة الرول (الفارغة)
     const wasteKg = coffeeWasteKg + rollWasteKg
     const wastePct = pullKg > 0 ? +((wasteKg / pullKg) * 100).toFixed(2) : 0
 
@@ -90,7 +80,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           wasteWeight: wasteKg,
           wastePercent: wastePct,
           actualUnits: Math.round(actualBags),
-          actualTareWeight: actualTareRaw, // null = المشغّل ماقاسش، اتحسب بالتقديري
+          actualTareWeight: null, // الفارغة (كرتونة الرول) هدر معروف من بنك الأصناف — مش قياس لكل قطعة
           rollRemainingKg: remRollRaw,
           coffeeRemainingKg: remCoffeeRaw,
           status: 'COMPLETED',
