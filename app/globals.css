@@ -104,6 +104,13 @@ textarea:not([dir])::placeholder {
     size: A4;
     margin: 12mm;
   }
+  /* إيصال الكاشير الحراري 80مم */
+  .receipt-80 {
+    width: 80mm !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
 }
 
 /* ============ Leaflet maps ============ */

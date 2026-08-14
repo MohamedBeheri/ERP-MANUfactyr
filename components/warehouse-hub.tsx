@@ -10,6 +10,8 @@ import {
 import { UnloadOrdersPanel } from '@/components/unload-orders-panel'
 import { StocktakeForm } from '@/components/stocktake-form'
 import { ExportButtons } from '@/components/export-buttons'
+import { SearchableSelect } from '@/components/searchable-select'
+import { Printer } from 'lucide-react'
 
 const fmt = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 3 })
 const money = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
@@ -733,6 +735,8 @@ function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; war
     const data = await res.json(); setLoading(false)
     if (!res.ok) return setError(data.error || 'حصل خطأ')
     setLines([{ productId: '', quantity: '' }]); setBuyerName(''); setNotes('')
+    // فتح إيصال الكاشير للطباعة فورًا بعد البيع
+    if (data.id) window.open(`/print/warehouse-sale/${data.id}`, '_blank')
     router.refresh()
   }
 
@@ -758,10 +762,16 @@ function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; war
               const avail = l.productId ? stockAt(stock.find((s) => s.id === l.productId)!, warehouseId) : 0
               return (
                 <div key={i} className="flex gap-2 items-center">
-                  <select value={l.productId} onChange={(e) => pickProduct(i, e.target.value)} className={`${inputCls} flex-1`}>
-                    <option value="">اختار الصنف</option>
-                    {available.map((p) => <option key={p.id} value={p.id}>{p.name} (متاح {fmt(stockAt(p, warehouseId))})</option>)}
-                  </select>
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      value={l.productId}
+                      onChange={(v) => pickProduct(i, v)}
+                      placeholder="ابحث واختار الصنف"
+                      emptyText="مفيش صنف متاح في المخزن ده"
+                      className={inputCls}
+                      options={available.map((p) => ({ value: p.id, label: p.name, sublabel: `متاح ${fmt(stockAt(p, warehouseId))}` }))}
+                    />
+                  </div>
                   <input type="text" inputMode="decimal" dir="ltr" value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="كمية" className="w-24 px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums" />
                   <div className="w-28 shrink-0 px-3 py-2.5 rounded-xl text-sm tabular-nums bg-gray-50 border border-gray-100 text-gray-600 text-center" title={buyerType === 'TRADER' ? 'سعر الجملة' : 'سعر القطاعي'}>
                     {l.productId ? `${money(priceOf(l.productId))}` : 'السعر'}
@@ -793,9 +803,14 @@ function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; war
                   <p className="font-bold text-xs text-[#0f3460] tabular-nums">{s.saleNo} <span className="text-gray-400 font-normal">· {s.buyerType === 'TRADER' ? 'تاجر' : 'عميل'}{s.buyerName ? ` (${s.buyerName})` : ''}</span></p>
                   <p className="text-[11px] text-gray-500 truncate">{s.items.map((it) => `${it.name} ×${fmt(it.quantity)}`).join('، ')}</p>
                 </div>
-                <div className="text-left shrink-0">
-                  <p className="font-bold text-sm text-green-700 tabular-nums">{money(s.totalAmount)} ج.م</p>
-                  <p className="text-[10px] text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')}</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-left">
+                    <p className="font-bold text-sm text-green-700 tabular-nums">{money(s.totalAmount)} ج.م</p>
+                    <p className="text-[10px] text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')}</p>
+                  </div>
+                  <a href={`/print/warehouse-sale/${s.id}`} target="_blank" rel="noreferrer" className="p-2 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded-lg" title="طباعة إيصال الكاشير" aria-label="طباعة الإيصال">
+                    <Printer className="w-4 h-4" />
+                  </a>
                 </div>
               </div>
             ))}
