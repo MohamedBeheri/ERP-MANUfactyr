@@ -44,8 +44,9 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     const rollProduct = production.rollProductId
       ? await prisma.product.findUnique({ where: { id: production.rollProductId } })
       : finProduct.packaging
-    // وزن القطعة (الكيس المعبّأ) = الفيلم المستهلك لكل كيس · وزن الفارغة = كرتونة الرول (هدر مرة واحدة)
+    // وزن الكيس الفاضي (الفيلم) المستهلك لكل كيس — بيُخصم من الوزن الإجمالي المعبأ للوصول لصافي البن
     const pieceWeight = Number(rollProduct?.tareWeight || finProduct.packaging?.tareWeight || 0)
+    const netCoffeePerBag = Math.max(0, gramsPerPiece - pieceWeight)
 
     // البن المتبقي الراجع للمخزن (كجم)
     const remCoffeeRaw = b.remainingCoffeeKg !== undefined && b.remainingCoffeeKg !== null && String(b.remainingCoffeeKg).trim() !== ''
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
 
     // ===== حساب الاستهلاك والهدر =====
     const coffeeConsumedKg = pullKg - remCoffeeRaw            // بن مستهلك فعلاً
-    const coffeeInBagsKg = (actualBags * gramsPerPiece) / 1000 // بن دخل الأكياس
+    const coffeeInBagsKg = (actualBags * netCoffeePerBag) / 1000 // صافي البن اللي دخل الأكياس
     const coffeeWasteKg = Math.max(0, coffeeConsumedKg - coffeeInBagsKg)
     const rollConsumedKg = rollInputKg - remRollRaw           // رول مستهلك فعلاً
     const rollInBagsKg = (actualBags * pieceWeight) / 1000    // فيلم دخل الأكياس (وزن القطعة)

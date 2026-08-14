@@ -61,13 +61,25 @@ export async function POST(req: NextRequest) {
         }
       }
       const rollPullKg = Number(b.rollPullKg) || 0
-      const pieceWeight = Number(roll?.tareWeight || 0) // وزن القطعة (الكيس المعبّأ) بالجرام — الفيلم لكل كيس
-      const coreWeight = Number(roll?.estTareWeight || 0) // وزن الفارغة (كرتونة الرول) بالجرام — هدر يُخصم مرة واحدة
-      // عدد الأكياس المتوقّع من الرول = (وزن الرول بالجرام − وزن الفارغة) ÷ وزن القطعة
-      const bagsFromRoll = roll && rollPullKg > 0 && pieceWeight > 0 ? Math.max(0, Math.floor((rollPullKg * 1000 - coreWeight) / pieceWeight)) : 0
-      // عدد الأكياس المتوقّع من البن = كمية البن ÷ وزن الكيس الصافي
-      const bagsFromCoffee = Math.floor((pullKg * 1000) / gramsPerPiece)
-      const expectedBags = roll && rollPullKg > 0 ? Math.min(bagsFromCoffee, bagsFromRoll) : bagsFromCoffee
+      const pieceWeight = Number(roll?.tareWeight || 0) // وزن الكيس الفاضي (الفيلم) لكل كيس بالجرام
+      const coreWeight = Number(roll?.estTareWeight || 0) // وزن الفارغة (كرتونة الرول) بالجرام — هدر لكل رول فعلي
+      const rollUnitKg = Number(roll?.rollWeight || 0) // حجم الرول القياسي (كجم) من بنك الأصناف
+      // صافي البن الفعلي في الكيس = الوزن الإجمالي للكيس المعبأ − وزن الكيس الفاضي
+      const netCoffeePerBag = Math.max(0, gramsPerPiece - pieceWeight)
+      if (netCoffeePerBag <= 0) {
+        return NextResponse.json({ error: `وزن الكيس المعبأ (${gramsPerPiece} جم) لازم يكون أكبر من وزن الكيس الفاضي (${pieceWeight} جم)` }, { status: 400 })
+      }
+      // عدد الأكياس المتوقّع = كمية البن ÷ صافي البن في الكيس — العدد بيتحدد بالبن، والرول بيتسحب بما يغطّيه
+      const bagsFromCoffee = Math.floor((pullKg * 1000) / netCoffeePerBag)
+      // لو فيه حجم رول قياسي، بنحسب عدد الرولات المطلوبة تغطية الإنتاج؛ وإلا بنحدّ العدد بالكمية اللي اتكتبت فعلاً
+      const netRollWeightG = rollUnitKg > 0 ? Math.max(0, rollUnitKg * 1000 - coreWeight) : 0
+      const totalPackagingWeightG = bagsFromCoffee * pieceWeight
+      const rollsNeeded = netRollWeightG > 0 && totalPackagingWeightG > 0 ? Math.ceil(totalPackagingWeightG / netRollWeightG) : 0
+      const bagsFromRollFallback = rollUnitKg <= 0 && roll && rollPullKg > 0 && pieceWeight > 0
+        ? Math.max(0, Math.floor((rollPullKg * 1000 - coreWeight) / pieceWeight)) : 0
+      const expectedBags = rollUnitKg > 0
+        ? bagsFromCoffee
+        : (roll && rollPullKg > 0 ? Math.min(bagsFromCoffee, bagsFromRollFallback) : bagsFromCoffee)
 
       // تحقق رصيد الرول (بالكجم) لو المشغّل حدّد كمية رول
       if (roll && rollPullKg > 0) {

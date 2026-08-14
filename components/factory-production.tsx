@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Flame, Package, TriangleAlert, Wheat, Factory, TrendingDown, Plus, X, ArrowRight, Clock, ChevronDown, ChevronUp, Activity } from 'lucide-react'
 import { SearchableSelect } from '@/components/searchable-select'
@@ -309,9 +309,11 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
   const rollInputKg = p.rollInputKg || 0
   const remCoffeeN = Number(remCoffee) || 0
   const remRollN = Number(remRoll) || 0
-  // البن المستهلك فعلاً = المسحوب − المتبقي · اللي دخل الأكياس = عدد × وزن الكيس الصافي
+  // صافي البن في الكيس = الوزن الإجمالي للكيس المعبأ − وزن الكيس الفاضي (الفيلم)
+  const netCoffeePerBagG = p.gramsPerPiece ? Math.max(0, p.gramsPerPiece - (p.rollTare || 0)) : 0
+  // البن المستهلك فعلاً = المسحوب − المتبقي · اللي دخل الأكياس = عدد × صافي البن في الكيس
   const coffeeConsumed = Math.max(0, p.inputWeight - remCoffeeN)
-  const coffeeInBags = outN > 0 && p.gramsPerPiece ? (outN * p.gramsPerPiece) / 1000 : 0
+  const coffeeInBags = outN > 0 && netCoffeePerBagG ? (outN * netCoffeePerBagG) / 1000 : 0
   // عدد الأكياس من الرول = (وزن الرول − وزن الفارغة/الكرتونة) ÷ وزن القطعة
   const bagsFromRoll = rollInputKg > 0 && p.rollTare ? Math.max(0, Math.floor((rollInputKg * 1000 - (p.rollCore || 0)) / (p.rollTare || 1))) : 0
 
@@ -733,24 +735,42 @@ function PackForm({ blends, finished, packagings, onDone }: {
 
   const roll = packagings.find((p) => p.id === rollId)
 
-  // لما يختار الرول، نسحب وزن الرول تلقائي من بنك الأصناف (لو المشغّل ماكتبش كمية بعد)
-  useEffect(() => {
-    if (roll && roll.rollWeight > 0 && !rollPullKg) setRollPullKg(String(roll.rollWeight))
-  }, [rollId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pieceWeight = roll?.tare || fin?.tare || 0 // empty_bag_weight — وزن الكيس الفاضي (الفيلم) لكل كيس، جم
+  const coreWeight = roll?.estTare || 0            // roll_core_weight — وزن الكرتونة اللي الرول ملفوف عليها، جم لكل رول فعلي
+  const rollUnitKg = roll?.rollWeight || 0         // roll_gross_weight — وزن الرول الفعلي الواحد (كجم) من بنك الأصناف
 
+  // أ) البن والأكياس — صافي البن الفعلي في الكيس = الوزن الإجمالي للكيس المعبأ − وزن الكيس الفاضي
+  const netCoffeePerBagG = fin ? Math.max(0, fin.gramsPerPiece - pieceWeight) : 0
+  const totalBagsFromCoffee = netCoffeePerBagG > 0 && pullN > 0 ? Math.floor((pullN * 1000) / netCoffeePerBagG) : 0
+  const coffeeUsedKg = netCoffeePerBagG > 0 ? (totalBagsFromCoffee * netCoffeePerBagG) / 1000 : 0
+  const coffeeLeftoverG = netCoffeePerBagG > 0 ? Math.max(0, pullN * 1000 - totalBagsFromCoffee * netCoffeePerBagG) : 0
+
+  // ب) الرول — صافي وزن الرول الواحد بعد خصم الكرتونة، وسعة الرول بالأكياس
+  const netRollWeightG = rollUnitKg > 0 ? Math.max(0, rollUnitKg * 1000 - coreWeight) : 0
+  const bagsPerRoll = netRollWeightG > 0 && pieceWeight > 0 ? netRollWeightG / pieceWeight : 0
+  const totalPackagingWeightG = totalBagsFromCoffee * pieceWeight
+  const rollsNeeded = netRollWeightG > 0 && totalPackagingWeightG > 0 ? Math.ceil(totalPackagingWeightG / netRollWeightG) : 0
+  const remainingBagsInLastRoll = rollsNeeded > 0 ? Math.max(0, rollsNeeded * bagsPerRoll - totalBagsFromCoffee) : 0
+  const suggestedRollPullKg = rollsNeeded * rollUnitKg
+
+  // لو مفيش حجم رول قياسي مسجّل، نرجع للمنطق المبسّط: نحدّ العدد بالأقل بين البن والكمية المسحوبة فعليًا
   const rollN = Number(rollPullKg) || 0
-  const pieceWeight = roll?.tare || fin?.tare || 0 // وزن القطعة (الكيس المعبّأ) جم — الفيلم المستهلك لكل كيس
-  const coreWeight = roll?.estTare || 0 // وزن الفارغة (كرتونة الرول) جم — هدر يُخصم مرة واحدة من الرول
+  const bagsFromRollFallback = rollUnitKg <= 0 && rollN > 0 && pieceWeight > 0 ? Math.max(0, Math.floor((rollN * 1000 - coreWeight) / pieceWeight)) : 0
+  const expectedBags = rollUnitKg > 0 ? totalBagsFromCoffee : (rollN > 0 ? Math.min(totalBagsFromCoffee, bagsFromRollFallback) : totalBagsFromCoffee)
 
-  // عدد الأكياس من البن = كمية البن ÷ وزن الكيس الصافي
-  const bagsFromCoffee = fin && pullN > 0 && fin.gramsPerPiece > 0 ? Math.floor((pullN * 1000) / fin.gramsPerPiece) : 0
-  // عدد الأكياس من الرول = (وزن الرول − وزن الفارغة/الكرتونة) ÷ وزن القطعة
-  const bagsFromRoll = rollN > 0 && pieceWeight > 0 ? Math.max(0, Math.floor((rollN * 1000 - coreWeight) / pieceWeight)) : 0
-  const expectedBags = rollN > 0 ? Math.min(bagsFromCoffee, bagsFromRoll) : bagsFromCoffee
-  // البن اللي هيتستهلك فعلاً = عدد الأكياس المتوقع × وزن الكيس الصافي · والباقي بيرجع للمخزن
-  const coffeeNeededKg = fin && fin.gramsPerPiece > 0 ? (expectedBags * fin.gramsPerPiece) / 1000 : 0
-  const coffeeLeftKg = Math.max(0, pullN - coffeeNeededKg)
-  const rollLimited = rollN > 0 && bagsFromRoll < bagsFromCoffee
+  // لما يتحدد حجم الرول القياسي وعدد الأكياس، نقترح كمية السحب (عدد الرولات × الحجم الواحد) — المستخدم يقدر يعدّلها
+  const lastSuggestion = useRef<string | null>(null)
+  useEffect(() => {
+    if (rollUnitKg > 0 && suggestedRollPullKg > 0) {
+      const suggestion = String(+suggestedRollPullKg.toFixed(3))
+      if (rollPullKg === '' || rollPullKg === lastSuggestion.current) {
+        setRollPullKg(suggestion)
+        lastSuggestion.current = suggestion
+      }
+    } else if (roll && roll.rollWeight <= 0 && !rollPullKg) {
+      // مفيش حجم قياسي — سيب الحقل فاضي عشان المستخدم يكتب الكمية بنفسه
+    }
+  }, [rollUnitKg, suggestedRollPullKg]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
@@ -813,7 +833,10 @@ function PackForm({ blends, finished, packagings, onDone }: {
           className={inputCls}
           options={packagings.map((p) => ({ value: p.id, label: p.name, sublabel: `متاح ${fmt(p.quantity)} كجم · وزن الوحدة ${p.tare} جم` }))}
         />
-        <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={rollPullKg} onChange={(e) => setRollPullKg(e.target.value)} placeholder="الكمية المسحوبة من الرول (كجم)" className={inputCls} />
+        <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={rollPullKg} onChange={(e) => { setRollPullKg(e.target.value); lastSuggestion.current = null }} placeholder="الكمية المسحوبة من الرول (كجم)" className={inputCls} />
+        {roll && rollUnitKg > 0 && rollsNeeded > 0 && (
+          <p className="text-[11px] text-amber-700">حجم الرول القياسي {fmt(rollUnitKg)} كجم — محتاج {rollsNeeded} رول عشان يغطّي إنتاج البن ({fmt(suggestedRollPullKg)} كجم مقترحة، وتقدر تعدّلها)</p>
+        )}
         {roll && rollN > 0 && rollN <= roll.quantity && (
           <p className="text-xs text-green-600">✓ متاح {fmt(roll.quantity)} كجم — هيتبقى {fmt(roll.quantity - rollN)} كجم · وزن الوحدة {roll.tare} جم</p>
         )}
@@ -844,49 +867,77 @@ function PackForm({ blends, finished, packagings, onDone }: {
         </select>
       </div>
 
-      {/* الشرح التفصيلي / البيان */}
-      {fin && (pullN > 0 || rollN > 0) && (
-        <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-sm space-y-2">
-          <p className="font-bold text-gray-700 text-xs mb-1">الشرح التفصيلي (البيان)</p>
-          <div className="flex justify-between"><span className="text-gray-500">وزن الكيس الصافي (بن)</span><span className="font-semibold tabular-nums">{fin.gramsPerPiece} جم</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">وزن القطعة (الكيس)</span><span className="tabular-nums">{pieceWeight} جم</span></div>
-          {coreWeight > 0 && <div className="flex justify-between"><span className="text-gray-500">وزن الفارغة (كرتونة الرول — هدر)</span><span className="tabular-nums text-red-600">{coreWeight} جم</span></div>}
-          {fin.blendName && <div className="flex justify-between"><span className="text-gray-500">التوليفة الأساسية</span><span className="tabular-nums">{fin.blendName}</span></div>}
-          {pullN > 0 && (
-            <div className="flex justify-between border-t border-gray-200 pt-1.5">
-              <span className="text-gray-500">أكياس من البن = {pullN} كجم ÷ {fin.gramsPerPiece} جم</span>
-              <span className="tabular-nums font-semibold text-blue-700">~{bagsFromCoffee} كيس</span>
+      {/* الشرح التفصيلي / البيان — إنتاج البن + تغليف الرول */}
+      {fin && pullN > 0 && (
+        <div className="space-y-3">
+          <div className="rounded-xl bg-blue-50/40 border border-blue-100 p-4 text-sm space-y-2">
+            <p className="font-bold text-blue-700 text-xs mb-1">ملخص الإنتاج (البن)</p>
+            <div className="flex justify-between"><span className="text-gray-500">الوزن الإجمالي للكيس المعبأ</span><span className="tabular-nums">{fin.gramsPerPiece} جم</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">وزن الكيس الفاضي (الفيلم)</span><span className="tabular-nums">{pieceWeight} جم</span></div>
+            <div className="flex justify-between border-t border-blue-100 pt-1.5">
+              <span className="text-gray-500">صافي البن في الكيس = {fin.gramsPerPiece} − {pieceWeight} جم</span>
+              <span className="tabular-nums font-semibold text-blue-700">{fmt(netCoffeePerBagG)} جم</span>
             </div>
-          )}
-          {rollN > 0 && pieceWeight > 0 && (
             <div className="flex justify-between">
-              <span className="text-gray-500">أكياس من الرول = ({rollN} كجم{coreWeight > 0 ? ` − ${coreWeight} جم فارغة` : ''}) ÷ {pieceWeight} جم</span>
-              <span className="tabular-nums font-semibold text-amber-700">~{bagsFromRoll} كيس</span>
+              <span className="text-gray-500">إجمالي عدد الأكياس = {pullN} كجم ÷ {fmt(netCoffeePerBagG)} جم</span>
+              <span className="tabular-nums font-bold text-[#0f3460]">~{totalBagsFromCoffee} كيس</span>
+            </div>
+            <div className="flex justify-between border-t border-blue-100 pt-1.5">
+              <span className="text-gray-500">إجمالي البن المستخدم</span>
+              <span className="tabular-nums font-semibold text-green-700">{fmt(coffeeUsedKg)} كجم</span>
+            </div>
+            {coffeeLeftoverG > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">باقي بن (فرق التقريب — يرجع للمخزن)</span>
+                <span className="tabular-nums font-semibold text-amber-700">{fmt(coffeeLeftoverG)} جم</span>
+              </div>
+            )}
+          </div>
+
+          {roll && pieceWeight > 0 && (
+            <div className="rounded-xl bg-amber-50/40 border border-amber-100 p-4 text-sm space-y-2">
+              <p className="font-bold text-amber-700 text-xs mb-1">ملخص التغليف (الرول)</p>
+              {rollUnitKg > 0 ? (
+                <>
+                  <div className="flex justify-between"><span className="text-gray-500">حجم الرول القياسي</span><span className="tabular-nums">{fmt(rollUnitKg)} كجم</span></div>
+                  {coreWeight > 0 && <div className="flex justify-between"><span className="text-gray-500">وزن الفارغة (كرتونة الرول — هدر لكل رول)</span><span className="tabular-nums text-red-600">{coreWeight} جم</span></div>}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">سعة الرول الفعلية = ({fmt(rollUnitKg)} كجم − {coreWeight} جم) ÷ {pieceWeight} جم</span>
+                    <span className="tabular-nums font-semibold text-amber-700">~{fmt(bagsPerRoll)} كيس/رول</span>
+                  </div>
+                  <div className="flex justify-between border-t border-amber-100 pt-1.5">
+                    <span className="text-gray-500">إجمالي وزن أكياس التغليف = {totalBagsFromCoffee} كيس × {pieceWeight} جم</span>
+                    <span className="tabular-nums font-semibold">{fmt(totalPackagingWeightG / 1000)} كجم</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">عدد الرولات المطلوبة</span>
+                    <span className="tabular-nums font-bold text-[#0f3460]">{rollsNeeded} رول</span>
+                  </div>
+                  {remainingBagsInLastRoll > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">سعة متبقية في آخر رول (مش هتتستخدم في التشغيلة دي)</span>
+                      <span className="tabular-nums font-semibold text-amber-700">~{fmt(remainingBagsInLastRoll)} كيس</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-[11px] text-amber-700">مفيش «وزن الرول» قياسي مسجّل في بنك الأصناف لهذا الصنف — العدد المتوقع بيتحدد بالأقل بين البن والكمية اللي هتكتبها.</p>
+                  {rollN > 0 && (
+                    <div className="flex justify-between border-t border-amber-100 pt-1.5">
+                      <span className="text-gray-500">أكياس من الرول = ({rollN} كجم{coreWeight > 0 ? ` − ${coreWeight} جم فارغة` : ''}) ÷ {pieceWeight} جم</span>
+                      <span className="tabular-nums font-semibold text-amber-700">~{bagsFromRollFallback} كيس</span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
-          <div className="flex justify-between border-t border-gray-200 pt-1.5 font-bold text-[#0f3460]">
-            <span>عدد الأكياس المتوقع {rollN > 0 ? '(الأقل بين البن والرول)' : ''}</span>
-            <span className="tabular-nums">~{expectedBags} كيس</span>
+
+          <div className="flex justify-between items-center bg-[#0f3460] text-white rounded-xl px-4 py-3 font-bold">
+            <span className="text-sm">عدد الأكياس المتوقع إنتاجها</span>
+            <span className="tabular-nums text-lg">~{expectedBags} كيس</span>
           </div>
-          {expectedBags > 0 && fin.gramsPerPiece > 0 && (
-            <>
-              <div className="flex justify-between border-t border-gray-200 pt-1.5">
-                <span className="text-gray-500">البن المستهلك فعلاً = {expectedBags} كيس × {fin.gramsPerPiece} جم</span>
-                <span className="tabular-nums font-semibold text-green-700">~{fmt(coffeeNeededKg)} كجم</span>
-              </div>
-              {coffeeLeftKg > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">المتوقع يتبقى بن (يرجع للمخزن) = {pullN} − {fmt(coffeeNeededKg)}</span>
-                  <span className="tabular-nums font-semibold text-amber-700">~{fmt(coffeeLeftKg)} كجم</span>
-                </div>
-              )}
-              {rollLimited && (
-                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 mt-1">
-                  الرول بيكفّي {bagsFromRoll} كيس بس — فالبن اللي هيتستهلك ~{fmt(coffeeNeededKg)} كجم والباقي ~{fmt(coffeeLeftKg)} كجم هيرجع للمخزن. لو عايز تستهلك البن كله زوّد كمية الرول المسحوبة.
-                </p>
-              )}
-            </>
-          )}
         </div>
       )}
 
