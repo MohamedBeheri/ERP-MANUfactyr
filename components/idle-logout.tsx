@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import { TimerOff } from 'lucide-react'
 
-const IDLE_MS = 3 * 60 * 1000 // 3 دقايق خمول متواصل → خروج تلقائي
+const IDLE_MS = 35 * 60 * 1000 // 35 دقيقة خمول متواصل → خروج تلقائي
 const WARN_MS = 30 * 1000 // تحذير قبل الخروج بـ30 ثانية
 
 // خروج تلقائي بعد فترة خمول — حماية للجهاز المفتوح من غير صاحبه
