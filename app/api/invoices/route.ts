@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission, requireAnyPermission } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
 import { computeBonuses } from '@/lib/rewards'
+import { warehouseTreasury, applyTreasuryTxn, ensureTreasuries, CLEARING_NAME, BANK_NAME } from '@/lib/treasuries'
 
 
 export async function GET() {
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { customerId, items, discount, type, pointId, paymentMethod } = body
     const warehouseId = body.warehouseId || (await getDefaultWarehouseId())
+    const cafeSale = !!body.cafeSale
+    if (cafeSale) await ensureTreasuries()
 
     if (!customerId || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'اختار عميل وأدخل صنف واحد على الأقل' }, { status: 400 })
@@ -203,12 +206,30 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      // ===== الحركة المالية للكافيه =====
+      // الكاش بيدخل خزنة الكافيه (نفس مخزن الكافيه) ويتسوّى مع العمومية زي المندوب.
+      // انستاباي ← حساب تحت التسوية · فيزا ← الحساب البنكي.
+      if (cafeSale && type !== 'CREDIT' && netAmount > 0) {
+        const m = (paymentMethod || 'نقدي').trim()
+        if (m === 'انستاباي') {
+          const t = await tx.treasury.findFirst({ where: { name: CLEARING_NAME } })
+          if (t) await applyTreasuryTxn(tx, { treasuryId: t.id, type: 'IN', amount: netAmount, refType: 'cafe-sale', reference: created.invoiceNo, description: `بيع كافيه انستاباي ${created.invoiceNo}`, createdById: session.user.id })
+        } else if (m === 'فيزا') {
+          const t = await tx.treasury.findFirst({ where: { name: BANK_NAME } })
+          if (t) await applyTreasuryTxn(tx, { treasuryId: t.id, type: 'IN', amount: netAmount, refType: 'cafe-sale', reference: created.invoiceNo, description: `بيع كافيه فيزا ${created.invoiceNo}`, createdById: session.user.id })
+        } else {
+          // نقدي / مختلط ← خزنة الكافيه (تتسوّى مع العمومية)
+          const trId = await warehouseTreasury(tx, warehouseId)
+          await applyTreasuryTxn(tx, { treasuryId: trId, type: 'IN', amount: netAmount, refType: 'cafe-sale', reference: created.invoiceNo, description: `بيع كافيه نقدي ${created.invoiceNo}`, createdById: session.user.id })
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
           action: 'بيع',
           description: `فاتورة بيع ${created.invoiceNo}`,
-          impact: `+${netAmount.toFixed(2)} ج.م`,
+          impact: `+${netAmount.toFixed(2)} ج.م${cafeSale ? ' · خزنة الكافيه' : ''}`,
         },
       })
 

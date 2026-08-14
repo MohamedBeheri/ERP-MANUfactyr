@@ -89,7 +89,8 @@ export function CafePos({
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerType, setNewCustomerType] = useState<'RETAIL' | 'WHOLESALE'>('RETAIL')
   const [showNewCustomer, setShowNewCustomer] = useState(false)
-  const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
+  // الكافيه بيبيع دايمًا من مخزن الكافيه — مفيش اختيار مخزن
+  const warehouseId = cafeWarehouseId || warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || ''
   const [discount, setDiscount] = useState('0')
   const [error, setError] = useState('')
   const [lastInvoice, setLastInvoice] = useState<{ id: string; invoiceNo: string } | null>(null)
@@ -133,8 +134,6 @@ export function CafePos({
 
   const addToCart = (p: Product) => {
     setLastInvoice(null)
-    // صنف توليفة: خاماته في مخزن الكافيه — نحوّل عليه تلقائي عشان فحص الرصيد يتم في المكان الصح
-    if (p.hasRecipe && cafeWarehouseId) setWarehouseId(cafeWarehouseId)
     setCart((prev) => {
       const existing = prev.find((c) => c.productId === p.id)
       if (existing) {
@@ -195,6 +194,7 @@ export function CafePos({
         paymentMethod: type === 'CASH' ? method : 'آجل',
         discount: discountPct,
         warehouseId,
+        cafeSale: true,
         items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity, unitPrice: c.unitPrice })),
       }),
     })
@@ -228,20 +228,9 @@ export function CafePos({
                 className="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
               />
             </div>
-            {warehouses.length > 1 && (
-              <div className="flex items-center gap-1.5">
-                <WarehouseIcon className="w-4 h-4 text-gray-400" />
-                <select
-                  value={warehouseId}
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                  className="px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm"
-                >
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="flex items-center gap-1.5 px-3 py-2.5 bg-[#e94560]/5 border border-[#e94560]/20 rounded-lg text-sm text-[#e94560] font-semibold whitespace-nowrap">
+              <WarehouseIcon className="w-4 h-4" /> مخزن الكافيه
+            </div>
           </div>
 
           {categories.length > 0 && (

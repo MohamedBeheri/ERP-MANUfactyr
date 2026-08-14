@@ -9,6 +9,7 @@ import { getCafeStageIds } from '@/lib/cafe'
 import { ensureStockStages } from '@/lib/stock-stages'
 import { ensureUnits } from '@/lib/units'
 import { CafeDashboard } from '@/components/cafe-parts'
+import { CafeCashbox } from '@/components/cafe-cashbox'
 import { PeriodSelector } from '@/components/period-selector'
 
 export const dynamic = 'force-dynamic'
@@ -105,6 +106,17 @@ export default async function CafePage({ searchParams: raw }: { searchParams: Pr
   const topProducts = Array.from(topMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8)
   const cafeSales = { total: salesTotal, count: cafeSaleItems.length, trendLabels, trend, topProducts }
 
+  // خزنة الكافيه (نقدية) + تسوياتها مع العمومية — نفس مسار خزنة المخزن
+  const [cafeTreasury, cafeSettlements] = await Promise.all([
+    prisma.treasury.findUnique({ where: { warehouseId }, select: { balance: true } }),
+    prisma.treasurySettlement.findMany({
+      where: { warehouseId },
+      include: { createdBy: { select: { name: true } }, acceptedBy: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' }, take: 15,
+    }),
+  ])
+  const canSettle = canDoAction(perms, 'warehouse', 'edit') || canEdit
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -121,6 +133,17 @@ export default async function CafePage({ searchParams: raw }: { searchParams: Pr
           {canInv && <Link href="/cafe/inventory" className="flex items-center gap-2 px-4 py-2 bg-white ring-1 ring-gray-200 text-[#0f3460] rounded-lg text-sm font-semibold hover:bg-gray-50"><Boxes className="w-4 h-4" /> مخزن الكافيه</Link>}
         </div>
       </div>
+
+      <CafeCashbox
+        warehouseId={warehouseId}
+        balance={Number(cafeTreasury?.balance || 0)}
+        canSettle={canSettle}
+        settlements={cafeSettlements.map((s) => ({
+          id: s.id, settlementNo: s.settlementNo, amount: Number(s.amount), status: s.status,
+          createdByName: s.createdBy?.name || null, acceptedByName: s.acceptedBy?.name || null,
+          createdAt: s.createdAt.toISOString(),
+        }))}
+      />
 
       <CafeDashboard
         cafeItems={itemsMapped}
