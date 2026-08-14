@@ -89,18 +89,19 @@ export function AdjustmentsList({ rows, warehouses, canEdit, isAdmin = false, pe
       {canEdit && (
         <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-100">
           {!open ? (
-            <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-[#0f3460] font-bold text-sm"><Plus className="w-4 h-4" /> بدء تسوية جرد جديدة</button>
+            <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-[#0f3460] font-bold text-sm"><Plus className="w-4 h-4" /> بدء جرد المخزن</button>
           ) : (
             <div className="space-y-3">
-              <h3 className="font-bold text-sm text-[#1a1a2e]">بدء تسوية جرد جديدة</h3>
+              <h3 className="font-bold text-sm text-[#1a1a2e]">بدء جرد المخزن</h3>
+              <p className="text-[11px] text-gray-500">هتبدأ عدّ فعلي لأصناف المخزن. بتدخل الكميات اللي عدّيتها بس — المراجعة والتسوية المحاسبية بتتم من الإدارة بعد كده.</p>
               {error && <div className="bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{error}</div>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div><label className="text-[11px] text-gray-500">المخزن المستهدف</label><select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
-                <div><label className="text-[11px] text-gray-500">نوع التسوية</label><select value={adjustmentType} onChange={(e) => setAdjustmentType(e.target.value)} className={inputCls}><option value="FULL">شاملة (عجز وزيادة)</option><option value="SHORTAGE_ONLY">عجز فقط</option><option value="SURPLUS_ONLY">زيادة فقط</option></select></div>
-                <div><label className="text-[11px] text-gray-500">سبب التسوية</label><select value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} className={inputCls}><option value="">— اختياري —</option>{REASONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
+                <div><label className="text-[11px] text-gray-500">المخزن</label><select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
                 <div><label className="text-[11px] text-gray-500">إذن الجرد المرجعي</label><input value={stocktakeRef} onChange={(e) => setStocktakeRef(e.target.value)} placeholder="اختياري" className={inputCls} /></div>
+                {/* نوع وسبب التسوية قرار محاسبي بيحدده الأدمن — مش القائم بالعدّ */}
+                {isAdmin && <div><label className="text-[11px] text-gray-500">نوع التسوية (للإدارة)</label><select value={adjustmentType} onChange={(e) => setAdjustmentType(e.target.value)} className={inputCls}><option value="FULL">شاملة (عجز وزيادة)</option><option value="SHORTAGE_ONLY">عجز فقط</option><option value="SURPLUS_ONLY">زيادة فقط</option></select></div>}
+                {isAdmin && <div><label className="text-[11px] text-gray-500">سبب التسوية (للإدارة)</label><select value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} className={inputCls}><option value="">— اختياري —</option>{REASONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>}
               </div>
-              <p className="text-[11px] text-gray-400">هياخد لقطة (Snapshot) للرصيد الدفتري الحالي لكل صنف في المخزن، وبعدها تدخل الكميات المعدودة.</p>
               <div className="flex gap-2">
                 <button onClick={start} disabled={busy} className="bg-[#0f3460] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a2545] disabled:opacity-50">{busy ? 'جاري...' : 'بدء العدّ'}</button>
                 <button onClick={() => setOpen(false)} className="px-4 py-2.5 text-gray-500 text-sm">إلغاء</button>
@@ -111,8 +112,8 @@ export function AdjustmentsList({ rows, warehouses, canEdit, isAdmin = false, pe
       )}
 
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="px-4 py-3 border-b border-gray-100"><h3 className="font-bold text-sm text-[#1a1a2e]">مستندات التسوية</h3></div>
-        {rows.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">مفيش تسويات جرد لسه</p> : (
+        <div className="px-4 py-3 border-b border-gray-100"><h3 className="font-bold text-sm text-[#1a1a2e]">أوامر جرد المخزن السابقة</h3></div>
+        {rows.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">مفيش أوامر جرد لسه</p> : (
           <div className="divide-y divide-gray-50">
             {rows.map((r) => {
               const st = STATUS[r.status] || STATUS.DRAFT
@@ -123,7 +124,8 @@ export function AdjustmentsList({ rows, warehouses, canEdit, isAdmin = false, pe
                     <p className="text-[11px] text-gray-400 tabular-nums">{new Date(r.createdAt).toLocaleDateString('ar-EG')} · {r.createdByName}</p>
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${st.cls}`}>{st.label}</span>
-                  <span className={`text-xs font-bold tabular-nums ${r.totalVarianceCost < 0 ? 'text-red-600' : r.totalVarianceCost > 0 ? 'text-green-700' : 'text-gray-400'}`}>{money(r.totalVarianceCost)} ج.م</span>
+                  {/* قيمة الفرق المالي للإدارة فقط */}
+                  {isAdmin && <span className={`text-xs font-bold tabular-nums ${r.totalVarianceCost < 0 ? 'text-red-600' : r.totalVarianceCost > 0 ? 'text-green-700' : 'text-gray-400'}`}>{money(r.totalVarianceCost)} ج.م</span>}
                   <ChevronLeft className="w-4 h-4 text-gray-300" />
                 </Link>
               )

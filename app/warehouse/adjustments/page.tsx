@@ -30,8 +30,8 @@ export default async function AdjustmentsPage() {
       <div className="flex items-center gap-3">
         <Link href="/warehouse" className="p-2 text-gray-400 hover:text-[#1a1a2e] hover:bg-gray-100 rounded-lg" aria-label="رجوع"><ArrowRight className="w-5 h-5" /></Link>
         <div>
-          <h1 className="text-2xl font-bold text-[#1a1a2e]">تسوية واعتماد فروق الجرد</h1>
-          <p className="text-sm text-gray-500 mt-0.5">لقطة رصيد دفتري ← عدّ فعلي ← مراجعة فروق ← اعتماد وترحيل بقيد آلي</p>
+          <h1 className="text-2xl font-bold text-[#1a1a2e]">جرد المخزن والتسويات</h1>
+          <p className="text-sm text-gray-500 mt-0.5">أمين المخزن بيعدّ الأصناف فعليًا · الإدارة بتراجع وتعتمد (مباشر أو بتسوية محاسبية)</p>
         </div>
       </div>
 

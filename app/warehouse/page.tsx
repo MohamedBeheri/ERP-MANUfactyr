@@ -132,7 +132,7 @@ export default async function WarehousePage() {
           </p>
         </div>
         <Link href="/warehouse/adjustments" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-[#0f3460] text-white hover:bg-[#0a2545] shrink-0">
-          <ClipboardCheck className="w-4 h-4" /> تسوية الجرد
+          <ClipboardCheck className="w-4 h-4" /> جرد المخزن
         </Link>
       </div>
 
