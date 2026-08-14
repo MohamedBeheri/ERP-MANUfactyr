@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, ChevronLeft } from 'lucide-react'
+import { Plus, ChevronLeft, Lock } from 'lucide-react'
 
 const money = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -19,13 +19,28 @@ const inputCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm f
 
 interface Row { id: string; docNo: string; status: string; warehouseName: string; createdByName: string; totalVarianceCost: number; itemsCount: number; createdAt: string }
 
-export function AdjustmentsList({ rows, warehouses, canEdit }: {
+export function AdjustmentsList({ rows, warehouses, canEdit, isAdmin = false, periodLockDate = null }: {
   rows: Row[]
   warehouses: { id: string; name: string; isDefault: boolean }[]
   canEdit: boolean
+  isAdmin?: boolean
+  periodLockDate?: string | null
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [lockDate, setLockDate] = useState(periodLockDate || '')
+  const [lockBusy, setLockBusy] = useState(false)
+  const [lockMsg, setLockMsg] = useState('')
+
+  const saveLock = async (value: string | null) => {
+    setLockBusy(true); setLockMsg('')
+    const res = await fetch('/api/accounting-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periodLockDate: value }) })
+    const data = await res.json(); setLockBusy(false)
+    if (!res.ok) { setLockMsg(data.error || 'فشل الحفظ'); return }
+    setLockDate(data.periodLockDate || '')
+    setLockMsg(data.periodLockDate ? 'تم إقفال الفترة' : 'تم إلغاء الإقفال')
+    router.refresh()
+  }
   const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
   const [adjustmentType, setAdjustmentType] = useState('FULL')
   const [reasonCode, setReasonCode] = useState('')
@@ -43,6 +58,19 @@ export function AdjustmentsList({ rows, warehouses, canEdit }: {
 
   return (
     <div className="space-y-4">
+      {isAdmin && (
+        <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-100">
+          <div className="flex items-center gap-2 mb-2"><Lock className="w-4 h-4 text-[#0f3460]" /><h3 className="font-bold text-sm text-[#1a1a2e]">إقفال الفترة المحاسبية</h3></div>
+          <p className="text-[11px] text-gray-500 mb-3">مينفعش ترحّل أي تسوية جرد بتاريخ داخل الفترة المقفولة (حتى التاريخ ده بما فيه). بيحمي البيانات المُقفلة من التعديل بأثر رجعي.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="date" value={lockDate} onChange={(e) => setLockDate(e.target.value)} dir="ltr" className={`${inputCls} max-w-[180px]`} />
+            <button onClick={() => saveLock(lockDate || null)} disabled={lockBusy || !lockDate} className="bg-[#0f3460] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a2545] disabled:opacity-50">{lockBusy ? 'جاري...' : 'إقفال حتى هذا التاريخ'}</button>
+            {periodLockDate && <button onClick={() => saveLock(null)} disabled={lockBusy} className="px-4 py-2.5 text-red-600 text-sm font-semibold hover:bg-red-50 rounded-xl disabled:opacity-50">إلغاء الإقفال</button>}
+            {periodLockDate && <span className="text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg font-semibold">مقفول حتى {new Date(periodLockDate).toLocaleDateString('ar-EG')}</span>}
+            {lockMsg && <span className="text-xs text-green-700">{lockMsg}</span>}
+          </div>
+        </div>
+      )}
       {canEdit && (
         <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-100">
           {!open ? (

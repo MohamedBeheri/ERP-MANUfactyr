@@ -14,7 +14,7 @@ export async function GET() {
       select: {
         id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true,
         phone: true, email: true, jobTitle: true, nationalId: true, address: true, hireDate: true, avatarUrl: true, notes: true,
-        commissionRate: true, monthlyTarget: true,
+        commissionRate: true, monthlyTarget: true, adjustmentApprovalLimit: true,
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
         hireDate: b.hireDate ? new Date(b.hireDate) : null,
         commissionRate: parseNum(b.commissionRate),
         monthlyTarget: parseNum(b.monthlyTarget),
+        adjustmentApprovalLimit: parseNum(b.adjustmentApprovalLimit),
         avatarUrl: b.avatarUrl || null,
         notes: b.notes?.trim() || null,
       },

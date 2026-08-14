@@ -56,6 +56,8 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         hireDate: b.hireDate !== undefined ? (b.hireDate ? new Date(b.hireDate) : null) : undefined,
         commissionRate: b.commissionRate !== undefined ? parseNum(b.commissionRate) : undefined,
         monthlyTarget: b.monthlyTarget !== undefined ? parseNum(b.monthlyTarget) : undefined,
+        // حد اعتماد تسوية الجرد — من صلاحية الأدمن فقط ومش على النفس (منع تصعيد)
+        adjustmentApprovalLimit: (!editingSelf && session.user.role === 'ADMIN' && b.adjustmentApprovalLimit !== undefined) ? parseNum(b.adjustmentApprovalLimit) : undefined,
         avatarUrl: b.avatarUrl !== undefined ? b.avatarUrl || null : undefined,
         notes: b.notes !== undefined ? b.notes?.trim() || null : undefined,
       },

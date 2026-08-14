@@ -130,8 +130,18 @@ model User {
   journalsCreated             JournalEntry[]         @relation("JournalCreator")
   adjustmentsCreated          StockAdjustment[]      @relation("AdjustmentCreator")
   adjustmentsApproved         StockAdjustment[]      @relation("AdjustmentApprover")
+  adjustmentApprovalLimit     Decimal                @default(0) @db.Decimal(14, 2) // أقصى قيمة فرق مالي مسموح للمستخدم يرحّلها (0 = غير محدود)
 
   @@map("users")
+}
+
+// إعدادات محاسبية عامة (سجل واحد) — إقفال الفترات
+model AccountingSettings {
+  id             String    @id @default(cuid())
+  periodLockDate DateTime? // إقفال الفترة المالية/المخزنية لحد التاريخ ده — ممنوع الترحيل داخله
+  updatedAt      DateTime  @updatedAt
+
+  @@map("accounting_settings")
 }
 
 // ============== المحاسبة: شجرة حسابات مبسّطة + قيود يومية آلية ==============
@@ -369,6 +379,7 @@ model Product {
   // ===== تصنيف الصنف في هيكل المصنع =====
   // GREEN (بن أخضر) | SPICE (عطارة/توابل) | FLAVOR (أساس نكهة) | BLEND (توليفة) | PACKAGING (مادة تغليف) | FINISHED (منتج نهائي)
   itemKind         String   @default("FINISHED")
+  lotTracked       Boolean  @default(false) // صنف بنظام اللوت — لازم رقم لوت وتاريخ صلاحية للكمية الزائدة في الجرد
   roastLossPercent Decimal  @default(0) @db.Decimal(5, 2) // نسبة خسران التحميص (للبن الأخضر)
   tareWeight       Decimal  @default(0) @db.Decimal(8, 3) // وزن القطعة بالجرام (لمواد التغليف) — يُقسَم عليه وزن الرول لحساب عدد الأكياس تلقائياً
   rollWeight       Decimal  @default(0) @db.Decimal(10, 3) // وزن الرول الكامل بالكجم (لمواد التغليف) — يُسحب تلقائياً في التعبئة

@@ -15,13 +15,19 @@ export async function POST(_req: NextRequest, { params: rawParams }: { params: P
   const { session } = auth
 
   try {
-    const adj = await prisma.stockAdjustment.findUnique({ where: { id: params.id }, include: { items: true } })
+    const adj = await prisma.stockAdjustment.findUnique({ where: { id: params.id }, include: { items: { include: { product: { select: { name: true, lotTracked: true } } } } } })
     if (!adj) return NextResponse.json({ error: 'مستند التسوية غير موجود' }, { status: 404 })
     if (adj.status !== 'REVIEWING') {
       return NextResponse.json({ error: 'لازم تخلّص العدّ وتراجع الفروق قبل الترحيل' }, { status: 400 })
     }
     const counted = adj.items.filter((it) => it.countedQty != null)
     if (counted.length === 0) return NextResponse.json({ error: 'مفيش أصناف اتعدّت — اكتب الكميات الفعلية الأول' }, { status: 400 })
+
+    // (١) إقفال الفترة المالية/المخزنية
+    const settings = await prisma.accountingSettings.findFirst()
+    if (settings?.periodLockDate && new Date() <= new Date(settings.periodLockDate)) {
+      return NextResponse.json({ error: `الفترة مقفولة لحد ${new Date(settings.periodLockDate).toLocaleDateString('ar-EG')} — مينفعش ترحّل جواها` }, { status: 400 })
+    }
 
     // احترام نوع التسوية
     const applicable = adj.items.filter((it) => {
@@ -31,8 +37,22 @@ export async function POST(_req: NextRequest, { params: rawParams }: { params: P
       return true
     })
 
+    // (٢) إلزام اللوت/الصلاحية للأصناف الزائدة اللي بنظام اللوت
+    const missingLot = applicable.filter((it) => Number(it.varianceQty) > 0 && it.product.lotTracked && (!it.batchNo || !it.batchNo.trim()))
+    if (missingLot.length > 0) {
+      return NextResponse.json({ error: `أصناف بنظام اللوت لازم رقم لوت للكمية الزائدة: ${missingLot.map((i) => i.product.name).join('، ')}` }, { status: 400 })
+    }
+
     const shortageCost = applicable.filter((i) => Number(i.varianceQty) < 0).reduce((s, i) => s + Math.abs(Number(i.varianceCost)), 0)
     const surplusCost = applicable.filter((i) => Number(i.varianceQty) > 0).reduce((s, i) => s + Number(i.varianceCost), 0)
+
+    // (٣) حد اعتماد المستخدم — إجمالي الفرق المالي (عجز + زيادة)
+    const gross = shortageCost + surplusCost
+    const me = await prisma.user.findUnique({ where: { id: session.user.id }, select: { adjustmentApprovalLimit: true } })
+    const limit = Number(me?.adjustmentApprovalLimit || 0)
+    if (session.user.role !== 'ADMIN' && limit > 0 && gross > limit) {
+      return NextResponse.json({ error: `إجمالي الفرق (${gross.toLocaleString('ar-EG')} ج.م) أكبر من صلاحيتك (${limit.toLocaleString('ar-EG')} ج.م) — محتاج اعتماد أعلى` }, { status: 403 })
+    }
 
     const gl = await getGLAccounts()
 

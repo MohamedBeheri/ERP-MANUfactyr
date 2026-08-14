@@ -21,6 +21,7 @@ export interface UserRow {
   hireDate?: string | null
   commissionRate?: number
   monthlyTarget?: number
+  adjustmentApprovalLimit?: number
   avatarUrl?: string | null
   notes?: string | null
 }
@@ -67,12 +68,12 @@ function matrixToPerms(m: Record<string, Set<string>>): string[] {
   return out
 }
 
-export function UserManager({ users, currentUserId }: { users: UserRow[]; currentUserId: string }) {
+export function UserManager({ users, currentUserId, isAdmin = false }: { users: UserRow[]; currentUserId: string; isAdmin?: boolean }) {
   const router = useRouter()
   const empty = {
     name: '', username: '', password: '', role: 'SALES',
     phone: '', email: '', jobTitle: '', nationalId: '', address: '', hireDate: '', notes: '',
-    commissionRate: '', monthlyTarget: '',
+    commissionRate: '', monthlyTarget: '', adjustmentApprovalLimit: '',
     matrix: permsToMatrix(ROLE_DEFAULTS['SALES'] || []),
     customPerms: false, // false = الصلاحيات بتتبع الدور الوظيفي تلقائيًا (الافتراضي)
   }
@@ -115,6 +116,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
       nationalId: u.nationalId || '', address: u.address || '',
       hireDate: u.hireDate ? u.hireDate.slice(0, 10) : '', notes: u.notes || '',
       commissionRate: u.commissionRate ? String(u.commissionRate) : '', monthlyTarget: u.monthlyTarget ? String(u.monthlyTarget) : '',
+      adjustmentApprovalLimit: u.adjustmentApprovalLimit ? String(u.adjustmentApprovalLimit) : '',
       matrix: permsToMatrix(eff),
       customPerms: hasCustom,
     })
@@ -214,6 +216,13 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1">التارجت الشهري بالجنيه (0 = مفيش تارجت)</label>
                 <input type="text" inputMode="decimal" dir="ltr" value={form.monthlyTarget} onChange={(e) => setForm({ ...form, monthlyTarget: e.target.value })} className={inputCls} placeholder="مثلاً 150000" />
               </div>
+              {isAdmin && (
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">حد اعتماد تسوية الجرد بالجنيه (0 = بدون حد)</label>
+                  <input type="text" inputMode="decimal" dir="ltr" value={form.adjustmentApprovalLimit} onChange={(e) => setForm({ ...form, adjustmentApprovalLimit: e.target.value })} className={inputCls} placeholder="مثلاً 5000 — أكبر من كده محتاج اعتماد أعلى" />
+                  <p className="text-[10px] text-gray-400 mt-0.5">لو إجمالي فرق الجرد أكبر من الحد، الموظف مش هيقدر يرحّل التسوية. الأدمن بلا حدود.</p>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3" /> العنوان</label>
                 <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputCls} />

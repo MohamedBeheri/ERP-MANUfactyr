@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ClipboardCheck, CheckCircle2, Undo2, Lock } from 'lucide-react'
+import { Search, ClipboardCheck, CheckCircle2, Undo2, Lock, Printer, AlertTriangle } from 'lucide-react'
 
 const money = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 const fmt = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 3 })
@@ -21,7 +21,7 @@ const ACTION: Record<string, { label: string; cls: string }> = {
   MATCHED: { label: 'مطابق', cls: 'text-gray-400' },
 }
 
-interface Item { id: string; productName: string; unit: string; snapshotQty: number; countedQty: number | null; varianceQty: number; unitCost: number; varianceCost: number; action: string }
+interface Item { id: string; productName: string; unit: string; lotTracked: boolean; snapshotQty: number; liveQty: number; countedQty: number | null; varianceQty: number; unitCost: number; varianceCost: number; action: string; batchNo: string | null; expiryDate: string | null; binLocation: string | null }
 interface Adj {
   id: string; docNo: string; status: string; adjustmentType: string; reasonCode: string | null; stocktakeRef: string | null
   warehouseName: string; createdByName: string; approvedByName: string | null; postingDate: string | null
@@ -37,11 +37,17 @@ export function StockAdjustmentDoc({ adj }: { adj: Adj }) {
   const [counts, setCounts] = useState<Record<string, string>>(
     Object.fromEntries(adj.items.map((i) => [i.id, i.countedQty != null ? String(i.countedQty) : '']))
   )
+  const [lots, setLots] = useState<Record<string, { batchNo: string; expiryDate: string; binLocation: string }>>(
+    Object.fromEntries(adj.items.map((i) => [i.id, { batchNo: i.batchNo || '', expiryDate: i.expiryDate || '', binLocation: i.binLocation || '' }]))
+  )
+  const setLot = (id: string, k: 'batchNo' | 'expiryDate' | 'binLocation', v: string) => setLots((p) => ({ ...p, [id]: { ...p[id], [k]: v } }))
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
   const list = search.trim() ? adj.items.filter((i) => i.productName.includes(search.trim())) : adj.items
+  // حركات مخزنية حصلت بعد لقطة الجرد (تزامن) — الرصيد الدفتري اللحظي مختلف عن اللقطة
+  const moved = adj.items.filter((i) => Math.abs(i.liveQty - i.snapshotQty) > 0.0009)
 
   // حساب لايف من المدخلات
   const liveVar = (it: Item) => { const c = counts[it.id]; if (c === '' || c == null) return null; return +(Number(c) - it.snapshotQty).toFixed(3) }
@@ -50,7 +56,9 @@ export function StockAdjustmentDoc({ adj }: { adj: Adj }) {
 
   const saveCounts = async () => {
     setBusy('save'); setError('')
-    const payload = adj.items.map((i) => ({ itemId: i.id, countedQty: counts[i.id] })).filter((c) => c.countedQty !== '')
+    const payload = adj.items
+      .map((i) => ({ itemId: i.id, countedQty: counts[i.id], batchNo: lots[i.id]?.batchNo || '', expiryDate: lots[i.id]?.expiryDate || '', binLocation: lots[i.id]?.binLocation || '' }))
+      .filter((c) => c.countedQty !== '' || c.batchNo || c.expiryDate || c.binLocation)
     const res = await fetch(`/api/stock-adjustments/${adj.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ counts: payload }) })
     setBusy('')
     if (!res.ok) return setError((await res.json()).error || 'فشل الحفظ')
@@ -96,6 +104,17 @@ export function StockAdjustmentDoc({ adj }: { adj: Adj }) {
 
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
 
+      {/* تنبيه التزامن: حركات مخزنية حصلت بعد لقطة الجرد */}
+      {editable && moved.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">فيه حركات مخزنية حصلت على {moved.length} صنف بعد لقطة الجرد — الترحيل بيتظبط تلقائيًا على الرصيد اللحظي.</p>
+            <p className="mt-1 text-amber-700">{moved.slice(0, 6).map((m) => `${m.productName}: لقطة ${fmt(m.snapshotQty)} ← حالي ${fmt(m.liveQty)}`).join(' · ')}{moved.length > 6 ? ' …' : ''}</p>
+          </div>
+        </div>
+      )}
+
       {/* ملخص الفروق */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100"><p className="text-[11px] text-gray-500">إجمالي العجز</p><p className="text-base font-bold text-red-600 tabular-nums">{money(editable ? short : adj.shortageCost)} ج.م</p></div>
@@ -130,10 +149,12 @@ export function StockAdjustmentDoc({ adj }: { adj: Adj }) {
                 const action = v == null ? 'MATCHED' : v < 0 ? 'SHORTAGE' : v > 0 ? 'SURPLUS' : 'MATCHED'
                 const cost = v == null ? 0 : Math.abs(v) * it.unitCost
                 const act = ACTION[action]
+                const showLot = it.lotTracked && (editable ? (v != null && v > 0) : (it.batchNo || it.expiryDate || it.binLocation))
                 return (
-                  <tr key={it.id} className="border-b border-gray-50 last:border-0">
-                    <td className="px-3 py-2 font-semibold text-[#1a1a2e]">{it.productName} <span className="text-[10px] text-gray-400 font-normal">{it.unit}</span></td>
-                    <td className="px-3 py-2 tabular-nums text-gray-500">{fmt(it.snapshotQty)}</td>
+                  <Fragment key={it.id}>
+                  <tr className={`border-b border-gray-50 ${showLot ? '' : 'last:border-0'}`}>
+                    <td className="px-3 py-2 font-semibold text-[#1a1a2e]">{it.productName} <span className="text-[10px] text-gray-400 font-normal">{it.unit}</span>{it.lotTracked && <span className="mr-1 text-[9px] bg-purple-50 text-purple-600 px-1 py-0.5 rounded font-normal">لوت</span>}</td>
+                    <td className="px-3 py-2 tabular-nums text-gray-500">{fmt(it.snapshotQty)}{editable && Math.abs(it.liveQty - it.snapshotQty) > 0.0009 && <span className="block text-[10px] text-amber-600">حالي {fmt(it.liveQty)}</span>}</td>
                     <td className="px-3 py-2">
                       {editable ? (
                         <input type="text" inputMode="decimal" dir="ltr" value={counts[it.id] ?? ''} onChange={(e) => setCounts({ ...counts, [it.id]: e.target.value })} placeholder="عدّ" className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg tabular-nums text-sm" />
@@ -144,6 +165,23 @@ export function StockAdjustmentDoc({ adj }: { adj: Adj }) {
                     <td className="px-3 py-2 tabular-nums">{v == null || v === 0 ? '—' : money(cost)}</td>
                     <td className="px-3 py-2"><span className={`text-xs font-semibold ${act.cls}`}>{act.label}</span></td>
                   </tr>
+                  {showLot && (
+                    <tr className="border-b border-gray-50 last:border-0 bg-purple-50/30">
+                      <td colSpan={7} className="px-3 py-2">
+                        {editable ? (
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="text-purple-700 font-semibold">بيانات اللوت للزيادة:</span>
+                            <input value={lots[it.id]?.batchNo ?? ''} onChange={(e) => setLot(it.id, 'batchNo', e.target.value)} placeholder="رقم اللوت *" className="w-32 px-2 py-1.5 border border-purple-200 rounded-lg text-sm" />
+                            <input type="date" value={lots[it.id]?.expiryDate ?? ''} onChange={(e) => setLot(it.id, 'expiryDate', e.target.value)} dir="ltr" className="px-2 py-1.5 border border-purple-200 rounded-lg text-sm" />
+                            <input value={lots[it.id]?.binLocation ?? ''} onChange={(e) => setLot(it.id, 'binLocation', e.target.value)} placeholder="الموقع/الرف" className="w-28 px-2 py-1.5 border border-purple-200 rounded-lg text-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-3 text-xs text-gray-500"><span>لوت: <b className="text-gray-700">{it.batchNo || '—'}</b></span><span>صلاحية: <b className="text-gray-700">{it.expiryDate || '—'}</b></span><span>موقع: <b className="text-gray-700">{it.binLocation || '—'}</b></span></div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 )
               })}
             </tbody>
@@ -179,6 +217,7 @@ export function StockAdjustmentDoc({ adj }: { adj: Adj }) {
         {adj.status === 'POSTED' && adj.isAdmin && (
           <button onClick={reverse} disabled={busy === 'reverse'} className="bg-white border border-red-200 text-red-600 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5"><Undo2 className="w-4 h-4" /> {busy === 'reverse' ? 'جاري...' : 'إلغاء الاعتماد والارتجاع'}</button>
         )}
+        <a href={`/print/stock-adjustment/${adj.id}`} target="_blank" rel="noopener" className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-1.5"><Printer className="w-4 h-4" /> طباعة المستند</a>
       </div>
     </div>
   )

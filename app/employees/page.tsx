@@ -13,7 +13,7 @@ export default async function EmployeesPage() {
   const [users, openCustodies] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true, phone: true, email: true, jobTitle: true, nationalId: true, address: true, hireDate: true, avatarUrl: true, notes: true, commissionRate: true, monthlyTarget: true },
+      select: { id: true, name: true, username: true, role: true, permissions: true, status: true, lastLogin: true, createdAt: true, phone: true, email: true, jobTitle: true, nationalId: true, address: true, hireDate: true, avatarUrl: true, notes: true, commissionRate: true, monthlyTarget: true, adjustmentApprovalLimit: true },
     }),
     prisma.custody.findMany({
       where: { status: { in: ['PENDING', 'APPROVED', 'DISBURSED'] } },
@@ -59,9 +59,11 @@ export default async function EmployeesPage() {
           hireDate: u.hireDate ? u.hireDate.toISOString() : null,
           commissionRate: Number(u.commissionRate),
           monthlyTarget: Number(u.monthlyTarget),
+          adjustmentApprovalLimit: Number(u.adjustmentApprovalLimit),
           avatarUrl: u.avatarUrl, notes: u.notes,
         }))}
         currentUserId={session.user.id}
+        isAdmin={session.user.role === 'ADMIN'}
       />
     </div>
   )

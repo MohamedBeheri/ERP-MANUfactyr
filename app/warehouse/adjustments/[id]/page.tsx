@@ -20,10 +20,17 @@ export default async function AdjustmentDetail({ params: rawParams }: { params: 
       createdBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
       journalEntry: { include: { lines: { include: { account: true } } } },
-      items: { include: { product: { select: { name: true, unit: true } } }, orderBy: { product: { name: 'asc' } } },
+      items: { include: { product: { select: { name: true, unit: true, lotTracked: true } } }, orderBy: { product: { name: 'asc' } } },
     },
   })
   if (!adj) notFound()
+
+  // الرصيد الدفتري اللحظي (لإظهار الحركات اللي حصلت بعد لقطة الجرد — التزامن)
+  const liveStocks = await prisma.productStock.findMany({
+    where: { warehouseId: adj.warehouseId, productId: { in: adj.items.map((it) => it.productId) } },
+    select: { productId: true, quantity: true },
+  })
+  const liveMap = Object.fromEntries(liveStocks.map((s) => [s.productId, Number(s.quantity)]))
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -39,7 +46,7 @@ export default async function AdjustmentDetail({ params: rawParams }: { params: 
           postingDate: adj.postingDate?.toISOString() || null,
           shortageCost: Number(adj.shortageCost), surplusCost: Number(adj.surplusCost), totalVarianceCost: Number(adj.totalVarianceCost),
           journal: adj.journalEntry ? { entryNo: adj.journalEntry.entryNo, lines: adj.journalEntry.lines.map((l) => ({ account: l.account.name, debit: Number(l.debit), credit: Number(l.credit) })) } : null,
-          items: adj.items.map((it) => ({ id: it.id, productName: it.product.name, unit: it.product.unit, snapshotQty: Number(it.snapshotQty), countedQty: it.countedQty != null ? Number(it.countedQty) : null, varianceQty: Number(it.varianceQty), unitCost: Number(it.unitCost), varianceCost: Number(it.varianceCost), action: it.action })),
+          items: adj.items.map((it) => ({ id: it.id, productName: it.product.name, unit: it.product.unit, lotTracked: it.product.lotTracked, snapshotQty: Number(it.snapshotQty), liveQty: liveMap[it.productId] ?? Number(it.snapshotQty), countedQty: it.countedQty != null ? Number(it.countedQty) : null, varianceQty: Number(it.varianceQty), unitCost: Number(it.unitCost), varianceCost: Number(it.varianceCost), action: it.action, batchNo: it.batchNo, expiryDate: it.expiryDate?.toISOString().slice(0, 10) || null, binLocation: it.binLocation })),
           isAdmin: session.user.role === 'ADMIN',
         }}
       />

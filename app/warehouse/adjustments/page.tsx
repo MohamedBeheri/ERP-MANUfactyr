@@ -15,13 +15,14 @@ export default async function AdjustmentsPage() {
   const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
   const canEdit = canDoAction(perms, 'warehouse', 'edit')
 
-  const [rows, warehouses] = await Promise.all([
+  const [rows, warehouses, acctSettings] = await Promise.all([
     prisma.stockAdjustment.findMany({
       include: { warehouse: { select: { name: true } }, createdBy: { select: { name: true } }, _count: { select: { items: true } } },
       orderBy: { createdAt: 'desc' },
       take: 40,
     }),
     prisma.warehouse.findMany({ where: { isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
+    prisma.accountingSettings.findFirst(),
   ])
 
   return (
@@ -42,6 +43,8 @@ export default async function AdjustmentsPage() {
         }))}
         warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
         canEdit={canEdit}
+        isAdmin={session.user.role === 'ADMIN'}
+        periodLockDate={acctSettings?.periodLockDate?.toISOString().slice(0, 10) || null}
       />
     </div>
   )

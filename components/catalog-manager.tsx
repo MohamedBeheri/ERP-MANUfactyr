@@ -30,6 +30,7 @@ interface Item {
   stageId: string | null
   imageUrl: string | null
   minStock: number
+  lotTracked: boolean
   isActive: boolean
   showInPos: boolean
   showOnline: boolean
@@ -114,7 +115,7 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
     name: '', unit: units[0]?.name || '', costPrice: '', sellPrice: '', oldPrice: '', wholesalePrice: '', minKeyPrice: '',
     roastLossPercent: '', tareWeight: '', rollWeight: '', estTareWeight: '', blendId: '', packagingId: '', gramsPerPiece: '', piecesPerBox: '1',
     categoryId: '', stageId: '', minStock: '0', imageUrl: '',
-    showInPos: false, showOnline: true,
+    lotTracked: false, showInPos: false, showOnline: true,
   }
   const [form, setForm] = useState<any>(empty)
   const [components, setComponents] = useState<Component[]>([])
@@ -136,7 +137,7 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
       tareWeight: String(it.tareWeight || ''), rollWeight: String(it.rollWeight || ''), estTareWeight: String(it.estTareWeight || ''),
       blendId: it.blendId || '', packagingId: it.packagingId || '',
       gramsPerPiece: String(it.gramsPerPiece || ''), piecesPerBox: String(it.piecesPerBox || 1),
-      categoryId: it.categoryId || '', stageId: it.stageId || '', minStock: String(it.minStock || 0),
+      categoryId: it.categoryId || '', stageId: it.stageId || '', minStock: String(it.minStock || 0), lotTracked: !!it.lotTracked,
       imageUrl: it.imageUrl || '',
       showInPos: it.showInPos, showOnline: it.showOnline,
     })
@@ -395,6 +396,14 @@ function KindTab({ kind, items, categories, stages, units, reload }: { kind: str
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">الحد الأدنى للمخزون</label>
           <input type="text" inputMode="decimal" dir="ltr" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inputCls} />
+        </div>
+
+        {/* تتبع اللوت/الصلاحية */}
+        <div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+            <input type="checkbox" checked={!!form.lotTracked} onChange={(e) => setForm({ ...form, lotTracked: e.target.checked })} className="w-4 h-4 accent-purple-600" />
+            صنف بنظام اللوت/الصلاحية (يلزم رقم لوت للكميات الزائدة في الجرد)
+          </label>
         </div>
 
         {/* صورة المنتج */}

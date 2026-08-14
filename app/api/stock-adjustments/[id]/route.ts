@@ -39,10 +39,16 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
 
     await prisma.$transaction(async (tx) => {
       for (const it of adj.items) {
-        const countedRaw = parsed[it.id]
-        const counted = countedRaw === undefined ? (it.countedQty != null ? Number(it.countedQty) : null) : countedRaw
+        const row = parsed[it.id]
+        const counted = row === undefined ? (it.countedQty != null ? Number(it.countedQty) : null) : row.countedQty
+        // بيانات اللوت/الصلاحية/الموقع — تتحدّث لو اتبعتت
+        const lotData = row === undefined ? {} : {
+          batchNo: row.batchNo ?? it.batchNo ?? null,
+          expiryDate: row.expiryDate ? new Date(row.expiryDate) : (it.expiryDate ?? null),
+          binLocation: row.binLocation ?? it.binLocation ?? null,
+        }
         if (counted === null) {
-          await tx.stockAdjustmentItem.update({ where: { id: it.id }, data: { countedQty: null, varianceQty: 0, varianceCost: 0, action: 'MATCHED' } })
+          await tx.stockAdjustmentItem.update({ where: { id: it.id }, data: { countedQty: null, varianceQty: 0, varianceCost: 0, action: 'MATCHED', ...lotData } })
           continue
         }
         const variance = +(counted - Number(it.snapshotQty)).toFixed(3)
@@ -52,7 +58,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         if (action === 'SURPLUS') totalSurplus += cost
         await tx.stockAdjustmentItem.update({
           where: { id: it.id },
-          data: { countedQty: counted, varianceQty: variance, varianceCost: variance < 0 ? -cost : cost, action },
+          data: { countedQty: counted, varianceQty: variance, varianceCost: variance < 0 ? -cost : cost, action, ...lotData },
         })
       }
       await tx.stockAdjustment.update({
@@ -67,13 +73,20 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
   }
 }
 
-async function getCounts(req: NextRequest): Promise<Record<string, number>> {
+type CountRow = { countedQty: number | null; batchNo?: string | null; expiryDate?: string | null; binLocation?: string | null }
+
+async function getCounts(req: NextRequest): Promise<Record<string, CountRow>> {
   const b = await req.json()
-  const out: Record<string, number> = {}
+  const out: Record<string, CountRow> = {}
   if (Array.isArray(b.counts)) {
     for (const c of b.counts) {
-      if (c?.itemId != null && c.countedQty !== '' && c.countedQty !== null && c.countedQty !== undefined && isFinite(Number(c.countedQty))) {
-        out[String(c.itemId)] = Number(c.countedQty)
+      if (c?.itemId == null) continue
+      const hasQty = c.countedQty !== '' && c.countedQty !== null && c.countedQty !== undefined && isFinite(Number(c.countedQty))
+      out[String(c.itemId)] = {
+        countedQty: hasQty ? Number(c.countedQty) : null,
+        batchNo: c.batchNo != null ? String(c.batchNo).trim() || null : undefined,
+        expiryDate: c.expiryDate || undefined,
+        binLocation: c.binLocation != null ? String(c.binLocation).trim() || null : undefined,
       }
     }
   }
