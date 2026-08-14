@@ -747,6 +747,10 @@ function PackForm({ blends, finished, packagings, onDone }: {
   // عدد الأكياس من الرول = (وزن الرول − وزن الفارغة/الكرتونة) ÷ وزن القطعة
   const bagsFromRoll = rollN > 0 && pieceWeight > 0 ? Math.max(0, Math.floor((rollN * 1000 - coreWeight) / pieceWeight)) : 0
   const expectedBags = rollN > 0 ? Math.min(bagsFromCoffee, bagsFromRoll) : bagsFromCoffee
+  // البن اللي هيتستهلك فعلاً = عدد الأكياس المتوقع × وزن الكيس الصافي · والباقي بيرجع للمخزن
+  const coffeeNeededKg = fin && fin.gramsPerPiece > 0 ? (expectedBags * fin.gramsPerPiece) / 1000 : 0
+  const coffeeLeftKg = Math.max(0, pullN - coffeeNeededKg)
+  const rollLimited = rollN > 0 && bagsFromRoll < bagsFromCoffee
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
@@ -864,6 +868,25 @@ function PackForm({ blends, finished, packagings, onDone }: {
             <span>عدد الأكياس المتوقع {rollN > 0 ? '(الأقل بين البن والرول)' : ''}</span>
             <span className="tabular-nums">~{expectedBags} كيس</span>
           </div>
+          {expectedBags > 0 && fin.gramsPerPiece > 0 && (
+            <>
+              <div className="flex justify-between border-t border-gray-200 pt-1.5">
+                <span className="text-gray-500">البن المستهلك فعلاً = {expectedBags} كيس × {fin.gramsPerPiece} جم</span>
+                <span className="tabular-nums font-semibold text-green-700">~{fmt(coffeeNeededKg)} كجم</span>
+              </div>
+              {coffeeLeftKg > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">المتوقع يتبقى بن (يرجع للمخزن) = {pullN} − {fmt(coffeeNeededKg)}</span>
+                  <span className="tabular-nums font-semibold text-amber-700">~{fmt(coffeeLeftKg)} كجم</span>
+                </div>
+              )}
+              {rollLimited && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 mt-1">
+                  الرول بيكفّي {bagsFromRoll} كيس بس — فالبن اللي هيتستهلك ~{fmt(coffeeNeededKg)} كجم والباقي ~{fmt(coffeeLeftKg)} كجم هيرجع للمخزن. لو عايز تستهلك البن كله زوّد كمية الرول المسحوبة.
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
 
