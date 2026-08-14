@@ -60,6 +60,12 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     if (!(remRollRaw >= 0 && isFinite(remRollRaw))) return NextResponse.json({ error: 'وزن الرول المتبقي لازم يكون رقم بالكجم' }, { status: 400 })
     if (remRollRaw > rollInputKg) return NextResponse.json({ error: `وزن الرول المتبقي (${remRollRaw}) مينفعش يزيد عن المسحوب (${rollInputKg})` }, { status: 400 })
 
+    // وزن الفارغة (كرتونة الرول) الفعلي — افتراضي من بنك الأصناف · هدر داخل ضمن هدر الرول
+    const estCore = Number(rollProduct?.estTareWeight || finProduct.packaging?.estTareWeight || 0)
+    const coreWeightG = b.rollCoreWeightG !== undefined && b.rollCoreWeightG !== null && String(b.rollCoreWeightG).trim() !== ''
+      ? Number(b.rollCoreWeightG) : estCore
+    if (!(coreWeightG >= 0 && isFinite(coreWeightG))) return NextResponse.json({ error: 'وزن الفارغة لازم يكون رقم بالجرام' }, { status: 400 })
+
     // ===== حساب الاستهلاك والهدر =====
     const coffeeConsumedKg = pullKg - remCoffeeRaw            // بن مستهلك فعلاً
     const coffeeInBagsKg = (actualBags * netCoffeePerBag) / 1000 // صافي البن اللي دخل الأكياس
@@ -81,7 +87,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           wasteWeight: wasteKg,
           wastePercent: wastePct,
           actualUnits: Math.round(actualBags),
-          actualTareWeight: null, // الفارغة (كرتونة الرول) هدر معروف من بنك الأصناف — مش قياس لكل قطعة
+          actualTareWeight: coreWeightG, // وزن الفارغة (كرتونة الرول) الفعلي بالجرام — هدر داخل ضمن هدر الرول
           rollRemainingKg: remRollRaw,
           coffeeRemainingKg: remCoffeeRaw,
           status: 'COMPLETED',
@@ -127,7 +133,7 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
           userId: session.user.id,
           action: 'إقفال تعبئة',
           description: `إقفال تشغيلة ${production.batchNo}: ${finProduct.name} — ${actualBags} عبوة`,
-          impact: `+${actualBags} عبوة · هدر ${wasteKg.toFixed(2)} كجم (${wastePct}%)${remCoffeeRaw > 0 ? ` · رجّع ${remCoffeeRaw} كجم بن` : ''}${remRollRaw > 0 ? ` · رجّع ${remRollRaw} كجم رول` : ''}`,
+          impact: `+${actualBags} عبوة · هدر ${wasteKg.toFixed(2)} كجم (${wastePct}%)${remCoffeeRaw > 0 ? ` · رجّع ${remCoffeeRaw} كجم بن` : ''}${remRollRaw > 0 ? ` · رجّع ${remRollRaw} كجم رول` : ''}${coreWeightG > 0 ? ` · فارغة ${coreWeightG} جم` : ''}`,
         },
       })
 

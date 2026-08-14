@@ -298,6 +298,7 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
   const [out, setOut] = useState('')
   const [remCoffee, setRemCoffee] = useState('') // وزن البن المتبقي الراجع للمخزن (كجم)
   const [remRoll, setRemRoll] = useState('')     // وزن الرول المتبقي الراجع للمخزن (كجم)
+  const [coreG, setCoreG] = useState('')         // وزن الفارغة (كرتونة الرول) الفعلي جم — افتراضي من بنك الأصناف
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const outN = Number(out) || 0
@@ -331,6 +332,7 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
           actualBags: outN,
           remainingCoffeeKg: remCoffee.trim() !== '' ? Number(remCoffee) : 0,
           remainingRollKg: remRoll.trim() !== '' ? Number(remRoll) : 0,
+          rollCoreWeightG: coreG.trim() !== '' ? Number(coreG) : (p.rollCore || 0),
         }
       : { outputKg: outN }
     const res = await fetch(`/api/factory/${endpoint}/${p.id}/complete`, {
@@ -372,7 +374,7 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
 
       {isPack ? (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-gray-600">عدد الأكياس الفعلية *</label>
               <input type="text" inputMode="decimal" dir="ltr" min="1" step="1" value={out} onChange={(e) => setOut(e.target.value)} placeholder="عدد" className="w-full px-3 py-2.5 border border-amber-300 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500" />
@@ -384,6 +386,10 @@ function PendingRow({ p, onDone }: { p: ProdT; onDone: () => void }) {
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-gray-600">وزن الرول المتبقي (كجم)</label>
               <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.001" value={remRoll} onChange={(e) => setRemRoll(e.target.value)} placeholder="راجع للمخزن" title="الرول اللي فضل بعد التعبئة — بيرجع لمخزن الرول" className="w-full px-3 py-2.5 border border-amber-200 rounded-xl text-sm tabular-nums bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-600">وزن الفارغة (كرتونة الرول) جم</label>
+              <input type="text" inputMode="decimal" dir="ltr" min="0" step="0.01" value={coreG} onChange={(e) => setCoreG(e.target.value)} placeholder={p.rollCore ? `تقديري ${p.rollCore}` : 'جم'} title="وزن كرتونة الرول (هدر) — افتراضي من بنك الأصناف، عدّله لو قِسته فعليًا" className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm tabular-nums bg-red-50/40 focus:outline-none focus:ring-2 focus:ring-red-400" />
             </div>
           </div>
           {(outN > 0 || rollInputKg > 0) && (
