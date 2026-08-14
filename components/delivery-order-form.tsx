@@ -23,26 +23,37 @@ interface WarehouseOption {
   isDefault: boolean
 }
 
+interface EditOrder { id: string; delegateId: string; warehouseId: string; notes: string; items: { productId: string; quantity: number }[] }
+
 export function DeliveryOrderForm({
   delegates,
   products,
   warehouses = [],
+  editOrder,
+  onDone,
 }: {
   delegates: Delegate[]
   products: Product[]
   warehouses?: WarehouseOption[]
+  editOrder?: EditOrder
+  onDone?: () => void
 }) {
   const router = useRouter()
-  const [delegateId, setDelegateId] = useState('')
-  const [warehouseId, setWarehouseId] = useState(warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
-  const [rows, setRows] = useState([{ productId: '', quantity: '' }])
-  const [notes, setNotes] = useState('')
+  const isEdit = !!editOrder
+  const [delegateId, setDelegateId] = useState(editOrder?.delegateId || '')
+  const [warehouseId, setWarehouseId] = useState(editOrder?.warehouseId || warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '')
+  const [rows, setRows] = useState<{ productId: string; quantity: string }[]>(
+    editOrder?.items.length ? editOrder.items.map((i) => ({ productId: i.productId, quantity: String(i.quantity) })) : [{ productId: '', quantity: '' }]
+  )
+  const [notes, setNotes] = useState(editOrder?.notes || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   // أصناف المخزن المختار بس (متاح > 0) — التحميل بيسحب من رصيد المخزن ده فعليًا
+  // في وضع التعديل بنضمّن الأصناف المختارة أصلًا حتى لو رصيدها ظهر 0 عشان متختفيش
   const stockOf = (p: Product) => p.stocksByWarehouse[warehouseId] ?? 0
-  const availableProducts = products.filter((p) => stockOf(p) > 0)
+  const selectedIds = new Set(rows.map((r) => r.productId).filter(Boolean))
+  const availableProducts = products.filter((p) => stockOf(p) > 0 || (isEdit && selectedIds.has(p.id)))
 
   const addRow = () => setRows([...rows, { productId: '', quantity: '' }])
   const removeRow = (index: number) => setRows(rows.filter((_, i) => i !== index))
@@ -64,8 +75,8 @@ export function DeliveryOrderForm({
     }
 
     setLoading(true)
-    const res = await fetch('/api/delivery-orders', {
-      method: 'POST',
+    const res = await fetch(isEdit ? `/api/delivery-orders/${editOrder!.id}` : '/api/delivery-orders', {
+      method: isEdit ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ delegateId, items, notes, warehouseId }),
     })
@@ -77,6 +88,7 @@ export function DeliveryOrderForm({
       return
     }
 
+    if (isEdit) { router.refresh(); onDone?.(); return }
     setDelegateId('')
     setRows([{ productId: '', quantity: '' }])
     setNotes('')
@@ -85,7 +97,8 @@ export function DeliveryOrderForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm space-y-4">
-      <h3 className="text-lg font-bold text-[#1a1a2e]">تحميل عربية جديدة</h3>
+      <h3 className="text-lg font-bold text-[#1a1a2e]">{isEdit ? `تعديل أمر التحميل` : 'تحميل عربية جديدة'}</h3>
+      {isEdit && <p className="text-xs text-amber-600">التعديل بيلغي تجهيز المخزن السابق — لازم يتجهّز تاني على الكميات الجديدة.</p>}
 
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
 
@@ -166,13 +179,18 @@ export function DeliveryOrderForm({
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-[#0f3460] text-white py-3 rounded-lg font-semibold hover:bg-[#0a2545] transition-colors disabled:opacity-50"
-      >
-        {loading ? 'جاري التحميل...' : 'تحميل العربية'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex-1 bg-[#0f3460] text-white py-3 rounded-lg font-semibold hover:bg-[#0a2545] transition-colors disabled:opacity-50"
+        >
+          {loading ? 'جاري الحفظ...' : isEdit ? 'حفظ التعديل' : 'تحميل العربية'}
+        </button>
+        {isEdit && onDone && (
+          <button type="button" onClick={onDone} className="px-4 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm font-semibold">إلغاء</button>
+        )}
+      </div>
     </form>
   )
 }

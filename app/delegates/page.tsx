@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { DeliveryOrderForm } from '@/components/delivery-order-form'
+import { LoadRowActions } from '@/components/load-row-actions'
 import { DelegateManager } from '@/components/delegate-manager'
 import { ExportButtons } from '@/components/export-buttons'
 import { RoutePlanManager } from '@/components/route-plan-manager'
@@ -94,6 +95,15 @@ export default async function DelegatesPage() {
     Number(p.d.commissionDue).toFixed(2),
   ])
 
+  // بيانات مشتركة لفورم التحميل وأزرار التعديل/الحذف
+  const delegateOpts = delegates.map((d) => ({ id: d.id, name: d.name, carNumber: d.vehicle?.plateNo || d.carNumber }))
+  const productOpts = products.map((p) => ({
+    id: p.id, name: p.name, unit: p.unit,
+    stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, Number(s.quantity)])),
+  }))
+  const warehouseOpts = warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))
+  const defaultWhId = warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || ''
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div>
@@ -142,6 +152,21 @@ export default async function DelegatesPage() {
                 >
                   <Printer className="w-4 h-4" />
                 </Link>
+                {order.status === 'PENDING' && canEdit && (
+                  <LoadRowActions
+                    order={{
+                      id: order.id,
+                      orderNo: order.orderNo,
+                      delegateId: order.delegateId,
+                      warehouseId: order.warehouseId || defaultWhId,
+                      notes: order.notes || '',
+                      items: order.items.map((it) => ({ productId: it.productId, quantity: Number(it.quantity) })),
+                    }}
+                    delegates={delegateOpts}
+                    products={productOpts}
+                    warehouses={warehouseOpts}
+                  />
+                )}
                 <Link
                   href={`/delegates/${order.id}`}
                   className="shrink-0 p-2 text-gray-400 hover:text-[#e94560] hover:bg-gray-100 rounded-lg"
@@ -157,16 +182,7 @@ export default async function DelegatesPage() {
         {/* فورم التحميل */}
         {canAdd && (
           <div className="space-y-4">
-            <DeliveryOrderForm
-              delegates={delegates.map((d) => ({ id: d.id, name: d.name, carNumber: d.vehicle?.plateNo || d.carNumber }))}
-              products={products.map((p) => ({
-                id: p.id,
-                name: p.name,
-                unit: p.unit,
-                stocksByWarehouse: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, Number(s.quantity)])),
-              }))}
-              warehouses={warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault }))}
-            />
+            <DeliveryOrderForm delegates={delegateOpts} products={productOpts} warehouses={warehouseOpts} />
           </div>
         )}
       </div>
