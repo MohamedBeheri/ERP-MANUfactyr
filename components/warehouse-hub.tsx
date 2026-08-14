@@ -138,12 +138,11 @@ export function WarehouseHub({
   settlements: WhSettlementRow[]
 }) {
   const [tab, setTab] = useState<Tab>('stock')
+  const [modal, setModal] = useState<null | 'sell' | 'outgoing' | 'cashbox'>(null)
 
+  // التبويبات (بدون البيع/الخوارج/الخزنة — دي بقت أزرار سريعة فوق بتفتح شاشة منبثقة)
   const tabs: { key: Tab; label: string; icon: any; count?: number }[] = [
     { key: 'stock', label: `رصيد الأصناف (${stock.length})`, icon: PackageSearch },
-    { key: 'sell', label: 'بيع نقدي', icon: ShoppingCart },
-    { key: 'outgoing', label: 'خوارج الشركة', icon: Utensils },
-    { key: 'cashbox', label: 'خزنة المخزن', icon: Wallet },
     { key: 'loads', label: `أوامر التحميل (${loads.length})`, icon: Truck },
     { key: 'unloads', label: `أوامر التفريغ (${unloads.length})`, icon: PackageOpen, count: pendingUnloads.length },
     { key: 'supplies', label: `طلبيات كبار الموردين (${keySupplies.length})`, icon: Building2 },
@@ -151,8 +150,32 @@ export function WarehouseHub({
     { key: 'ins', label: 'وارد المخزن', icon: ArrowDownToLine },
   ]
 
+  const totalBoxes = treasuryBalances.reduce((s, t) => s + t.balance, 0)
+  const quickActions = [
+    { key: 'sell' as const, label: 'بيع نقدي', desc: 'عميل أو تاجر', icon: ShoppingCart, grad: 'from-[#0f3460] to-[#16305a]', sub: `${sales.length} فاتورة` },
+    { key: 'outgoing' as const, label: 'خوارج الشركة', desc: 'إذن صرف داخلي', icon: Utensils, grad: 'from-orange-500 to-orange-600', sub: `${outgoings.length} إذن` },
+    { key: 'cashbox' as const, label: 'خزنة المخزن', desc: 'الرصيد والتسوية', icon: Wallet, grad: 'from-emerald-600 to-emerald-700', sub: `${money(totalBoxes)} ج.م` },
+  ]
+
   return (
     <div className="space-y-4">
+      {/* أزرار سريعة مميزة — بتفتح شاشة منبثقة */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {quickActions.map((a) => (
+          <button
+            key={a.key}
+            onClick={() => setModal(a.key)}
+            className={`flex items-center gap-3 p-4 rounded-2xl text-white bg-gradient-to-br ${a.grad} shadow-sm hover:shadow-md transition-all text-right`}
+          >
+            <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><a.icon className="w-5 h-5" /></div>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-sm">{a.label}</p>
+              <p className="text-[11px] text-white/80">{a.desc} · {a.sub}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
         {tabs.map((t) => (
           <button
@@ -172,9 +195,6 @@ export function WarehouseHub({
       </div>
 
       {tab === 'stock' && <StockTab stock={stock} warehouses={warehouses} categories={categories} canEdit={canEdit} stocktakeProducts={stocktakeProducts} />}
-      {tab === 'sell' && <SellTab stock={stock} warehouses={warehouses} sales={sales} canEdit={canEdit} />}
-      {tab === 'outgoing' && <OutgoingTab stock={stock} warehouses={warehouses} outgoings={outgoings} canEdit={canEdit} />}
-      {tab === 'cashbox' && <CashboxTab warehouses={warehouses} treasuryBalances={treasuryBalances} settlements={settlements} canEdit={canEdit} />}
       {tab === 'loads' && <LoadsTab loads={loads} canEdit={canEdit} />}
       {tab === 'unloads' && (
         <div className="space-y-4">
@@ -185,6 +205,25 @@ export function WarehouseHub({
       {tab === 'supplies' && <KeySuppliesTab supplies={keySupplies} />}
       {tab === 'outs' && <MovementsTab title="خوارج الشركة (إذون الصرف)" movements={outs} negative />}
       {tab === 'ins' && <MovementsTab title="وارد المخزن (إذون الإضافة)" movements={ins} />}
+
+      {/* الشاشات المنبثقة (Pop) */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/40" onClick={() => setModal(null)}>
+          <div className="mt-auto sm:mt-0 sm:m-auto w-full sm:max-w-2xl bg-gray-50 sm:rounded-2xl max-h-[92vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-4 py-3 bg-white border-b border-gray-100 shrink-0">
+              <span className="font-bold text-sm text-[#1a1a2e] flex-1">
+                {modal === 'sell' ? 'بيع نقدي من المخزن' : modal === 'outgoing' ? 'خوارج الشركة' : 'خزنة المخزن'}
+              </span>
+              <button onClick={() => setModal(null)} className="p-2 rounded-xl hover:bg-gray-100" aria-label="إغلاق"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              {modal === 'sell' && <SellTab stock={stock} warehouses={warehouses} sales={sales} canEdit={canEdit} />}
+              {modal === 'outgoing' && <OutgoingTab stock={stock} warehouses={warehouses} outgoings={outgoings} canEdit={canEdit} />}
+              {modal === 'cashbox' && <CashboxTab warehouses={warehouses} treasuryBalances={treasuryBalances} settlements={settlements} canEdit={canEdit} />}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
