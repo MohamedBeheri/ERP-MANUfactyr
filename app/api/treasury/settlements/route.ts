@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     },
     include: {
       delegate: true,
+      warehouse: { select: { id: true, name: true } },
       deliveryOrder: { select: { id: true, orderNo: true } },
       createdBy: { select: { id: true, name: true, role: true } },
       acceptedBy: { select: { id: true, name: true } },

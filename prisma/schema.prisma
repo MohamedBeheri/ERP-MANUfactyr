@@ -94,6 +94,8 @@ model User {
   productions                 Production[]
   warehouseIns                WarehouseIn[]
   warehouseOuts               WarehouseOut[]
+  warehouseSales              WarehouseSale[]
+  warehouseOutgoings          WarehouseOutgoing[]
   invoices                    Invoice[]
   deliveryOrders              DeliveryOrder[]
   settlements                 Settlement[]
@@ -211,6 +213,10 @@ model Warehouse {
   transfersIn        StockTransfer[]    @relation("TransferTo")
   unloadOrders       UnloadOrder[]
   keyAccountSupplies KeyAccountSupply[]
+  treasury           Treasury?
+  settlements        TreasurySettlement[] @relation("WarehouseSettlements")
+  sales              WarehouseSale[]
+  outgoings          WarehouseOutgoing[]
 
   @@map("warehouses")
 }
@@ -276,6 +282,8 @@ model Product {
   deliveryItems         DeliveryItem[]
   warehouseIns          WarehouseIn[]
   warehouseOuts         WarehouseOut[]
+  warehouseSaleItems    WarehouseSaleItem[]
+  warehouseOutgoingItems WarehouseOutgoingItem[]
   onlineOrderItems      OnlineOrderItem[]
   rewardRulesQualifying RewardRule[]           @relation("RewardQualifyingProduct")
   rewardRulesFree       RewardRule[]           @relation("RewardFreeProduct")
@@ -591,6 +599,70 @@ model WarehouseOut {
   creator   User       @relation(fields: [createdById], references: [id])
 
   @@map("warehouse_outs")
+}
+
+// بيع نقدي مباشر من المخزن (لعميل أو تاجر) — الكاش بيدخل خزنة المخزن ويتسوّى مع العمومية زي المندوب
+model WarehouseSale {
+  id            String   @id @default(cuid())
+  saleNo        String   @unique // WSL-YYYYMMDD-001
+  warehouseId   String
+  buyerType     String   @default("CUSTOMER") // CUSTOMER (عميل) | TRADER (تاجر)
+  buyerName     String? // اسم العميل/التاجر (اختياري)
+  totalAmount   Decimal  @db.Decimal(12, 2)
+  paymentMethod String   @default("نقدي")
+  notes         String?
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id])
+  creator   User                @relation(fields: [createdById], references: [id])
+  items     WarehouseSaleItem[]
+
+  @@map("warehouse_sales")
+}
+
+model WarehouseSaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  productId String
+  quantity  Decimal @db.Decimal(12, 3)
+  unitPrice Decimal @db.Decimal(10, 2)
+
+  sale    WarehouseSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id])
+
+  @@map("warehouse_sale_items")
+}
+
+// خوارج الشركة (استهلاك داخلي: بوفيه/موظفين) — خصم مخزون + مصروف بالتكلفة (بدون أثر على الخزنة)
+model WarehouseOutgoing {
+  id          String   @id @default(cuid())
+  outNo       String   @unique // WOG-YYYYMMDD-001
+  warehouseId String
+  target      String // بوفيه | موظفين | سبب مخصّص
+  costAmount  Decimal  @db.Decimal(12, 2) // إجمالي التكلفة (مصروف استهلاك داخلي)
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  warehouse Warehouse               @relation(fields: [warehouseId], references: [id])
+  creator   User                    @relation(fields: [createdById], references: [id])
+  items     WarehouseOutgoingItem[]
+
+  @@map("warehouse_outgoings")
+}
+
+model WarehouseOutgoingItem {
+  id         String  @id @default(cuid())
+  outgoingId String
+  productId  String
+  quantity   Decimal @db.Decimal(12, 3)
+  unitCost   Decimal @db.Decimal(10, 2)
+
+  outgoing WarehouseOutgoing @relation(fields: [outgoingId], references: [id], onDelete: Cascade)
+  product  Product           @relation(fields: [productId], references: [id])
+
+  @@map("warehouse_outgoing_items")
 }
 
 // ============== STOCK TRANSFERS (تحويلات بين المخازن) ==============
@@ -1173,7 +1245,8 @@ enum TreasurySettlementStatus {
 model TreasurySettlement {
   id              String                   @id @default(cuid())
   settlementNo    String                   @unique // TRS-YYYYMMDD-001
-  delegateId      String
+  delegateId      String?                  // مصدر التسوية: مندوب
+  warehouseId     String?                  // أو مخزن (خزنة المخزن)
   deliveryOrderId String?                  @unique // الجولة اللي التسوية دي ناتجة عنها
   amount          Decimal                  @db.Decimal(12, 2) // المبلغ المسلّم (الإجمالي)
   cashOnlyAmount  Decimal                  @default(0) @db.Decimal(12, 2) // منه كاش فعلي
@@ -1190,7 +1263,8 @@ model TreasurySettlement {
   acceptedAt      DateTime?
   createdAt       DateTime                 @default(now())
 
-  delegate      Delegate       @relation("TreasurySettlements", fields: [delegateId], references: [id])
+  delegate      Delegate?      @relation("TreasurySettlements", fields: [delegateId], references: [id])
+  warehouse     Warehouse?     @relation("WarehouseSettlements", fields: [warehouseId], references: [id])
   deliveryOrder DeliveryOrder? @relation("TreasurySettlementOrder", fields: [deliveryOrderId], references: [id])
   createdBy     User           @relation("TreasurySettlementCreator", fields: [createdById], references: [id])
   acceptedBy    User?          @relation("TreasurySettlementAcceptor", fields: [acceptedById], references: [id])
@@ -1314,6 +1388,7 @@ model PaymentVoucher {
 // ============== TREASURIES & COLLECTIONS (الخزائن وسندات التحصيل) ==============
 enum TreasuryType {
   SALESMAN_CASH // خزنة مندوب نقدية
+  WAREHOUSE_CASH // خزنة مخزن نقدية
   MAIN_CASH // الخزنة العمومية
   CLEARING_ACCOUNT // حساب وسيط تحت التسوية (إنستا باي)
   BANK // حساب بنكي
@@ -1347,10 +1422,12 @@ model Treasury {
   balance                  Decimal      @default(0) @db.Decimal(14, 2)
   allowExpenseDisbursement Boolean      @default(false) // مسموح الصرف منها؟
   delegateId               String?      @unique // خزنة مندوب — مربوطة بمندوب واحد
+  warehouseId              String?      @unique // خزنة مخزن — مربوطة بمخزن واحد
   isActive                 Boolean      @default(true)
   createdAt                DateTime     @default(now())
 
   delegate             Delegate?             @relation(fields: [delegateId], references: [id])
+  warehouse            Warehouse?            @relation(fields: [warehouseId], references: [id])
   transactions         TreasuryTransaction[]
   collections          Collection[]
   vouchers             PaymentVoucher[]

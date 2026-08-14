@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
-import { ensureTreasuries, applyTreasuryTxn, MAIN_CASH_NAME, CLEARING_NAME, WALLET_CLEARING_NAME } from '@/lib/treasuries'
+import { ensureTreasuries, applyTreasuryTxn, warehouseTreasury, MAIN_CASH_NAME, CLEARING_NAME, WALLET_CLEARING_NAME } from '@/lib/treasuries'
 
 
 export async function GET(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
@@ -102,6 +102,19 @@ export async function PATCH(req: NextRequest, { params: rawParams }: { params: P
           refType: 'settlement',
           reference: settlement.settlementNo,
           description: `تسوية ${settlement.settlementNo} — تحويلات محفظة`,
+          createdById: (session.user as any).id,
+        })
+      }
+      // لو التسوية من خزنة مخزن — نخصم المبلغ من خزنة المخزن (الكاش خرج منها للعمومية)
+      if (settlement.warehouseId) {
+        const whTrId = await warehouseTreasury(tx, settlement.warehouseId)
+        await applyTreasuryTxn(tx, {
+          treasuryId: whTrId,
+          type: 'OUT',
+          amount: Number(settlement.amount),
+          refType: 'settlement',
+          reference: settlement.settlementNo,
+          description: `تسوية ${settlement.settlementNo} — تسليم كاش للعمومية`,
           createdById: (session.user as any).id,
         })
       }

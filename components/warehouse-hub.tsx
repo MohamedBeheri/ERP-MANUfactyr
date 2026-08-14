@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   PackageSearch, Truck, ArrowDownToLine, ArrowUpFromLine, Search,
   ChevronRight, ChevronLeft, Warehouse as WarehouseIcon, PackageOpen, Building2,
+  ShoppingCart, Utensils, Wallet, Plus, X, Banknote,
 } from 'lucide-react'
 import { UnloadOrdersPanel } from '@/components/unload-orders-panel'
 import { StocktakeForm } from '@/components/stocktake-form'
@@ -22,8 +23,25 @@ interface StockRow {
   stageName: string | null
   minStock: number
   costPrice: number
+  sellPrice: number
+  wholesalePrice: number
   totalQty: number
   stocks: { warehouseId: string; quantity: number }[]
+}
+interface SaleRow {
+  id: string; saleNo: string; warehouseName: string | null
+  buyerType: string; buyerName: string | null; totalAmount: number
+  creatorName: string; createdAt: string
+  items: { name: string; unit: string; quantity: number; unitPrice: number }[]
+}
+interface OutgoingRow {
+  id: string; outNo: string; warehouseName: string | null
+  target: string; costAmount: number; creatorName: string; createdAt: string
+  items: { name: string; unit: string; quantity: number; unitCost: number }[]
+}
+interface WhSettlementRow {
+  id: string; settlementNo: string; warehouseName: string | null
+  amount: number; status: string; createdByName: string | null; acceptedByName: string | null; createdAt: string
 }
 interface Movement {
   id: string
@@ -84,7 +102,7 @@ const UNLOAD_STATUS: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: 'ملغي', cls: 'bg-gray-100 text-gray-500' },
 }
 
-type Tab = 'stock' | 'loads' | 'unloads' | 'supplies' | 'outs' | 'ins'
+type Tab = 'stock' | 'sell' | 'outgoing' | 'cashbox' | 'loads' | 'unloads' | 'supplies' | 'outs' | 'ins'
 
 export function WarehouseHub({
   stock,
@@ -98,6 +116,10 @@ export function WarehouseHub({
   outs,
   canEdit,
   stocktakeProducts,
+  treasuryBalances,
+  sales,
+  outgoings,
+  settlements,
 }: {
   stock: StockRow[]
   warehouses: { id: string; name: string; isDefault: boolean }[]
@@ -110,15 +132,22 @@ export function WarehouseHub({
   outs: Movement[]
   canEdit: boolean
   stocktakeProducts: { id: string; name: string; unit: string; stocksByWarehouse: Record<string, number> }[]
+  treasuryBalances: { warehouseId: string; balance: number }[]
+  sales: SaleRow[]
+  outgoings: OutgoingRow[]
+  settlements: WhSettlementRow[]
 }) {
   const [tab, setTab] = useState<Tab>('stock')
 
   const tabs: { key: Tab; label: string; icon: any; count?: number }[] = [
     { key: 'stock', label: `رصيد الأصناف (${stock.length})`, icon: PackageSearch },
+    { key: 'sell', label: 'بيع نقدي', icon: ShoppingCart },
+    { key: 'outgoing', label: 'خوارج الشركة', icon: Utensils },
+    { key: 'cashbox', label: 'خزنة المخزن', icon: Wallet },
     { key: 'loads', label: `أوامر التحميل (${loads.length})`, icon: Truck },
     { key: 'unloads', label: `أوامر التفريغ (${unloads.length})`, icon: PackageOpen, count: pendingUnloads.length },
     { key: 'supplies', label: `طلبيات كبار الموردين (${keySupplies.length})`, icon: Building2 },
-    { key: 'outs', label: 'خوارج الشركة', icon: ArrowUpFromLine },
+    { key: 'outs', label: 'إذون الصرف', icon: ArrowUpFromLine },
     { key: 'ins', label: 'وارد المخزن', icon: ArrowDownToLine },
   ]
 
@@ -143,6 +172,9 @@ export function WarehouseHub({
       </div>
 
       {tab === 'stock' && <StockTab stock={stock} warehouses={warehouses} categories={categories} canEdit={canEdit} stocktakeProducts={stocktakeProducts} />}
+      {tab === 'sell' && <SellTab stock={stock} warehouses={warehouses} sales={sales} canEdit={canEdit} />}
+      {tab === 'outgoing' && <OutgoingTab stock={stock} warehouses={warehouses} outgoings={outgoings} canEdit={canEdit} />}
+      {tab === 'cashbox' && <CashboxTab warehouses={warehouses} treasuryBalances={treasuryBalances} settlements={settlements} canEdit={canEdit} />}
       {tab === 'loads' && <LoadsTab loads={loads} canEdit={canEdit} />}
       {tab === 'unloads' && (
         <div className="space-y-4">
@@ -612,6 +644,315 @@ function MovementsTab({ title, movements, negative = false }: { title: string; m
             </span>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── بيع نقدي مباشر من المخزن ─── */
+const inputCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f3460] text-sm bg-white'
+
+function stockAt(row: StockRow, warehouseId: string) {
+  return row.stocks.find((s) => s.warehouseId === warehouseId)?.quantity ?? 0
+}
+
+function SellTab({ stock, warehouses, sales, canEdit }: { stock: StockRow[]; warehouses: { id: string; name: string; isDefault: boolean }[]; sales: SaleRow[]; canEdit: boolean }) {
+  const router = useRouter()
+  const defaultWh = warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || ''
+  const [warehouseId, setWarehouseId] = useState(defaultWh)
+  const [buyerType, setBuyerType] = useState<'CUSTOMER' | 'TRADER'>('CUSTOMER')
+  const [buyerName, setBuyerName] = useState('')
+  const [lines, setLines] = useState<{ productId: string; quantity: string; unitPrice: string }[]>([{ productId: '', quantity: '', unitPrice: '' }])
+  const [notes, setNotes] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const available = stock.filter((s) => stockAt(s, warehouseId) > 0)
+  const total = lines.reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0)
+
+  const setLine = (i: number, field: string, value: string) => setLines(lines.map((l, j) => (j === i ? { ...l, [field]: value } : l)))
+  const pickProduct = (i: number, productId: string) => {
+    const p = stock.find((s) => s.id === productId)
+    const price = buyerType === 'TRADER' ? (p?.wholesalePrice || p?.sellPrice || 0) : (p?.sellPrice || 0)
+    setLines(lines.map((l, j) => (j === i ? { ...l, productId, unitPrice: price ? String(price) : l.unitPrice } : l)))
+  }
+  const addLine = () => setLines([...lines, { productId: '', quantity: '', unitPrice: '' }])
+  const removeLine = (i: number) => setLines(lines.filter((_, j) => j !== i))
+
+  const submit = async () => {
+    setError('')
+    const items = lines.filter((l) => l.productId && Number(l.quantity) > 0)
+    if (!warehouseId) return setError('اختار المخزن')
+    if (items.length === 0) return setError('أضف صنف واحد على الأقل بكمية وسعر')
+    setLoading(true)
+    const res = await fetch('/api/warehouse/sales', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ warehouseId, buyerType, buyerName, notes, items }),
+    })
+    const data = await res.json(); setLoading(false)
+    if (!res.ok) return setError(data.error || 'حصل خطأ')
+    setLines([{ productId: '', quantity: '', unitPrice: '' }]); setBuyerName(''); setNotes('')
+    router.refresh()
+  }
+
+  return (
+    <div className="space-y-4">
+      {canEdit && (
+        <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 space-y-3 border border-gray-100">
+          <h3 className="font-bold text-sm text-[#1a1a2e] flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-[#0f3460]" /> بيع نقدي من المخزن</h3>
+          {error && <div className="bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{error}</div>}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+            <select value={buyerType} onChange={(e) => setBuyerType(e.target.value as any)} className={inputCls}>
+              <option value="CUSTOMER">عميل</option>
+              <option value="TRADER">تاجر</option>
+            </select>
+            <input value={buyerName} onChange={(e) => setBuyerName(e.target.value)} placeholder={buyerType === 'TRADER' ? 'اسم التاجر (اختياري)' : 'اسم العميل (اختياري)'} className={inputCls} />
+          </div>
+          <div className="space-y-2">
+            {lines.map((l, i) => {
+              const avail = l.productId ? stockAt(stock.find((s) => s.id === l.productId)!, warehouseId) : 0
+              return (
+                <div key={i} className="flex gap-2 items-center">
+                  <select value={l.productId} onChange={(e) => pickProduct(i, e.target.value)} className={`${inputCls} flex-1`}>
+                    <option value="">اختار الصنف</option>
+                    {available.map((p) => <option key={p.id} value={p.id}>{p.name} (متاح {fmt(stockAt(p, warehouseId))})</option>)}
+                  </select>
+                  <input type="text" inputMode="decimal" dir="ltr" value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="كمية" className="w-24 px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums" />
+                  <input type="text" inputMode="decimal" dir="ltr" value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="سعر" className="w-24 px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums" />
+                  {lines.length > 1 && <button onClick={() => removeLine(i)} className="p-1.5 text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>}
+                  {l.productId && Number(l.quantity) > avail && <span className="text-[10px] text-red-500 whitespace-nowrap">أكبر من المتاح</span>}
+                </div>
+              )
+            })}
+            <button onClick={addLine} className="flex items-center gap-1 text-xs text-[#0f3460] font-semibold hover:text-[#0a2545]"><Plus className="w-3.5 h-3.5" /> إضافة صنف</button>
+          </div>
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <span className="text-sm text-gray-500">الإجمالي</span>
+            <span className="text-lg font-bold text-[#0f3460] tabular-nums">{money(total)} ج.م</span>
+          </div>
+          <button onClick={submit} disabled={loading || total <= 0} className="w-full bg-[#0f3460] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a2545] disabled:opacity-50">
+            {loading ? 'جاري...' : 'تسجيل البيع (الكاش يدخل خزنة المخزن)'}
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="px-4 py-3 border-b border-gray-100"><h3 className="font-bold text-sm text-[#1a1a2e]">آخر المبيعات النقدية</h3></div>
+        {sales.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">لا يوجد مبيعات بعد</p> : (
+          <div className="divide-y divide-gray-50">
+            {sales.map((s) => (
+              <div key={s.id} className="p-3 sm:px-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-bold text-xs text-[#0f3460] tabular-nums">{s.saleNo} <span className="text-gray-400 font-normal">· {s.buyerType === 'TRADER' ? 'تاجر' : 'عميل'}{s.buyerName ? ` (${s.buyerName})` : ''}</span></p>
+                  <p className="text-[11px] text-gray-500 truncate">{s.items.map((it) => `${it.name} ×${fmt(it.quantity)}`).join('، ')}</p>
+                </div>
+                <div className="text-left shrink-0">
+                  <p className="font-bold text-sm text-green-700 tabular-nums">{money(s.totalAmount)} ج.م</p>
+                  <p className="text-[10px] text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── خوارج الشركة (استهلاك داخلي: بوفيه/موظفين) ─── */
+const OUT_TARGETS = ['بوفيه', 'موظفين']
+function OutgoingTab({ stock, warehouses, outgoings, canEdit }: { stock: StockRow[]; warehouses: { id: string; name: string; isDefault: boolean }[]; outgoings: OutgoingRow[]; canEdit: boolean }) {
+  const router = useRouter()
+  const defaultWh = warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || ''
+  const [warehouseId, setWarehouseId] = useState(defaultWh)
+  const [target, setTarget] = useState('بوفيه')
+  const [customTarget, setCustomTarget] = useState('')
+  const [lines, setLines] = useState<{ productId: string; quantity: string }[]>([{ productId: '', quantity: '' }])
+  const [notes, setNotes] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const available = stock.filter((s) => stockAt(s, warehouseId) > 0)
+  const totalCost = lines.reduce((sum, l) => { const p = stock.find((s) => s.id === l.productId); return sum + (Number(l.quantity) || 0) * (p?.costPrice || 0) }, 0)
+  const setLine = (i: number, field: string, value: string) => setLines(lines.map((l, j) => (j === i ? { ...l, [field]: value } : l)))
+  const addLine = () => setLines([...lines, { productId: '', quantity: '' }])
+  const removeLine = (i: number) => setLines(lines.filter((_, j) => j !== i))
+
+  const submit = async () => {
+    setError('')
+    const finalTarget = target === 'أخرى' ? customTarget.trim() : target
+    const items = lines.filter((l) => l.productId && Number(l.quantity) > 0)
+    if (!finalTarget) return setError('اكتب جهة الصرف')
+    if (items.length === 0) return setError('أضف صنف واحد على الأقل بكمية')
+    setLoading(true)
+    const res = await fetch('/api/warehouse/outgoings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ warehouseId, target: finalTarget, notes, items }),
+    })
+    const data = await res.json(); setLoading(false)
+    if (!res.ok) return setError(data.error || 'حصل خطأ')
+    setLines([{ productId: '', quantity: '' }]); setNotes(''); setCustomTarget('')
+    router.refresh()
+  }
+
+  return (
+    <div className="space-y-4">
+      {canEdit && (
+        <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 space-y-3 border border-gray-100">
+          <h3 className="font-bold text-sm text-[#1a1a2e] flex items-center gap-2"><Utensils className="w-4 h-4 text-[#0f3460]" /> خوارج الشركة (استهلاك داخلي)</h3>
+          <p className="text-[11px] text-gray-400">بيتخصم من المخزون ويتسجّل كمصروف بالتكلفة — من غير أي أثر على الخزنة.</p>
+          {error && <div className="bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{error}</div>}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+            <select value={target} onChange={(e) => setTarget(e.target.value)} className={inputCls}>
+              {OUT_TARGETS.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option value="أخرى">أخرى...</option>
+            </select>
+            {target === 'أخرى' && <input value={customTarget} onChange={(e) => setCustomTarget(e.target.value)} placeholder="اكتب جهة الصرف" className={inputCls} />}
+          </div>
+          <div className="space-y-2">
+            {lines.map((l, i) => {
+              const avail = l.productId ? stockAt(stock.find((s) => s.id === l.productId)!, warehouseId) : 0
+              return (
+                <div key={i} className="flex gap-2 items-center">
+                  <select value={l.productId} onChange={(e) => setLine(i, 'productId', e.target.value)} className={`${inputCls} flex-1`}>
+                    <option value="">اختار الصنف</option>
+                    {available.map((p) => <option key={p.id} value={p.id}>{p.name} (متاح {fmt(stockAt(p, warehouseId))})</option>)}
+                  </select>
+                  <input type="text" inputMode="decimal" dir="ltr" value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="كمية" className="w-24 px-3 py-2.5 border border-gray-200 rounded-xl text-sm tabular-nums" />
+                  {lines.length > 1 && <button onClick={() => removeLine(i)} className="p-1.5 text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>}
+                  {l.productId && Number(l.quantity) > avail && <span className="text-[10px] text-red-500 whitespace-nowrap">أكبر من المتاح</span>}
+                </div>
+              )
+            })}
+            <button onClick={addLine} className="flex items-center gap-1 text-xs text-[#0f3460] font-semibold hover:text-[#0a2545]"><Plus className="w-3.5 h-3.5" /> إضافة صنف</button>
+          </div>
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <span className="text-sm text-gray-500">تكلفة الاستهلاك</span>
+            <span className="text-lg font-bold text-orange-700 tabular-nums">{money(totalCost)} ج.م</span>
+          </div>
+          <button onClick={submit} disabled={loading} className="w-full bg-orange-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-orange-700 disabled:opacity-50">
+            {loading ? 'جاري...' : 'تسجيل الخوارج'}
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="px-4 py-3 border-b border-gray-100"><h3 className="font-bold text-sm text-[#1a1a2e]">آخر الخوارج</h3></div>
+        {outgoings.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">لا يوجد خوارج بعد</p> : (
+          <div className="divide-y divide-gray-50">
+            {outgoings.map((o) => (
+              <div key={o.id} className="p-3 sm:px-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-bold text-xs text-orange-700 tabular-nums">{o.outNo} <span className="text-gray-400 font-normal">· {o.target}</span></p>
+                  <p className="text-[11px] text-gray-500 truncate">{o.items.map((it) => `${it.name} ×${fmt(it.quantity)}`).join('، ')}</p>
+                </div>
+                <div className="text-left shrink-0">
+                  <p className="font-bold text-sm text-orange-700 tabular-nums">{money(o.costAmount)} ج.م</p>
+                  <p className="text-[10px] text-gray-400 tabular-nums">{new Date(o.createdAt).toLocaleDateString('ar-EG')}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── خزنة المخزن + التسوية ─── */
+const SETTLE_STATUS: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: 'في انتظار اعتماد أمين الخزنة', cls: 'bg-yellow-50 text-yellow-700' },
+  ACCEPTED: { label: 'اتقبلت', cls: 'bg-green-50 text-green-700' },
+  REJECTED: { label: 'اترفضت', cls: 'bg-red-50 text-red-600' },
+}
+function CashboxTab({ warehouses, treasuryBalances, settlements, canEdit }: { warehouses: { id: string; name: string; isDefault: boolean }[]; treasuryBalances: { warehouseId: string; balance: number }[]; settlements: WhSettlementRow[]; canEdit: boolean }) {
+  const router = useRouter()
+  const balMap = Object.fromEntries(treasuryBalances.map((t) => [t.warehouseId, t.balance]))
+  const withBalance = warehouses.filter((w) => (balMap[w.id] ?? 0) !== 0 || treasuryBalances.some((t) => t.warehouseId === w.id))
+  const defaultWh = withBalance[0]?.id || warehouses[0]?.id || ''
+  const [warehouseId, setWarehouseId] = useState(defaultWh)
+  const [amount, setAmount] = useState('')
+  const [notes, setNotes] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const currentBalance = balMap[warehouseId] ?? 0
+
+  const submit = async () => {
+    setError('')
+    if (!(Number(amount) > 0)) return setError('اكتب المبلغ المسلَّم')
+    setLoading(true)
+    const res = await fetch('/api/warehouse/settlements', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ warehouseId, amount, notes }),
+    })
+    const data = await res.json(); setLoading(false)
+    if (!res.ok) return setError(data.error || 'حصل خطأ')
+    setAmount(''); setNotes('')
+    router.refresh()
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* أرصدة خزائن المخازن */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {treasuryBalances.length === 0 && <p className="col-span-full text-center text-gray-400 text-sm py-4">لسه مفيش خزنة مخزن — أول بيع نقدي بيفتح الخزنة تلقائي</p>}
+        {treasuryBalances.map((t) => {
+          const wh = warehouses.find((w) => w.id === t.warehouseId)
+          return (
+            <div key={t.warehouseId} className="bg-white rounded-2xl shadow-sm p-4 border border-gray-100">
+              <div className="flex items-center gap-2 mb-1"><Wallet className="w-4 h-4 text-[#0f3460]" /><span className="text-xs text-gray-500 truncate">{wh?.name || 'مخزن'}</span></div>
+              <p className="text-xl font-bold text-[#0f3460] tabular-nums">{money(t.balance)} <span className="text-xs font-normal text-gray-400">ج.م</span></p>
+            </div>
+          )
+        })}
+      </div>
+
+      {canEdit && (
+        <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 space-y-3 border border-gray-100">
+          <h3 className="font-bold text-sm text-[#1a1a2e] flex items-center gap-2"><Banknote className="w-4 h-4 text-[#0f3460]" /> تسوية خزنة المخزن مع العمومية</h3>
+          <p className="text-[11px] text-gray-400">أمين المخزن بيسلّم الكاش، وأمين الخزنة العمومية بيعتمد التسوية فتتنقل الفلوس — زي المندوب.</p>
+          {error && <div className="bg-red-50 text-red-600 p-2.5 rounded-lg text-xs">{error}</div>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name} — رصيد {money(balMap[w.id] ?? 0)} ج.م</option>)}
+            </select>
+            <input type="text" inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={`المبلغ المسلَّم (رصيد ${money(currentBalance)})`} className={inputCls} />
+          </div>
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className={inputCls} />
+          <button onClick={submit} disabled={loading || !(Number(amount) > 0)} className="w-full bg-[#0f3460] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a2545] disabled:opacity-50">
+            {loading ? 'جاري...' : 'تقديم التسوية'}
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="px-4 py-3 border-b border-gray-100"><h3 className="font-bold text-sm text-[#1a1a2e]">تسويات خزنة المخزن</h3></div>
+        {settlements.length === 0 ? <p className="p-6 text-center text-gray-400 text-sm">لا يوجد تسويات بعد</p> : (
+          <div className="divide-y divide-gray-50">
+            {settlements.map((s) => {
+              const st = SETTLE_STATUS[s.status] || SETTLE_STATUS.PENDING
+              return (
+                <div key={s.id} className="p-3 sm:px-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-xs text-[#0f3460] tabular-nums">{s.settlementNo} <span className="text-gray-400 font-normal">· {s.warehouseName || 'مخزن'}</span></p>
+                    <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded font-semibold ${st.cls}`}>{st.label}</span>
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="font-bold text-sm text-[#0f3460] tabular-nums">{money(s.amount)} ج.م</p>
+                    <p className="text-[10px] text-gray-400 tabular-nums">{new Date(s.createdAt).toLocaleDateString('ar-EG')}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
   yesterdayStart.setDate(yesterdayStart.getDate() - 1)
   const pendingSettlements = await prisma.treasurySettlement.findMany({
     where: { status: 'PENDING', createdAt: { lt: yesterdayStart } },
-    include: { delegate: true },
+    include: { delegate: true, warehouse: true },
   })
   for (const s of pendingSettlements) {
     const existing = await prisma.treasuryNotification.findFirst({
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     if (!existing) {
       notifications.push({
         type: 'SETTLEMENT_PENDING',
-        title: `تسوية معلقة — ${s.delegate.name}`,
+        title: `تسوية معلقة — ${s.delegate?.name || s.warehouse?.name || 'خزنة'}`,
         message: `التسوية ${s.settlementNo} بمبلغ ${Number(s.amount).toLocaleString('ar-EG')} ج.م في انتظار اعتماد أمين الخزنة`,
         refId: s.id,
       })

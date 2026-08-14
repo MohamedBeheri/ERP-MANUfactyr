@@ -62,6 +62,22 @@ export async function salesmanTreasury(tx: Tx, delegateId: string): Promise<stri
   return created.id
 }
 
+// خزنة مخزن نقدية — تتعمل تلقائي أول ما يتسجّل بيع كاش من المخزن
+export async function warehouseTreasury(tx: Tx, warehouseId: string): Promise<string> {
+  const db = tx as typeof prisma
+  const existing = await db.treasury.findUnique({ where: { warehouseId } })
+  if (existing) return existing.id
+  const warehouse = await db.warehouse.findUnique({ where: { id: warehouseId } })
+  const created = await db.treasury.create({
+    data: {
+      name: `خزنة المخزن — ${warehouse?.name || warehouseId}`,
+      type: 'WAREHOUSE_CASH',
+      warehouseId,
+    },
+  })
+  return created.id
+}
+
 // تنفيذ حركة على خزنة: تعديل الرصيد + قيد في دفتر الأستاذ (كشف الحساب)
 // ترجع الرصيد الجديد — وترمي خطأ لو OUT والرصيد مش كافي
 export async function applyTreasuryTxn(

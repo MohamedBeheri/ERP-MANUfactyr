@@ -437,7 +437,7 @@ function TreasuryPageInner() {
                         return (
                           <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
                             <td className="px-4 py-3"><span className="font-semibold tabular-nums text-xs text-[#0f3460]">{s.settlementNo}</span></td>
-                            <td className="px-4 py-3 text-xs text-gray-700">{s.delegate?.name}</td>
+                            <td className="px-4 py-3 text-xs text-gray-700">{s.delegate?.name || (s.warehouse?.name ? `مخزن: ${s.warehouse.name}` : '—')}</td>
                             <td className="px-4 py-3 text-xs tabular-nums text-[#0f3460]">{s.deliveryOrder?.orderNo || '—'}</td>
                             <td className="px-4 py-3">
                               <p className="font-bold tabular-nums text-sm">{num(s.amount)} ج.م</p>

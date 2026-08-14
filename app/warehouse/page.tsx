@@ -17,7 +17,7 @@ export default async function WarehousePage() {
 
   await ensureStockStages() // يضمن وجود المخازن والمراحل وترحيل الأرصدة
 
-  const [products, warehouseIns, warehouseOuts, warehouses, loads, unloads, keySupplies] = await Promise.all([
+  const [products, warehouseIns, warehouseOuts, warehouses, loads, unloads, keySupplies, whTreasuries, sales, outgoings, whSettlements] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
       include: { stocks: true, category: true, stockStage: true },
@@ -67,6 +67,35 @@ export default async function WarehousePage() {
       orderBy: { createdAt: 'desc' },
       take: 60,
     }),
+    // خزائن المخازن (الأرصدة النقدية)
+    prisma.treasury.findMany({ where: { type: 'WAREHOUSE_CASH' }, select: { warehouseId: true, balance: true } }),
+    // بيع نقدي مباشر من المخزن
+    prisma.warehouseSale.findMany({
+      include: {
+        warehouse: { select: { name: true } },
+        creator: { select: { name: true } },
+        items: { include: { product: { select: { name: true, unit: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+    }),
+    // خوارج الشركة (استهلاك داخلي)
+    prisma.warehouseOutgoing.findMany({
+      include: {
+        warehouse: { select: { name: true } },
+        creator: { select: { name: true } },
+        items: { include: { product: { select: { name: true, unit: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+    }),
+    // تسويات خزائن المخازن
+    prisma.treasurySettlement.findMany({
+      where: { warehouseId: { not: null } },
+      include: { warehouse: { select: { name: true } }, createdBy: { select: { name: true } }, acceptedBy: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    }),
   ])
 
   const categories = Array.from(new Set(products.map((p) => p.category?.name).filter(Boolean))) as string[]
@@ -111,8 +140,42 @@ export default async function WarehousePage() {
           stageName: p.stockStage?.name || null,
           minStock: Number(p.minStock),
           costPrice: Number(p.costPrice),
+          sellPrice: Number(p.sellPrice),
+          wholesalePrice: Number(p.wholesalePrice),
           totalQty: Number(p.quantity),
           stocks: p.stocks.map((s) => ({ warehouseId: s.warehouseId, quantity: Number(s.quantity) })),
+        }))}
+        treasuryBalances={whTreasuries.map((t) => ({ warehouseId: t.warehouseId!, balance: Number(t.balance) }))}
+        sales={sales.map((s) => ({
+          id: s.id,
+          saleNo: s.saleNo,
+          warehouseName: s.warehouse?.name || null,
+          buyerType: s.buyerType,
+          buyerName: s.buyerName,
+          totalAmount: Number(s.totalAmount),
+          creatorName: s.creator.name,
+          createdAt: s.createdAt.toISOString(),
+          items: s.items.map((it) => ({ name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice) })),
+        }))}
+        outgoings={outgoings.map((o) => ({
+          id: o.id,
+          outNo: o.outNo,
+          warehouseName: o.warehouse?.name || null,
+          target: o.target,
+          costAmount: Number(o.costAmount),
+          creatorName: o.creator.name,
+          createdAt: o.createdAt.toISOString(),
+          items: o.items.map((it) => ({ name: it.product.name, unit: it.product.unit, quantity: Number(it.quantity), unitCost: Number(it.unitCost) })),
+        }))}
+        settlements={whSettlements.map((s) => ({
+          id: s.id,
+          settlementNo: s.settlementNo,
+          warehouseName: s.warehouse?.name || null,
+          amount: Number(s.amount),
+          status: s.status,
+          createdByName: s.createdBy?.name || null,
+          acceptedByName: s.acceptedBy?.name || null,
+          createdAt: s.createdAt.toISOString(),
         }))}
         loads={loads.map((o) => ({
           id: o.id,
