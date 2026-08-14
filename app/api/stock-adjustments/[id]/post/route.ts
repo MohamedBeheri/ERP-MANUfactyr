@@ -69,17 +69,30 @@ export async function POST(_req: NextRequest, { params: rawParams }: { params: P
         }
       }
 
-      // 2) قيد يومية آلي مجمّع
+      // 2) قيد يومية آلي مجمّع — مع احترام توجيه الحساب المخصّص لكل سطر (accountId)
       const entryNo = await nextDocNo(tx, 'JV', 'journalEntry')
-      const lines: { accountId: string; debit: number; credit: number; description: string }[] = []
-      if (shortageCost > 0) {
-        lines.push({ accountId: gl.loss.id, debit: shortageCost, credit: 0, description: 'عجز تسوية مخزون' })
-        lines.push({ accountId: gl.inventory.id, debit: 0, credit: shortageCost, description: 'تخفيض مخزون بالعجز' })
+      const acc: Record<string, { debit: number; credit: number }> = {}
+      const add = (id: string, d: number, c: number) => { const a = acc[id] || (acc[id] = { debit: 0, credit: 0 }); a.debit += d; a.credit += c }
+      for (const it of applicable) {
+        const cost = Math.abs(Number(it.varianceCost))
+        if (cost === 0) continue
+        if (Number(it.varianceQty) < 0) {
+          // عجز: مدين حساب الخسارة (أو الحساب المخصّص للسطر) · دائن المخزون
+          add(it.accountId || gl.loss.id, cost, 0)
+          add(gl.inventory.id, 0, cost)
+        } else {
+          // زيادة: مدين المخزون · دائن حساب الأرباح (أو الحساب المخصّص للسطر)
+          add(gl.inventory.id, cost, 0)
+          add(it.accountId || gl.gain.id, 0, cost)
+        }
       }
-      if (surplusCost > 0) {
-        lines.push({ accountId: gl.inventory.id, debit: surplusCost, credit: 0, description: 'زيادة مخزون بالتسوية' })
-        lines.push({ accountId: gl.gain.id, debit: 0, credit: surplusCost, description: 'أرباح تسوية مخزون' })
-      }
+      // نصفّي كل حساب لطرف واحد (مدين أو دائن) عشان القيد يفضل متوازن
+      const lines = Object.entries(acc)
+        .map(([accountId, { debit, credit }]) => {
+          const net = +(debit - credit).toFixed(2)
+          return net >= 0 ? { accountId, debit: net, credit: 0 } : { accountId, debit: 0, credit: -net }
+        })
+        .filter((l) => l.debit > 0 || l.credit > 0)
       let journalEntryId: string | null = null
       if (lines.length > 0) {
         const je = await tx.journalEntry.create({

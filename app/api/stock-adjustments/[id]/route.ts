@@ -46,6 +46,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
           batchNo: row.batchNo ?? it.batchNo ?? null,
           expiryDate: row.expiryDate ? new Date(row.expiryDate) : (it.expiryDate ?? null),
           binLocation: row.binLocation ?? it.binLocation ?? null,
+          accountId: row.accountId !== undefined ? (row.accountId || null) : (it.accountId ?? null),
         }
         if (counted === null) {
           await tx.stockAdjustmentItem.update({ where: { id: it.id }, data: { countedQty: null, varianceQty: 0, varianceCost: 0, action: 'MATCHED', ...lotData } })
@@ -73,7 +74,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
   }
 }
 
-type CountRow = { countedQty: number | null; batchNo?: string | null; expiryDate?: string | null; binLocation?: string | null }
+type CountRow = { countedQty: number | null; batchNo?: string | null; expiryDate?: string | null; binLocation?: string | null; accountId?: string | null }
 
 async function getCounts(req: NextRequest): Promise<Record<string, CountRow>> {
   const b = await req.json()
@@ -87,6 +88,7 @@ async function getCounts(req: NextRequest): Promise<Record<string, CountRow>> {
         batchNo: c.batchNo != null ? String(c.batchNo).trim() || null : undefined,
         expiryDate: c.expiryDate || undefined,
         binLocation: c.binLocation != null ? String(c.binLocation).trim() || null : undefined,
+        accountId: c.accountId !== undefined ? (String(c.accountId).trim() || null) : undefined,
       }
     }
   }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, ChevronLeft, Lock } from 'lucide-react'
+import { Plus, ChevronLeft, Lock, FileText } from 'lucide-react'
 
 const money = (n: number) => Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -31,6 +31,10 @@ export function AdjustmentsList({ rows, warehouses, canEdit, isAdmin = false, pe
   const [lockDate, setLockDate] = useState(periodLockDate || '')
   const [lockBusy, setLockBusy] = useState(false)
   const [lockMsg, setLockMsg] = useState('')
+  const monthStart = new Date(); monthStart.setDate(1)
+  const [repFrom, setRepFrom] = useState(monthStart.toISOString().slice(0, 10))
+  const [repTo, setRepTo] = useState(new Date().toISOString().slice(0, 10))
+  const openReport = () => window.open(`/print/stock-adjustments-report?from=${repFrom}&to=${repTo}`, '_blank')
 
   const saveLock = async (value: string | null) => {
     setLockBusy(true); setLockMsg('')
@@ -58,6 +62,17 @@ export function AdjustmentsList({ rows, warehouses, canEdit, isAdmin = false, pe
 
   return (
     <div className="space-y-4">
+      {isAdmin && (
+        <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-100">
+          <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-[#0f3460]" /><h3 className="font-bold text-sm text-[#1a1a2e]">تقرير تسويات الجرد بالتاريخ</h3></div>
+          <p className="text-[11px] text-gray-500 mb-3">تقرير مطبوع بكل تسويات الجرد المرحّلة (عجز/زيادة/صافي) في الفترة اللي تختارها.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div><label className="text-[11px] text-gray-500 block">من</label><input type="date" value={repFrom} onChange={(e) => setRepFrom(e.target.value)} dir="ltr" className={`${inputCls} max-w-[170px]`} /></div>
+            <div><label className="text-[11px] text-gray-500 block">إلى</label><input type="date" value={repTo} onChange={(e) => setRepTo(e.target.value)} dir="ltr" className={`${inputCls} max-w-[170px]`} /></div>
+            <button onClick={openReport} className="bg-[#0f3460] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a2545] flex items-center gap-1.5"><FileText className="w-4 h-4" /> عرض التقرير</button>
+          </div>
+        </div>
+      )}
       {isAdmin && (
         <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-100">
           <div className="flex items-center gap-2 mb-2"><Lock className="w-4 h-4 text-[#0f3460]" /><h3 className="font-bold text-sm text-[#1a1a2e]">إقفال الفترة المحاسبية</h3></div>

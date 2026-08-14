@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ensureGLAccounts } from '@/lib/accounting'
 import { StockAdjustmentDoc } from '@/components/stock-adjustment-doc'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,10 @@ export default async function AdjustmentDetail({ params: rawParams }: { params: 
   })
   const liveMap = Object.fromEntries(liveStocks.map((s) => [s.productId, Number(s.quantity)]))
 
+  // حسابات دفتر الأستاذ (لتوجيه حساب مخصّص لكل سطر عند الترحيل)
+  await ensureGLAccounts()
+  const glAccounts = await prisma.gLAccount.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } })
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -46,9 +51,10 @@ export default async function AdjustmentDetail({ params: rawParams }: { params: 
           postingDate: adj.postingDate?.toISOString() || null,
           shortageCost: Number(adj.shortageCost), surplusCost: Number(adj.surplusCost), totalVarianceCost: Number(adj.totalVarianceCost),
           journal: adj.journalEntry ? { entryNo: adj.journalEntry.entryNo, lines: adj.journalEntry.lines.map((l) => ({ account: l.account.name, debit: Number(l.debit), credit: Number(l.credit) })) } : null,
-          items: adj.items.map((it) => ({ id: it.id, productName: it.product.name, unit: it.product.unit, lotTracked: it.product.lotTracked, snapshotQty: Number(it.snapshotQty), liveQty: liveMap[it.productId] ?? Number(it.snapshotQty), countedQty: it.countedQty != null ? Number(it.countedQty) : null, varianceQty: Number(it.varianceQty), unitCost: Number(it.unitCost), varianceCost: Number(it.varianceCost), action: it.action, batchNo: it.batchNo, expiryDate: it.expiryDate?.toISOString().slice(0, 10) || null, binLocation: it.binLocation })),
+          items: adj.items.map((it) => ({ id: it.id, productName: it.product.name, unit: it.product.unit, lotTracked: it.product.lotTracked, snapshotQty: Number(it.snapshotQty), liveQty: liveMap[it.productId] ?? Number(it.snapshotQty), countedQty: it.countedQty != null ? Number(it.countedQty) : null, varianceQty: Number(it.varianceQty), unitCost: Number(it.unitCost), varianceCost: Number(it.varianceCost), action: it.action, batchNo: it.batchNo, expiryDate: it.expiryDate?.toISOString().slice(0, 10) || null, binLocation: it.binLocation, accountId: it.accountId })),
           isAdmin: session.user.role === 'ADMIN',
         }}
+        glAccounts={glAccounts}
       />
     </div>
   )
