@@ -112,6 +112,7 @@ export default async function WarehousePage() {
     confirmedByName: u.confirmedBy?.name || null,
     notes: u.notes,
     items: u.items.map((it) => ({
+      id: it.id,
       name: it.product.name,
       unit: it.product.unit,
       quantity: Number(it.quantity),

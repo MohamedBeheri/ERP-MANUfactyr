@@ -1012,6 +1012,7 @@ model Delegate {
   totalSales           Decimal  @default(0) @db.Decimal(12, 2)
   commissionDue        Decimal  @default(0) @db.Decimal(12, 2)
   commissionPaid       Decimal  @default(0) @db.Decimal(12, 2)
+  shortageDebt         Decimal  @default(0) @db.Decimal(12, 2) // مديونية العجز على المندوب (فواتير عجز التفريغ)
   isActive             Boolean  @default(true)
   createdAt            DateTime @default(now())
 
@@ -1174,6 +1175,7 @@ model UnloadOrder {
   deliveryOrderId String?      @unique // الجولة اللي التفريغ ده بتاعها
   warehouseId     String? // المخزن اللي هيستلم
   status          UnloadStatus @default(PENDING)
+  shortageValue   Decimal      @default(0) @db.Decimal(12, 2) // قيمة العجز عند الاستلام (بسعر البيع) — بتتحمّل على المندوب
   notes           String?
   createdAt       DateTime     @default(now())
   createdById     String
@@ -1194,7 +1196,8 @@ model UnloadItem {
   id            String  @id @default(cuid())
   unloadOrderId String
   productId     String
-  quantity      Decimal @db.Decimal(12, 3)
+  quantity      Decimal @db.Decimal(12, 3) // الكمية المُعلَنة من المندوب (المفروض ترجع)
+  receivedQty   Decimal? @db.Decimal(12, 3) // الكمية اللي المخزن استلمها فعلاً (null = استلم الكل بدون عجز)
   kind          String  @default("LEFTOVER") // RETURN (مرتجع عميل) | LEFTOVER (بواقي بيع)
 
   unloadOrder UnloadOrder @relation(fields: [unloadOrderId], references: [id], onDelete: Cascade)
