@@ -24,15 +24,10 @@ export function SettleForm({
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const remaining = remainingItems.filter((item) => item.remaining > 0)
 
-    const returnItems = Object.entries(returns)
-      .filter(([, qty]) => qty)
-      .map(([productId, qty]) => ({ productId, quantity: Number(qty) }))
-
-    setLoading(true)
+  const submit = async (returnItems: { productId: string; quantity: number }[]) => {
+    setLoading(true); setError('')
     const res = await fetch(`/api/delivery-orders/${deliveryOrderId}/settle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,23 +35,40 @@ export function SettleForm({
     })
     const data = await res.json()
     setLoading(false)
-
-    if (!res.ok) {
-      setError(data.error || 'حصل خطأ')
-      return
-    }
-
+    if (!res.ok) { setError(data.error || 'حصل خطأ'); return }
     router.refresh()
+  }
+
+  // تسوية تلقائية: كل المتبقي على العربية بيترجع بالكامل (مفيش عجز) — بضغطة واحدة
+  const autoSettle = () => {
+    if (!confirm('تسوية تلقائية: هيتحسب المباع والمحصّل والعمولة تلقائي، والمرتجع = كل المتبقي على العربية. تمام؟')) return
+    submit(remaining.map((i) => ({ productId: i.productId, quantity: i.remaining })))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const returnItems = Object.entries(returns).filter(([, qty]) => qty).map(([productId, qty]) => ({ productId, quantity: Number(qty) }))
+    submit(returnItems)
   }
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full bg-[#e94560] text-white py-3 rounded-lg font-semibold hover:bg-[#c73e54] transition-colors"
-      >
-        تسوية نهاية اليوم
-      </button>
+      <div className="space-y-2">
+        {error && <div className="bg-red-50 text-red-600 p-2.5 rounded-lg text-sm">{error}</div>}
+        <button
+          onClick={autoSettle}
+          disabled={loading}
+          className="w-full bg-[#e94560] text-white py-3 rounded-lg font-semibold hover:bg-[#c73e54] transition-colors disabled:opacity-50"
+        >
+          {loading ? 'جاري التسوية...' : 'تسوية نهاية اليوم تلقائيًا'}
+        </button>
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full text-gray-500 text-sm py-1.5 hover:text-[#0f3460]"
+        >
+          أو تعديل المرتجع يدويًا (لو فيه عجز/جرد مختلف)
+        </button>
+      </div>
     )
   }
 

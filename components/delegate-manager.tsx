@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, Phone, Car, Users, KeyRound, MapPin } from 'lucide-react'
+import Link from 'next/link'
+import { Pencil, Trash2, Phone, Car, Users, KeyRound, MapPin, Target } from 'lucide-react'
 
 export interface DelegateRow {
   id: string
@@ -149,12 +150,11 @@ function DelegatesTab({ delegates, vehicles, users, canAdd, canEdit, canDelete }
                   {d.commissionDue > 0 && <span className="text-amber-700 font-semibold tabular-nums">مستحق {d.commissionDue.toLocaleString('ar-EG')} ج.م</span>}
                 </p>
               </div>
-              {(canEdit || canDelete) && (
-              <div className="flex gap-1 shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
+                <Link href={`/finance/delegates/${d.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#0f3460] text-white hover:bg-[#0a2545]" title="التارجت والتحصيلات والخطة الأسبوعية"><Target className="w-3.5 h-3.5" /> الأداء والتارجت</Link>
                 {canEdit && <button onClick={() => { setEditId(d.id); setForm({ name: d.name, phone: d.phone || '', area: d.area || '', route: d.route || '', commissionRate: String(d.commissionRate), vehicleId: d.vehicleId || '', userId: d.userId || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="p-1.5 text-gray-400 hover:text-[#0f3460] hover:bg-gray-100 rounded" aria-label="تعديل"><Pencil className="w-4 h-4" /></button>}
                 {canDelete && <button onClick={() => remove(d)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" aria-label="حذف"><Trash2 className="w-4 h-4" /></button>}
               </div>
-              )}
             </div>
           ))}
         </div>
