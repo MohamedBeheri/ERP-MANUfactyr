@@ -75,8 +75,9 @@ export function effectivePermissions(role?: string, permissions?: string[]): str
 // فحص إذن قسم (فتح الشاشة)
 export function canAccessPath(path: string, role?: string, permissions?: string[]): boolean {
   const perms = effectivePermissions(role, permissions)
-  // المندوب (صلاحية drivers فقط) يقدر يفتح شاشة جولته /delegates/{id} بس مش إدارة الأسطول /delegates
-  if (path.startsWith('/delegates/') && perms.includes('drivers')) return true
+  // المندوب (صلاحية drivers) يقدر يفتح شاشة جولته /delegates/{id} بس مش إدارة الأسطول /delegates
+  // ملاحظة: الصلاحيات ممكن تكون على مستوى الإجراء (drivers:view) فبنستخدم hasSectionAccess
+  if (path.startsWith('/delegates/') && hasSectionAccess(perms, 'drivers')) return true
   const match = PATH_PERMS.find((p) => path.startsWith(p.prefix))
   if (!match) return true // مسارات عامة زي /dashboard
   return hasSectionAccess(perms, match.key)
