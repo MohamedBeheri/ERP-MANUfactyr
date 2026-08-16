@@ -3,22 +3,14 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   Car, Printer, PackageOpen, Undo2, ShoppingCart, Building2, ClipboardCheck,
-  Clock, MapPin, Truck, ClipboardList,
+  Clock, MapPin, Truck, ClipboardList, HandCoins, Target,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { AlBadrLogo } from '@/components/albadr-logo'
 import { ReceiptConfirm } from '@/components/receipt-confirm'
-import { DelegateTargetPanel } from '@/components/delegate-target-panel'
-import { CustomerCollectionsList } from '@/components/customer-collections-list'
 
 export const dynamic = 'force-dynamic'
-
-// ترتيب أيام أسبوع العمل — القيمة = dayOfWeek (0=الأحد)
-const WEEK_DAYS: { day: number; label: string }[] = [
-  { day: 6, label: 'السبت' }, { day: 0, label: 'الأحد' }, { day: 1, label: 'الإثنين' },
-  { day: 2, label: 'الثلاثاء' }, { day: 3, label: 'الأربعاء' }, { day: 4, label: 'الخميس' }, { day: 5, label: 'الجمعة' },
-]
 
 const egp = (n: number) => `${n.toLocaleString('ar-EG')} ج.م`
 const timeOf = (d: Date) => new Date(d).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
@@ -142,33 +134,14 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
   const achievedWeek = new Set(weekInvoices.map((i) => i.customerId)).size
   const visitedTodayIds = new Set(visitedToday.map((i) => i.customerId))
   const weeklyTarget = Number(delegate.weeklyCustomerTarget)
-
-  // الخطة الأسبوعية الكاملة + عملاء المندوب ومديونيتهم
-  const [fullWeekPlan, myCustomers] = await Promise.all([
-    prisma.routePlanEntry.findMany({
-      where: { delegateId: delegate.id },
-      include: { customer: { select: { id: true, name: true, area: true } } },
-      orderBy: [{ dayOfWeek: 'asc' }, { sortOrder: 'asc' }],
-    }),
-    prisma.customer.findMany({
-      where: { isActive: true, OR: [{ delegateId: delegate.id }, { salesRoute: { delegateId: delegate.id } }] },
-      select: { id: true, name: true, phone: true, area: true, balance: true, salesRoute: { select: { name: true } }, collections: { where: { delegateId: delegate.id }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } } },
-      orderBy: { name: 'asc' },
-    }),
-  ])
-  const planByDay = new Map<number, typeof fullWeekPlan>()
-  for (const e of fullWeekPlan) { const l = planByDay.get(e.dayOfWeek) || []; l.push(e); planByDay.set(e.dayOfWeek, l) }
-  const collectionRows = myCustomers.map((c) => ({
-    id: c.id, name: c.name, phone: c.phone, area: c.area, routeName: c.salesRoute?.name || null,
-    balance: Number(c.balance), lastCollectionAt: c.collections[0]?.createdAt?.toISOString() || null,
-  }))
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور'
   const tourHref = activeOrder ? `/delegates/${activeOrder.id}` : null
 
-  const boxes = [
+  const boxes: { label: string; Icon: any; cls: string; href?: string }[] = [
     { label: 'تنزيل بضاعة للعملاء', Icon: ShoppingCart, cls: 'from-[#0f3460] to-[#16213e]' },
-    { label: 'تسليم كبار الموردين', Icon: Building2, cls: 'from-amber-500 to-amber-600' },
+    // شاشة التحصيل — متاحة دايمًا (مش مربوطة بجولة)، وبتتحسب كزيارة تحصيل
+    { label: 'التحصيل', Icon: HandCoins, cls: 'from-emerald-500 to-emerald-600', href: '/drivers/collections' },
     { label: 'أمر مرتجع من عميل', Icon: Undo2, cls: 'from-orange-500 to-orange-600' },
     { label: 'تسوية نهاية اليوم', Icon: ClipboardCheck, cls: 'from-[#e94560] to-[#c73e54]' },
   ]
@@ -258,11 +231,12 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
         </div>
       )}
 
-      {/* الأربع مربعات */}
+      {/* المربعات — التحصيل متاح دايمًا، الباقي مربوط بالجولة */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {boxes.map(({ label, Icon, cls }) => (
-          tourHref ? (
-            <Link key={label} href={tourHref} className={`group bg-gradient-to-br ${cls} text-white rounded-2xl p-5 sm:p-6 flex flex-col items-center justify-center gap-3 text-center shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all duration-200`}>
+        {boxes.map(({ label, Icon, cls, href }) => {
+          const target = href || tourHref
+          return target ? (
+            <Link key={label} href={target} className={`group bg-gradient-to-br ${cls} text-white rounded-2xl p-5 sm:p-6 flex flex-col items-center justify-center gap-3 text-center shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all duration-200`}>
               <Icon className="w-9 h-9 sm:w-10 sm:h-10" strokeWidth={1.8} />
               <span className="font-bold text-sm sm:text-base">{label}</span>
             </Link>
@@ -273,47 +247,24 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
               <span className="text-[10px]">{pendingOrder ? 'أكّد استلام الحمولة الأول' : 'مستني تحميل العربية'}</span>
             </div>
           )
-        ))}
+        })}
       </div>
 
-      {/* تارجت الشهر والإنجاز (charts) */}
-      <DelegateTargetPanel delegateId={delegate.id} isAdmin={false} />
-
-      {/* خط السير الأسبوعي المكلّف بيه */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="flex items-center gap-2 p-5 pb-3">
-          <MapPin className="w-5 h-5 text-[#0f3460]" />
-          <h3 className="text-base font-bold text-[#1a1a2e]">خط السير الأسبوعي المكلّف بيه</h3>
-        </div>
-        {fullWeekPlan.length === 0 ? (
-          <p className="p-5 pt-0 text-sm text-gray-400">مفيش خطة أسبوعية محددة لك لسه — مدير المبيعات بيحددها.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 p-5 pt-0">
-            {WEEK_DAYS.map(({ day, label }) => {
-              const list = planByDay.get(day) || []
-              const isToday = day === today
-              return (
-                <div key={day} className={`rounded-xl border overflow-hidden ${isToday ? 'border-[#0f3460] ring-1 ring-[#0f3460]/30' : 'border-gray-200'}`}>
-                  <div className={`flex items-center justify-between px-3 py-2 border-b ${isToday ? 'bg-[#0f3460] text-white border-[#0f3460]' : 'bg-gray-50 border-gray-100 text-[#1a1a2e]'}`}>
-                    <span className="text-sm font-bold">{label}{isToday ? ' (النهارده)' : ''}</span>
-                    <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 tabular-nums ${isToday ? 'bg-white/20' : 'bg-white border border-gray-200'}`}>{list.length}</span>
-                  </div>
-                  <div className="p-2 space-y-1 min-h-[40px]">
-                    {list.length === 0 ? <p className="text-[11px] text-gray-300 text-center py-2">—</p> : list.map((e) => (
-                      <div key={e.id} className={`text-xs rounded-lg px-2 py-1.5 ${visitedTodayIds.has(e.customerId) && isToday ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-700'}`}>
-                        <span className="font-semibold">{e.customer.name}</span>{e.customer.area ? <span className="block text-[10px] text-gray-400">{e.customer.area}</span> : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+      {/* روابط سريعة لشاشات المندوب (التفاصيل في القائمة الجانبية) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Link href="/drivers/target" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-3 hover:border-[#0f3460]/40 transition-colors">
+          <div className="w-11 h-11 rounded-xl bg-[#0f3460]/10 flex items-center justify-center shrink-0"><Target className="w-6 h-6 text-[#0f3460]" /></div>
+          <div><p className="font-bold text-sm text-[#1a1a2e]">تارجتي</p><p className="text-[11px] text-gray-400">إنجازك الشهري مقابل التارجت</p></div>
+        </Link>
+        <Link href="/drivers/plan" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-3 hover:border-[#0f3460]/40 transition-colors">
+          <div className="w-11 h-11 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0"><MapPin className="w-6 h-6 text-indigo-600" /></div>
+          <div><p className="font-bold text-sm text-[#1a1a2e]">خط سيري الأسبوعي</p><p className="text-[11px] text-gray-400">العملاء المكلّف بزيارتهم كل يوم</p></div>
+        </Link>
+        <Link href="/drivers/collections" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-3 hover:border-[#0f3460]/40 transition-colors">
+          <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0"><HandCoins className="w-6 h-6 text-emerald-600" /></div>
+          <div><p className="font-bold text-sm text-[#1a1a2e]">التحصيل والمديونيات</p><p className="text-[11px] text-gray-400">سجّل تحصيل وشوف مديونيات عملائك</p></div>
+        </Link>
       </div>
-
-      {/* تحصيلات ومديونيات عملائي */}
-      <CustomerCollectionsList rows={collectionRows} title="تحصيلات ومديونيات عملائي" />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         {/* حمولة العربية */}
