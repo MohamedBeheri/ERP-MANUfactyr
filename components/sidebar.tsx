@@ -22,6 +22,7 @@ import {
   Users,
   UserCog,
   HandCoins,
+  Undo2,
   Target,
   MapPin,
   Building2,
@@ -82,6 +83,7 @@ const menu: Entry[] = [
       { href: '/drivers/target', label: 'تارجتي', Icon: Target, perm: 'drivers' },
       { href: '/drivers/plan', label: 'خط سيري الأسبوعي', Icon: MapPin, perm: 'drivers' },
       { href: '/drivers/collections', label: 'التحصيل والمديونيات', Icon: HandCoins, perm: 'drivers' },
+      { href: '/drivers/returns', label: 'المرتجعات', Icon: Undo2, perm: 'drivers' },
     ],
   },
   {

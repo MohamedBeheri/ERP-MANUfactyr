@@ -27,12 +27,14 @@ const dateOf = (s: string) => new Date(s).toLocaleDateString('ar-EG', { day: 'nu
 export function DeliveryReturnForm({
   deliveryOrderId,
   customers,
+  alwaysOpen = false,
 }: {
   deliveryOrderId: string
   customers: CustomerLite[]
+  alwaysOpen?: boolean
 }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(alwaysOpen)
   const [customerId, setCustomerId] = useState('')
   const [invoices, setInvoices] = useState<CustInvoice[]>([])
   const [loadingInv, setLoadingInv] = useState(false)
@@ -94,7 +96,8 @@ export function DeliveryReturnForm({
     const data = await res.json()
     setLoading(false)
     if (!res.ok) return setError(data.error || 'حصل خطأ')
-    setCustomerId(''); setInvoices([]); setInvoiceId(''); setQty({}); setReason(''); setRefundCash(false); setOpen(false)
+    setCustomerId(''); setInvoices([]); setInvoiceId(''); setQty({}); setReason(''); setRefundCash(false)
+    if (!alwaysOpen) setOpen(false)
     router.refresh()
   }
 
@@ -110,7 +113,7 @@ export function DeliveryReturnForm({
     <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow-sm space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-bold text-[#1a1a2e] flex items-center gap-2"><Undo2 className="w-5 h-5 text-orange-500" /> مرتجع من فاتورة سابقة</h3>
-        <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        <button type="button" onClick={() => { if (alwaysOpen) { setCustomerId(''); setInvoices([]); setInvoiceId(''); setQty({}); setReason(''); setRefundCash(false); setError('') } else setOpen(false) }} className="text-gray-400 hover:text-gray-600" title={alwaysOpen ? 'مسح' : 'إغلاق'}><X className="w-5 h-5" /></button>
       </div>
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
 

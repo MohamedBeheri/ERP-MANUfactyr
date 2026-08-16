@@ -6,7 +6,6 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DeliverForm } from '@/components/deliver-form'
 import { SettleForm } from '@/components/settle-form'
-import { DeliveryReturnForm } from '@/components/delivery-return-form'
 import { ReceiptConfirm } from '@/components/receipt-confirm'
 
 export const dynamic = 'force-dynamic'
@@ -370,10 +369,10 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
         <div className="space-y-4">
           {deliveryOrder.status === 'IN_PROGRESS' && (
             <>
-              {/* روابط سريعة بين أقسام الجولة */}
+              {/* روابط سريعة بين أقسام الجولة والشاشات المنفصلة */}
               <div className="flex flex-wrap gap-2">
                 <a href="#deliver" className="flex-1 min-w-max text-center bg-[#0f3460] text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-[#0a2545]">تنزيل بضاعة</a>
-                <a href="#return" className="flex-1 min-w-max text-center bg-orange-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-orange-600">مرتجع</a>
+                <Link href="/drivers/returns" className="flex-1 min-w-max text-center bg-orange-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-orange-600">مرتجع</Link>
                 <Link href="/drivers/collections" className="flex-1 min-w-max text-center bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700">تحصيل</Link>
                 <a href="#settle" className="flex-1 min-w-max text-center bg-[#e94560] text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-[#c73e54]">تسوية اليوم</a>
               </div>
@@ -385,9 +384,6 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
                   rewardRules={rewardRulesLite}
                   delegateArea={delegateArea}
                 />
-              </div>
-              <div id="return" style={{ scrollMarginTop: 90 }}>
-                <DeliveryReturnForm deliveryOrderId={deliveryOrder.id} customers={customersLite} />
               </div>
               <div id="settle" style={{ scrollMarginTop: 90 }}>
                 <SettleForm deliveryOrderId={deliveryOrder.id} remainingItems={remaining} />

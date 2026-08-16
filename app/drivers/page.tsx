@@ -142,7 +142,7 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
     { label: 'تنزيل بضاعة للعملاء', Icon: ShoppingCart, cls: 'from-[#0f3460] to-[#16213e]', anchor: '#deliver' },
     // شاشة التحصيل — متاحة دايمًا (مش مربوطة بجولة)، وبتتحسب كزيارة تحصيل
     { label: 'التحصيل', Icon: HandCoins, cls: 'from-emerald-500 to-emerald-600', href: '/drivers/collections' },
-    { label: 'أمر مرتجع من عميل', Icon: Undo2, cls: 'from-orange-500 to-orange-600', anchor: '#return' },
+    { label: 'أمر مرتجع من عميل', Icon: Undo2, cls: 'from-orange-500 to-orange-600', href: '/drivers/returns' },
     { label: 'تسوية نهاية اليوم', Icon: ClipboardCheck, cls: 'from-[#e94560] to-[#c73e54]', anchor: '#settle' },
   ]
 
