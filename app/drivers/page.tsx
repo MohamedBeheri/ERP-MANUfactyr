@@ -143,7 +143,7 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
     // شاشة التحصيل — متاحة دايمًا (مش مربوطة بجولة)، وبتتحسب كزيارة تحصيل
     { label: 'التحصيل', Icon: HandCoins, cls: 'from-emerald-500 to-emerald-600', href: '/drivers/collections' },
     { label: 'أمر مرتجع من عميل', Icon: Undo2, cls: 'from-orange-500 to-orange-600', href: '/drivers/returns' },
-    { label: 'تسوية نهاية اليوم', Icon: ClipboardCheck, cls: 'from-[#e94560] to-[#c73e54]', anchor: '#settle' },
+    { label: 'تسوية نهاية اليوم', Icon: ClipboardCheck, cls: 'from-[#e94560] to-[#c73e54]', href: '/drivers/settle' },
   ]
 
   return (

@@ -23,6 +23,7 @@ import {
   UserCog,
   HandCoins,
   Undo2,
+  ClipboardCheck,
   Target,
   MapPin,
   Building2,
@@ -84,6 +85,7 @@ const menu: Entry[] = [
       { href: '/drivers/plan', label: 'خط سيري الأسبوعي', Icon: MapPin, perm: 'drivers' },
       { href: '/drivers/collections', label: 'التحصيل والمديونيات', Icon: HandCoins, perm: 'drivers' },
       { href: '/drivers/returns', label: 'المرتجعات', Icon: Undo2, perm: 'drivers' },
+      { href: '/drivers/settle', label: 'تسوية نهاية اليوم', Icon: ClipboardCheck, perm: 'drivers' },
     ],
   },
   {
