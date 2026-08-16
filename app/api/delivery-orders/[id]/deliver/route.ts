@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/api-auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { computeBonuses } from '@/lib/rewards'
 import { customerUnitPrice } from '@/lib/tiers'
 
@@ -9,10 +11,9 @@ import { customerUnitPrice } from '@/lib/tiers'
 // فهنا بس بننشئ فاتورة مرتبطة بالجولة من غير ما نلمس Number(Product.quantity) تاني.
 // السعر بيتحسب على السيرفر حسب فئة/نوع العميل — المندوب ما بيحطش سعر بإيده.
 export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('delegates', 'add')
-  if ('response' in auth) return auth.response
-  const params = await rawParams;
-  const { session } = auth
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'غير مصرّح' }, { status: 401 })
+  const params = await rawParams
 
   try {
     const body = await req.json()
@@ -41,9 +42,11 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
     if (!deliveryOrder) {
       return NextResponse.json({ error: 'أمر التحميل غير موجود' }, { status: 404 })
     }
-    // المندوب يقدر يسلّم من جولته هو بس
-    if (session.user.role === 'DELEGATE' && deliveryOrder.delegate.userId !== session.user.id) {
-      return NextResponse.json({ error: 'الجولة دي مش بتاعتك' }, { status: 403 })
+    // الصلاحية: الإدارة (delegates:add) أو المندوب صاحب الجولة
+    const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+    const isOwner = deliveryOrder.delegate.userId === session.user.id
+    if (!canDoAction(perms, 'delegates', 'add') && !isOwner) {
+      return NextResponse.json({ error: 'ليس لديك صلاحية لهذا الإجراء' }, { status: 403 })
     }
     if (deliveryOrder.status !== 'IN_PROGRESS') {
       return NextResponse.json({ error: 'الجولة دي مش شغالة حاليًا (خلصت أو اتلغت)' }, { status: 400 })

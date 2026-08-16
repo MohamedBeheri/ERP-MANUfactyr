@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/api-auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { getDefaultWarehouseId, adjustStock, getStock } from '@/lib/warehouse'
 
 
 // تأكيد استلام حمولة العربية (مطابقة الاستلام) — البضاعة تخرج من المخزن فعليًا والعربية تتحرك.
+// يقدر يأكّدها: الإدارة (صلاحية delegates:edit) أو المندوب صاحب الحمولة نفسه.
 export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('delegates', 'edit')
-  if ('response' in auth) return auth.response
-  const params = await rawParams;
-  const { session } = auth
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'غير مصرّح' }, { status: 401 })
+  const params = await rawParams
 
   try {
     const order = await prisma.deliveryOrder.findUnique({
@@ -17,13 +19,16 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
       include: { items: { include: { product: true } }, delegate: { include: { vehicle: true } } },
     })
     if (!order) return NextResponse.json({ error: 'أمر التحميل غير موجود' }, { status: 404 })
+
+    // الصلاحية: الإدارة أو المندوب صاحب الحمولة
+    const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+    const isOwner = order.delegate.userId === session.user.id
+    if (!canDoAction(perms, 'delegates', 'edit') && !isOwner) {
+      return NextResponse.json({ error: 'ليس لديك صلاحية لهذا الإجراء' }, { status: 403 })
+    }
+
     if (order.status !== 'PENDING') return NextResponse.json({ error: 'الأمر ده مش معلّق (اتأكد أو اتلغى قبل كده)' }, { status: 400 })
     if (!order.preparedAt) return NextResponse.json({ error: 'لسه المخزن ما جهّزش الأصناف — استنى تأكيد التجهيز الأول' }, { status: 400 })
-
-    // لو الداخل مندوب، لازم يكون هو صاحب الأمر
-    if (session.user.role === 'DELEGATE' && order.delegate.userId !== session.user.id) {
-      return NextResponse.json({ error: 'الأمر ده مش من حمولتك' }, { status: 403 })
-    }
 
     const warehouseId = order.warehouseId || (await getDefaultWarehouseId())
 

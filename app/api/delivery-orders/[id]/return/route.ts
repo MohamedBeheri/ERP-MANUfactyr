@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/api-auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 
 
 // مرتجع من عميل — لازم يكون من فاتورة سابقة (أي فاتورة للعميل، حتى من جولة/شهر سابق).
 // البضاعة ترجع لعربية الجولة الحالية. لو المرتجع كسّر شرط العرض، لازم يترجّع الهدية كمان.
 // وبونص نقاط الفئة يترجع بنسبة قيمة المرتجع.
 export async function POST(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('delegates', 'edit')
-  if ('response' in auth) return auth.response
-  const params = await rawParams;
-  const { session } = auth
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'غير مصرّح' }, { status: 401 })
+  const params = await rawParams
 
   try {
     const b = await req.json()
@@ -23,8 +24,10 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
 
     const order = await prisma.deliveryOrder.findUnique({ where: { id: params.id }, include: { delegate: true } })
     if (!order) return NextResponse.json({ error: 'الجولة غير موجودة' }, { status: 404 })
-    if (session.user.role === 'DELEGATE' && order.delegate.userId !== session.user.id) {
-      return NextResponse.json({ error: 'الجولة دي مش بتاعتك' }, { status: 403 })
+    const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+    const isOwner = order.delegate.userId === session.user.id
+    if (!canDoAction(perms, 'delegates', 'edit') && !isOwner) {
+      return NextResponse.json({ error: 'ليس لديك صلاحية لهذا الإجراء' }, { status: 403 })
     }
     if (order.status !== 'IN_PROGRESS') return NextResponse.json({ error: 'الجولة مش شغالة حاليًا' }, { status: 400 })
 
