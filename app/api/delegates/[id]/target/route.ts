@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireAnyPermission } from '@/lib/api-auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 import { computeDelegateAchievement } from '@/lib/delegate-target'
 import { parseNum } from '@/lib/numbers'
 
@@ -11,11 +14,18 @@ function period(req: NextRequest) {
   return { year, month }
 }
 
-// تارجت الشهر + الإنجاز المحسوب تلقائيًا
+// تارجت الشهر + الإنجاز المحسوب تلقائيًا — الإدارة أو المندوب نفسه
 export async function GET(req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAnyPermission(['delegates', 'sales'], 'view')
-  if ('response' in auth) return auth.response
   const params = await rawParams
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'غير مصرّح' }, { status: 401 })
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  const canView = canDoAction(perms, 'delegates', 'view') || canDoAction(perms, 'sales', 'view')
+  if (!canView) {
+    // المندوب يقدر يشوف تارجته هو بس
+    const own = await prisma.delegate.findFirst({ where: { id: params.id, userId: session.user.id } })
+    if (!own) return NextResponse.json({ error: 'غير مصرّح' }, { status: 403 })
+  }
   const { year, month } = period(req)
 
   const [target, achievement, products] = await Promise.all([
