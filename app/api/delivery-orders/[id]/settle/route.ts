@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/api-auth'
 import { getDefaultWarehouseId, adjustStock } from '@/lib/warehouse'
+import { ensureTreasuries, salesmanTreasury, applyTreasuryTxn, CLEARING_NAME, WALLET_CLEARING_NAME } from '@/lib/treasuries'
 
 
 // تسوية آخر اليوم: المباع والمحصّل بيتحسبوا تلقائي من الفواتير المرتبطة بالجولة،
@@ -181,28 +182,28 @@ export async function POST(req: NextRequest, { params: rawParams }: { params: Pr
       data: { status: 'COMPLETED' },
     })
 
-    // إنشاء تسوية خزنة معلقة — أمين الخزنة لازم يعتمدها عشان الفلوس تدخل الخزنة فعلياً
+    // ===== التوحيد المحاسبي لخزنة المندوب =====
+    // فلوس البيع بتدخل نفس خزنة المندوب زي التحصيلات:
+    //  • الكاش الفعلي → خزنة المندوب النقدية (يتسوّى معاها آخر اليوم في سند واحد)
+    //  • إنستا/محفظة → الحسابات الوسيطة (إلكتروني بيتطابق مع البنك مباشرة)
     if (cashAmount > 0) {
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      const trsCount = await prisma.treasurySettlement.count({
-        where: { settlementNo: { startsWith: `TRS-${today}` } },
-      })
-      const trsNo = `TRS-${today}-${String(trsCount + 1).padStart(3, '0')}`
-      await prisma.treasurySettlement.create({
-        data: {
-          settlementNo: trsNo,
-          delegateId: deliveryOrder.delegateId,
-          amount: cashAmount,
-          cashOnlyAmount,
-          instapayAmount,
-          walletAmount,
-          method: 'CASH',
-          notes: `تسوية جولة ${deliveryOrder.orderNo} — كاش ${cashOnlyAmount} · إنستا ${instapayAmount} · محفظة ${walletAmount}`,
-          status: 'PENDING',
-          createdById: session.user.id,
-          deliveryOrderId: deliveryOrder.id,
-        },
-      })
+      await ensureTreasuries()
+      if (cashOnlyAmount > 0) {
+        const trId = await salesmanTreasury(prisma, deliveryOrder.delegateId)
+        await applyTreasuryTxn(prisma, {
+          treasuryId: trId, type: 'IN', amount: cashOnlyAmount,
+          refType: 'delivery-sale', reference: deliveryOrder.orderNo,
+          description: `بيع جولة ${deliveryOrder.orderNo} — كاش`, createdById: session.user.id,
+        })
+      }
+      if (instapayAmount > 0) {
+        const cl = await prisma.treasury.findUnique({ where: { name: CLEARING_NAME } })
+        if (cl) await applyTreasuryTxn(prisma, { treasuryId: cl.id, type: 'IN', amount: instapayAmount, refType: 'delivery-sale', reference: deliveryOrder.orderNo, description: `بيع جولة ${deliveryOrder.orderNo} — إنستا باي`, createdById: session.user.id })
+      }
+      if (walletAmount > 0) {
+        const wl = await prisma.treasury.findUnique({ where: { name: WALLET_CLEARING_NAME } })
+        if (wl) await applyTreasuryTxn(prisma, { treasuryId: wl.id, type: 'IN', amount: walletAmount, refType: 'delivery-sale', reference: deliveryOrder.orderNo, description: `بيع جولة ${deliveryOrder.orderNo} — محفظة`, createdById: session.user.id })
+      }
     }
 
     await prisma.auditLog.create({

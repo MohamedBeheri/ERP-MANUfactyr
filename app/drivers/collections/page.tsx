@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DelegateCollect } from '@/components/delegate-collect'
 import { CustomerCollectionsList } from '@/components/customer-collections-list'
+import { DelegateTreasurySettle } from '@/components/delegate-treasury-settle'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +41,18 @@ export default async function MyCollectionsPage() {
   const collectTotal = todayCollections.reduce((s, c) => s + Number(c.amount), 0)
   const dayTotal = salesCash + salesInsta + salesWallet + collectTotal
 
+  // خزنة المندوب الفعلية + تسوياتها المجمّعة (سندات مش مرتبطة بجولة)
+  const [myTreasury, boxSettlements] = await Promise.all([
+    prisma.treasury.findUnique({ where: { delegateId: delegate.id }, select: { balance: true } }),
+    prisma.treasurySettlement.findMany({
+      where: { delegateId: delegate.id, deliveryOrderId: null },
+      include: { acceptedBy: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' }, take: 10,
+    }),
+  ])
+  const treasuryBalance = Number(myTreasury?.balance || 0)
+  const pendingTotal = boxSettlements.filter((s) => s.status === 'PENDING').reduce((s, x) => s + Number(x.amount), 0)
+
   const collectionRows = customers.map((c) => ({
     id: c.id, name: c.name, phone: c.phone, area: c.area, routeName: c.salesRoute?.name || null,
     balance: Number(c.balance), lastCollectionAt: c.collections[0]?.createdAt?.toISOString() || null,
@@ -67,8 +80,15 @@ export default async function MyCollectionsPage() {
         {collByMethod.size > 0 && (
           <p className="text-[11px] text-white/70 mt-2">تفصيل التحصيل بالطرق: {Array.from(collByMethod.entries()).map(([m, v]) => `${m} ${money(v)}`).join(' · ')}</p>
         )}
-        <p className="text-[11px] text-white/50 mt-1">دي الفلوس اللي في خزنتك النهارده (بيع + تحصيل) — بتسوّيها آخر اليوم مع الخزنة العمومية.</p>
+        <p className="text-[11px] text-white/50 mt-1">دي حركة اليوم (بيع + تحصيل). رصيد خزنتك الكلي وتسويته تحت 👇</p>
       </div>
+
+      {/* خزنة المندوب الموحّدة + زر التسوية */}
+      <DelegateTreasurySettle
+        balance={treasuryBalance}
+        pendingTotal={pendingTotal}
+        settlements={boxSettlements.map((s) => ({ id: s.id, settlementNo: s.settlementNo, amount: Number(s.amount), status: s.status, createdAt: s.createdAt.toISOString(), acceptedByName: s.acceptedBy?.name || null }))}
+      />
 
       <DelegateCollect
         customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone, balance: Number(c.balance) }))}
