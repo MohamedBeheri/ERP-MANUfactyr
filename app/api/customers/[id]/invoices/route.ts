@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/api-auth'
+import { effectivePermissions, canDoAction } from '@/lib/permissions'
 
 
 // فواتير عميل معيّن (لاختيار الفاتورة اللي بيترجّع منها) — بالبنود لكل سطر + المرتجع قبل كده + بيانات العرض
+// متاحة لصاحب صلاحية العملاء، أو للمندوب على عملائه هو (عشان شاشة المرتجعات)
 export async function GET(_req: NextRequest, { params: rawParams }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission('customers', 'view')
-  if ('response' in auth) return auth.response
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'غير مصرّح' }, { status: 401 })
   const params = await rawParams;
+
+  const perms = effectivePermissions(session.user.role, (session.user as any).permissions)
+  if (!canDoAction(perms, 'customers', 'view')) {
+    // مندوب: يُسمح له بس لو العميل ده مسنود ليه (مباشر أو عن طريق خط سيره)
+    const delegate = await prisma.delegate.findFirst({ where: { userId: session.user.id, isActive: true }, select: { id: true } })
+    const owns = delegate
+      ? await prisma.customer.findFirst({ where: { id: params.id, OR: [{ delegateId: delegate.id }, { salesRoute: { delegateId: delegate.id } }] }, select: { id: true } })
+      : null
+    if (!owns) return NextResponse.json({ error: 'ليس لديك صلاحية لهذا الإجراء' }, { status: 403 })
+  }
 
   try {
     const invoices = await prisma.invoice.findMany({
