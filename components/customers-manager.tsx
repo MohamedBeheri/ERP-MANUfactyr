@@ -37,6 +37,7 @@ export interface CustomerRow {
   customerType: string
   tierId: string | null
   tierName: string | null
+  salesRouteId: string | null
   bonusPoints: number
   balance: number
   totalPurchases: number
@@ -49,14 +50,14 @@ export interface CustomerRow {
 
 const fmt = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
 const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e94560] text-sm'
-const emptyForm = { name: '', phone: '', address: '', area: '', governorate: '', customerType: 'RETAIL', tierId: '', creditLimit: '0' }
+const emptyForm = { name: '', phone: '', address: '', area: '', governorate: '', customerType: 'RETAIL', tierId: '', salesRouteId: '', creditLimit: '0' }
 
 function waUrl(phone: string) {
   const p = phone.replace(/[^0-9]/g, '')
   return `https://wa.me/${p.startsWith('0') ? `2${p}` : p}`
 }
 
-export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit = true, canDelete = true }: { customers: CustomerRow[]; tiers?: { id: string; name: string }[]; canAdd?: boolean; canEdit?: boolean; canDelete?: boolean }) {
+export function CustomersManager({ customers, tiers = [], routes = [], canAdd = true, canEdit = true, canDelete = true }: { customers: CustomerRow[]; tiers?: { id: string; name: string }[]; routes?: { id: string; name: string }[]; canAdd?: boolean; canEdit?: boolean; canDelete?: boolean }) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -86,7 +87,7 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
 
   const startEdit = (c: CustomerRow) => {
     setEditing(c)
-    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', area: c.area || '', governorate: c.governorate || '', customerType: c.customerType, tierId: c.tierId || '', creditLimit: String(c.creditLimit) })
+    setForm({ name: c.name, phone: c.phone || '', address: c.address || '', area: c.area || '', governorate: c.governorate || '', customerType: c.customerType, tierId: c.tierId || '', salesRouteId: c.salesRouteId || '', creditLimit: String(c.creditLimit) })
     setGeo(c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : null)
     setError('')
   }
@@ -183,6 +184,15 @@ export function CustomersManager({ customers, tiers = [], canAdd = true, canEdit
           {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </div>
+      {routes.length > 0 && (
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">خط السير / نطاق العربية</label>
+          <select value={form.salesRouteId} onChange={(e) => setForm({ ...form, salesRouteId: e.target.value })} className={inputCls}>
+            <option value="">— بدون —</option>
+            {routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
+      )}
       <div>
         <label className="block text-xs font-semibold text-gray-500 mb-1">العنوان</label>
         <textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} className={`${inputCls} resize-none`} />

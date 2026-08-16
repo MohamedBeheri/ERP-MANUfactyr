@@ -1,9 +1,13 @@
 import { notFound } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ReportShell } from '@/components/report-shell'
 import { ReportTable } from '@/components/report-table'
 import { fmt, money, parsePeriod } from '@/lib/report-utils'
 import { DelegateReportFilters } from '@/components/delegate-report-filters'
+import { DelegateTargetPanel } from '@/components/delegate-target-panel'
+import { CustomerCollectionsList } from '@/components/customer-collections-list'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,11 +65,27 @@ export default async function DelegateDetailReport({
   ])
   if (!delegate) notFound()
 
-  const [allDelegates, customerAreas] = await Promise.all([
+  const [allDelegates, customerAreas, session, routeCustomers] = await Promise.all([
     prisma.delegate.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.customer.findMany({ where: { isActive: true, area: { not: null } }, select: { area: true }, distinct: ['area'] }),
+    getServerSession(authOptions),
+    // عملاء المندوب (المرتبطين بخطوط سيره) + مديونيتهم + آخر تحصيل منه
+    prisma.customer.findMany({
+      where: { isActive: true, salesRoute: { delegateId: params.id } },
+      select: {
+        id: true, name: true, phone: true, area: true, balance: true,
+        salesRoute: { select: { name: true } },
+        collections: { where: { delegateId: params.id }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
+      },
+      orderBy: { name: 'asc' },
+    }),
   ])
   const areas = customerAreas.map((c) => c.area).filter(Boolean) as string[]
+  const isAdmin = (session?.user as any)?.role === 'ADMIN'
+  const collectionRows = routeCustomers.map((c) => ({
+    id: c.id, name: c.name, phone: c.phone, area: c.area, routeName: c.salesRoute?.name || null,
+    balance: Number(c.balance), lastCollectionAt: c.collections[0]?.createdAt?.toISOString() || null,
+  }))
 
   // فلترة خط السير بالمنطقة لو محددة
   const filteredPlan = areaFilter ? routePlan.filter((e) => e.customer.area === areaFilter) : routePlan
@@ -158,6 +178,12 @@ export default async function DelegateDetailReport({
       ]}
     >
       <DelegateReportFilters delegates={allDelegates} areas={areas} currentDelegateId={delegate.id} currentArea={areaFilter} />
+
+      {/* تارجت الشهر والإنجاز (charts) — الأدمن بيحطه */}
+      <DelegateTargetPanel delegateId={delegate.id} isAdmin={isAdmin} />
+
+      {/* تحصيلات العملاء (عملاء المندوب ومديونيتهم) */}
+      <CustomerCollectionsList rows={collectionRows} title="تحصيلات عملاء المندوب" />
 
       {/* خط السير الأسبوعي الكامل */}
       <section className="bg-white rounded-xl shadow-sm overflow-hidden print-area">

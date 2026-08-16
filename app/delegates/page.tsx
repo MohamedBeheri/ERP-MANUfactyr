@@ -10,6 +10,9 @@ import { LoadRowActions } from '@/components/load-row-actions'
 import { DelegateManager } from '@/components/delegate-manager'
 import { ExportButtons } from '@/components/export-buttons'
 import { RoutePlanManager } from '@/components/route-plan-manager'
+import { SalesRoutesManager } from '@/components/sales-routes-manager'
+import { DelegateTargetPanel } from '@/components/delegate-target-panel'
+import { CustomerCollectionsList } from '@/components/customer-collections-list'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +39,9 @@ export default async function DelegatesPage() {
   const canEdit = canDoAction(perms, 'delegates', 'edit')
   const canDelete = canDoAction(perms, 'delegates', 'delete')
 
-  const [delegates, products, deliveryOrders, warehouses, vehicles, routeCustomers, delegateUsers] = await Promise.all([
+  const myDelegate = await prisma.delegate.findFirst({ where: { userId: session.user.id }, select: { id: true, name: true } })
+
+  const [delegates, products, deliveryOrders, warehouses, vehicles, routeCustomers, delegateUsers, salesRoutes] = await Promise.all([
     prisma.delegate.findMany({
       where: { isActive: true },
       orderBy: { createdAt: 'desc' },
@@ -65,7 +70,21 @@ export default async function DelegatesPage() {
       orderBy: { name: 'asc' },
       select: { id: true, name: true, username: true },
     }),
+    prisma.salesRoute.findMany({
+      where: { isActive: true },
+      include: { delegate: { select: { id: true, name: true } }, _count: { select: { customers: true } } },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    }),
   ])
+
+  // عملاء المندوب الحالي (لو المستخدم مندوب) + مديونيتهم — لشاشة تحصيلات العملاء
+  const myCollectionRows = myDelegate
+    ? (await prisma.customer.findMany({
+        where: { isActive: true, salesRoute: { delegateId: myDelegate.id } },
+        select: { id: true, name: true, phone: true, area: true, balance: true, salesRoute: { select: { name: true } }, collections: { where: { delegateId: myDelegate.id }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } } },
+        orderBy: { name: 'asc' },
+      })).map((c) => ({ id: c.id, name: c.name, phone: c.phone, area: c.area, routeName: c.salesRoute?.name || null, balance: Number(c.balance), lastCollectionAt: c.collections[0]?.createdAt?.toISOString() || null }))
+    : []
 
   // قياس أداء المناديب
   const performance = delegates.map((d) => {
@@ -110,6 +129,21 @@ export default async function DelegatesPage() {
         <h1 className="text-2xl font-bold text-[#1a1a2e]">المندوبين وجولات التوزيع</h1>
         <p className="text-sm text-gray-500 mt-0.5">حمّل العربية ← سلّم للعملاء في الطريق ← سوّي الجولة آخر اليوم</p>
       </div>
+
+      {/* شاشة المندوب الشخصية: تارجته وتحصيلات عملائه (لو المستخدم مندوب) */}
+      {myDelegate && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-l from-[#0f3460] to-[#16213e] rounded-2xl p-4 sm:p-5 text-white">
+            <p className="text-sm opacity-80">أهلاً</p>
+            <h2 className="text-xl font-bold">{myDelegate.name} — متابعة أدائك الشهري</h2>
+          </div>
+          <DelegateTargetPanel delegateId={myDelegate.id} isAdmin={false} />
+          <CustomerCollectionsList rows={myCollectionRows} title="تحصيلات عملائي" />
+        </div>
+      )}
+
+      {/* خطوط السير ونطاقات العربيات — لمدير المبيعات */}
+      {canEdit && <SalesRoutesManager routes={salesRoutes.map((r) => ({ id: r.id, name: r.name, notes: r.notes, dayOfWeek: r.dayOfWeek, delegateId: r.delegateId, delegateName: r.delegate?.name || null, customersCount: r._count.customers }))} delegates={delegates.map((d) => ({ id: d.id, name: d.name }))} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* الجولات */}

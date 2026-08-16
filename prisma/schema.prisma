@@ -435,6 +435,7 @@ model Product {
   // الكافيه: توليفة استهلاك الخامات لكل وحدة مباعة (مشروب/ديزرت)
   cafeRecipeAsProduct  CafeRecipeItem[] @relation("CafeRecipeProduct")
   cafeRecipeAsMaterial CafeRecipeItem[] @relation("CafeRecipeMaterial")
+  delegateProductTargets DelegateProductTarget[]
 
   @@map("products")
 }
@@ -891,6 +892,7 @@ model Customer {
   lat            Decimal?     @db.Decimal(10, 7) // خط العرض (موقع العميل)
   lng            Decimal?     @db.Decimal(10, 7) // خط الطول (موقع العميل)
   activityType   String? // نوع النشاط (كافيه / سوبر ماركت / بقالة / مطعم...)
+  salesRouteId   String? // خط السير / نطاق العربية اللي العميل تابع له
   type           PaymentType  @default(CASH)
   customerType   CustomerType @default(RETAIL) // جملة أو قطاعي
   tierId         String? // فئة العميل (كبار عملاء / تجزئة / متوسط...)
@@ -903,6 +905,7 @@ model Customer {
 
   // Relations
   tier             CustomerTier?    @relation(fields: [tierId], references: [id])
+  salesRoute       SalesRoute?      @relation(fields: [salesRouteId], references: [id])
   invoices         Invoice[]
   onlineOrders     OnlineOrder[]
   deliveryReturns  DeliveryReturn[]
@@ -1159,6 +1162,8 @@ model Delegate {
   collections         Collection[]         @relation("DelegateCollections")
   unloadOrders        UnloadOrder[]
   routePlan           RoutePlanEntry[]
+  salesRoutes         SalesRoute[]
+  targets             DelegateTarget[]
 
   @@map("delegates")
 }
@@ -1290,6 +1295,57 @@ model RoutePlanEntry {
 
   @@unique([delegateId, dayOfWeek, customerId])
   @@map("route_plan_entries")
+}
+
+// خط سير / نطاق عربية — كيان متغيّر يديره مدير المبيعات، ويُربط بيه العميل والمندوب
+model SalesRoute {
+  id         String   @id @default(cuid())
+  name       String // اسم خط السير / النطاق (مثلاً: نطاق شرق - عربية ١)
+  notes      String?
+  dayOfWeek  Int? // يوم الأسبوع الافتراضي للزيارة (0=الأحد ... 6=السبت) — اختياري
+  delegateId String? // المندوب المسؤول عن النطاق
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  delegate  Delegate?  @relation(fields: [delegateId], references: [id])
+  customers Customer[]
+
+  @@map("sales_routes")
+}
+
+// تارجت المندوب الشهري (متعدد التصنيفات)
+model DelegateTarget {
+  id                     String   @id @default(cuid())
+  delegateId             String
+  year                   Int
+  month                  Int // 1..12
+  collectedAmountTarget  Decimal  @default(0) @db.Decimal(12, 2) // تارجت المبالغ المحصّلة من البيع
+  salesVisitsTarget      Int      @default(0) // تارجت زيارات البيع (فواتير محققة)
+  collectionVisitsTarget Int      @default(0) // تارجت زيارات التحصيل
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  delegate     Delegate                @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  productLines DelegateProductTarget[]
+
+  @@unique([delegateId, year, month])
+  @@map("delegate_targets")
+}
+
+// أصناف مطلوب من المندوب بيعها ضمن تارجت الشهر
+model DelegateProductTarget {
+  id          String  @id @default(cuid())
+  targetId    String
+  productId   String
+  requiredQty Decimal @default(0) @db.Decimal(12, 3)
+
+  target  DelegateTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+
+  @@unique([targetId, productId])
+  @@map("delegate_product_targets")
 }
 
 // ============== UNLOAD ORDERS (أوامر تفريغ العربية — بتأكيد المخزن) ==============

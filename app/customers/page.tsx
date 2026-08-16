@@ -27,6 +27,7 @@ export default async function CustomersPage() {
   await ensureTiers()
 
   const tiers = await prisma.customerTier.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }] })
+  const salesRoutes = await prisma.salesRoute.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] })
 
   const customers = await prisma.customer.findMany({
     where: { isActive: true },
@@ -89,6 +90,7 @@ export default async function CustomersPage() {
 
       <CustomersManager
         tiers={tiers.map((t) => ({ id: t.id, name: t.name }))}
+        routes={salesRoutes.map((r) => ({ id: r.id, name: r.name }))}
         canAdd={canAdd}
         canEdit={canEdit}
         canDelete={canDelete}
@@ -131,6 +133,7 @@ export default async function CustomersPage() {
             lng: c.lng ? Number(c.lng) : null,
             tierId: c.tierId,
             tierName: c.tier?.name || null,
+            salesRouteId: c.salesRouteId,
             bonusPoints: Number(c.bonusPoints),
             balance: Number(c.balance),
             totalPurchases: Number(c.totalPurchases),
