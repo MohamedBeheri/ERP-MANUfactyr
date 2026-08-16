@@ -370,15 +370,28 @@ export default async function DeliveryOrderPage({ params: rawParams }: { params:
         <div className="space-y-4">
           {deliveryOrder.status === 'IN_PROGRESS' && (
             <>
-              <DeliverForm
-                deliveryOrderId={deliveryOrder.id}
-                customers={customersLite}
-                remainingItems={remaining}
-                rewardRules={rewardRulesLite}
-                delegateArea={delegateArea}
-              />
-              <DeliveryReturnForm deliveryOrderId={deliveryOrder.id} customers={customersLite} />
-              <SettleForm deliveryOrderId={deliveryOrder.id} remainingItems={remaining} />
+              {/* روابط سريعة بين أقسام الجولة */}
+              <div className="flex flex-wrap gap-2">
+                <a href="#deliver" className="flex-1 min-w-max text-center bg-[#0f3460] text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-[#0a2545]">تنزيل بضاعة</a>
+                <a href="#return" className="flex-1 min-w-max text-center bg-orange-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-orange-600">مرتجع</a>
+                <Link href="/drivers/collections" className="flex-1 min-w-max text-center bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700">تحصيل</Link>
+                <a href="#settle" className="flex-1 min-w-max text-center bg-[#e94560] text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-[#c73e54]">تسوية اليوم</a>
+              </div>
+              <div id="deliver" style={{ scrollMarginTop: 90 }}>
+                <DeliverForm
+                  deliveryOrderId={deliveryOrder.id}
+                  customers={customersLite}
+                  remainingItems={remaining}
+                  rewardRules={rewardRulesLite}
+                  delegateArea={delegateArea}
+                />
+              </div>
+              <div id="return" style={{ scrollMarginTop: 90 }}>
+                <DeliveryReturnForm deliveryOrderId={deliveryOrder.id} customers={customersLite} />
+              </div>
+              <div id="settle" style={{ scrollMarginTop: 90 }}>
+                <SettleForm deliveryOrderId={deliveryOrder.id} remainingItems={remaining} />
+              </div>
             </>
           )}
 

@@ -138,12 +138,12 @@ async function DelegateHome({ delegate, userName }: { delegate: any; userName: s
   const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور'
   const tourHref = activeOrder ? `/delegates/${activeOrder.id}` : null
 
-  const boxes: { label: string; Icon: any; cls: string; href?: string }[] = [
-    { label: 'تنزيل بضاعة للعملاء', Icon: ShoppingCart, cls: 'from-[#0f3460] to-[#16213e]' },
+  const boxes: { label: string; Icon: any; cls: string; href?: string; anchor?: string }[] = [
+    { label: 'تنزيل بضاعة للعملاء', Icon: ShoppingCart, cls: 'from-[#0f3460] to-[#16213e]', anchor: '#deliver' },
     // شاشة التحصيل — متاحة دايمًا (مش مربوطة بجولة)، وبتتحسب كزيارة تحصيل
     { label: 'التحصيل', Icon: HandCoins, cls: 'from-emerald-500 to-emerald-600', href: '/drivers/collections' },
-    { label: 'أمر مرتجع من عميل', Icon: Undo2, cls: 'from-orange-500 to-orange-600' },
-    { label: 'تسوية نهاية اليوم', Icon: ClipboardCheck, cls: 'from-[#e94560] to-[#c73e54]' },
+    { label: 'أمر مرتجع من عميل', Icon: Undo2, cls: 'from-orange-500 to-orange-600', anchor: '#return' },
+    { label: 'تسوية نهاية اليوم', Icon: ClipboardCheck, cls: 'from-[#e94560] to-[#c73e54]', anchor: '#settle' },
   ]
 
   return (
