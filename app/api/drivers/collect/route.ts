@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       return created
     })
 
-    return NextResponse.json({ success: true, collectionNo: collection.collectionNo }, { status: 201 })
+    return NextResponse.json({ success: true, id: collection.id, collectionNo: collection.collectionNo }, { status: 201 })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'فشل تسجيل التحصيل' }, { status: 500 })
   }

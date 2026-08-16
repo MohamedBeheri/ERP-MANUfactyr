@@ -34,7 +34,9 @@ export function DelegateCollect({ customers, methods }: { customers: CustomerRow
     })
     const data = await res.json(); setBusy(false)
     if (!res.ok) return setError(data.error || 'فشل التحصيل')
-    setOk(`تم تسجيل التحصيل ${data.collectionNo}`)
+    setOk(`تم تسجيل التحصيل ${data.collectionNo} — فتحنا لك إيصال التحصيل للطباعة`)
+    // فتح فاتورة التحصيل للطباعة فورًا
+    if (data.id) window.open(`/print/collection/${data.id}`, '_blank')
     setCustomerId(''); setAmount(''); setReference(''); setNotes('')
     router.refresh()
   }
