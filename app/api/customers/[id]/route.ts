@@ -32,6 +32,7 @@ export async function PUT(req: NextRequest, { params: rawParams }: { params: Pro
         customerType: b.customerType === 'WHOLESALE' ? 'WHOLESALE' : 'RETAIL',
         tierId: b.tierId !== undefined ? b.tierId || null : undefined,
         salesRouteId: b.salesRouteId !== undefined ? b.salesRouteId || null : undefined,
+        delegateId: b.delegateId !== undefined ? b.delegateId || null : undefined,
         activityType: b.activityType !== undefined ? b.activityType || null : undefined,
         creditLimit: b.creditLimit !== undefined ? Number(b.creditLimit) || 0 : undefined,
       },

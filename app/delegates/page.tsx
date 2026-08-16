@@ -80,7 +80,7 @@ export default async function DelegatesPage() {
   // عملاء المندوب الحالي (لو المستخدم مندوب) + مديونيتهم — لشاشة تحصيلات العملاء
   const myCollectionRows = myDelegate
     ? (await prisma.customer.findMany({
-        where: { isActive: true, salesRoute: { delegateId: myDelegate.id } },
+        where: { isActive: true, OR: [{ delegateId: myDelegate.id }, { salesRoute: { delegateId: myDelegate.id } }] },
         select: { id: true, name: true, phone: true, area: true, balance: true, salesRoute: { select: { name: true } }, collections: { where: { delegateId: myDelegate.id }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } } },
         orderBy: { name: 'asc' },
       })).map((c) => ({ id: c.id, name: c.name, phone: c.phone, area: c.area, routeName: c.salesRoute?.name || null, balance: Number(c.balance), lastCollectionAt: c.collections[0]?.createdAt?.toISOString() || null }))

@@ -893,6 +893,7 @@ model Customer {
   lng            Decimal?     @db.Decimal(10, 7) // خط الطول (موقع العميل)
   activityType   String? // نوع النشاط (كافيه / سوبر ماركت / بقالة / مطعم...)
   salesRouteId   String? // خط السير / نطاق العربية اللي العميل تابع له
+  delegateId     String? // ربط مباشر بمندوب (مسؤول العميل)
   type           PaymentType  @default(CASH)
   customerType   CustomerType @default(RETAIL) // جملة أو قطاعي
   tierId         String? // فئة العميل (كبار عملاء / تجزئة / متوسط...)
@@ -906,6 +907,7 @@ model Customer {
   // Relations
   tier             CustomerTier?    @relation(fields: [tierId], references: [id])
   salesRoute       SalesRoute?      @relation(fields: [salesRouteId], references: [id])
+  delegate         Delegate?        @relation("DelegateCustomers", fields: [delegateId], references: [id])
   invoices         Invoice[]
   onlineOrders     OnlineOrder[]
   deliveryReturns  DeliveryReturn[]
@@ -1164,6 +1166,7 @@ model Delegate {
   routePlan           RoutePlanEntry[]
   salesRoutes         SalesRoute[]
   targets             DelegateTarget[]
+  customers           Customer[]           @relation("DelegateCustomers")
 
   @@map("delegates")
 }

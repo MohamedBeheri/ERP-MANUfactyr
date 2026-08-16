@@ -69,9 +69,9 @@ export default async function DelegateDetailReport({
     prisma.delegate.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.customer.findMany({ where: { isActive: true, area: { not: null } }, select: { area: true }, distinct: ['area'] }),
     getServerSession(authOptions),
-    // عملاء المندوب (المرتبطين بخطوط سيره) + مديونيتهم + آخر تحصيل منه
+    // عملاء المندوب (ربط مباشر أو عبر خط السير) + مديونيتهم + آخر تحصيل منه
     prisma.customer.findMany({
-      where: { isActive: true, salesRoute: { delegateId: params.id } },
+      where: { isActive: true, OR: [{ delegateId: params.id }, { salesRoute: { delegateId: params.id } }] },
       select: {
         id: true, name: true, phone: true, area: true, balance: true,
         salesRoute: { select: { name: true } },
